@@ -310,6 +310,47 @@ class SoundController {
       osc.stop(now + 0.04);
     } catch (_) {}
   }
+
+  playCountdownBeep(isGo: boolean = false) {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = isGo ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(isGo ? 900 : 440, now);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + (isGo ? 0.35 : 0.15));
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + (isGo ? 0.35 : 0.15));
+    } catch (_) {}
+  }
+
+  playVictoryFanfare() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.3);
+      });
+    } catch (_) {}
+  }
 }
 
 export const soundManager = new SoundController();
