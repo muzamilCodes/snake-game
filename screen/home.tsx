@@ -18,6 +18,7 @@ import {
 } from '../utils/storage';
 import { THEMES, ThemeColors } from '../utils/themes';
 import { soundManager } from '../utils/sound';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Home({ navigation }: any) {
   const [profile, setProfile] = useState<PlayerProfile>({
@@ -33,6 +34,14 @@ export default function Home({ navigation }: any) {
     theme: 'neon',
     soundEnabled: true,
     solidBorders: false,
+  });
+
+  const [gameScores, setGameScores] = useState({
+    snake: 0,
+    pong: 0,
+    breakout: 0,
+    shooter: 0,
+    glider: 0,
   });
 
   const [showHowToPlay, setShowHowToPlay] = useState(false);
@@ -51,6 +60,21 @@ export default function Home({ navigation }: any) {
     setProfile(prof);
     setSettings(set);
     soundManager.enabled = set.soundEnabled;
+
+    try {
+      const pongHs = await AsyncStorage.getItem('PONG_HIGH_RALLY');
+      const breakHs = await AsyncStorage.getItem('BREAKOUT_HIGH_SCORE');
+      const shootHs = await AsyncStorage.getItem('SHOOTER_HIGH_SCORE');
+      const glideHs = await AsyncStorage.getItem('GLIDER_HIGH_SCORE');
+
+      setGameScores({
+        snake: prof.bestScore || 0,
+        pong: pongHs ? parseInt(pongHs) : 0,
+        breakout: breakHs ? parseInt(breakHs) : 0,
+        shooter: shootHs ? parseInt(shootHs) : 0,
+        glider: glideHs ? parseInt(glideHs) : 0,
+      });
+    } catch (_) {}
   };
 
   const updateSettings = async (partial: Partial<GameSettings>) => {
@@ -64,14 +88,77 @@ export default function Home({ navigation }: any) {
 
   const currentTheme: ThemeColors = THEMES[settings.theme] || THEMES.neon;
 
-  const handleStartGame = () => {
+  const GAMES = [
+    {
+      id: 'Snake',
+      route: 'Snake',
+      name: 'NEON SNAKE 2077',
+      tag: 'CLASSIC REINVENTED',
+      emoji: '🐍',
+      badge: 'POPULAR',
+      color: '#00f0ff',
+      desc: 'Wall-wrap or solid borders with golden apples, slow-mo frost berries & combo multiplier.',
+      highScoreText: `Best: ${gameScores.snake} pts`,
+      params: {
+        difficulty: settings.difficulty,
+        theme: settings.theme,
+        solidBorders: settings.solidBorders,
+        soundEnabled: settings.soundEnabled,
+      },
+    },
+    {
+      id: 'Pong',
+      route: 'Pong',
+      name: 'CYBER PONG 2077',
+      tag: 'PADDLE AI DUEL',
+      emoji: '🏓',
+      badge: 'ACTION',
+      color: '#ff007f',
+      desc: 'High-speed neon air hockey vs adaptive AI Droid. Endless rallies & match duels.',
+      highScoreText: `Max Rally: ${gameScores.pong} hits`,
+      params: { theme: settings.theme },
+    },
+    {
+      id: 'Breakout',
+      route: 'Breakout',
+      name: 'NEON BREAKOUT',
+      tag: 'BRICK CRUSHER',
+      emoji: '🧱',
+      badge: 'ARCADE',
+      color: '#ffd700',
+      desc: 'Multi-tier glowing neon bricks, explosive bomb bricks, multi-balls & wide paddle powerups.',
+      highScoreText: `Best: ${gameScores.breakout} pts`,
+      params: { theme: settings.theme },
+    },
+    {
+      id: 'Shooter',
+      route: 'Shooter',
+      name: 'GALAXY DEFENDER',
+      tag: 'SYNTHWAVE SHOOTER',
+      emoji: '🚀',
+      badge: 'RETRO',
+      color: '#00ff66',
+      desc: 'Pilot starfighter, dodge alien plasma bombs, collect triple lasers & defeat dreadnoughts.',
+      highScoreText: `Best: ${gameScores.shooter} pts`,
+      params: { theme: settings.theme },
+    },
+    {
+      id: 'Flappy',
+      route: 'Flappy',
+      name: 'CYBER GLIDER',
+      tag: 'PRECISION PHYSICS',
+      emoji: '🛸',
+      badge: 'HARDCORE',
+      color: '#a020f0',
+      desc: 'Thrust jet glider through pulsating laser gates & collect energy spark orbs.',
+      highScoreText: `Best: ${gameScores.glider} pts`,
+      params: { theme: settings.theme },
+    },
+  ];
+
+  const handleLaunchGame = (game: (typeof GAMES)[0]) => {
     soundManager.playClick();
-    navigation.navigate('Snake', {
-      difficulty: settings.difficulty,
-      theme: settings.theme,
-      solidBorders: settings.solidBorders,
-      soundEnabled: settings.soundEnabled,
-    });
+    navigation.navigate(game.route, game.params);
   };
 
   return (
@@ -93,114 +180,55 @@ export default function Home({ navigation }: any) {
             <Text style={[styles.profileEditIcon, { color: currentTheme.accent }]}>✎</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.iconBtn,
-              { backgroundColor: currentTheme.cardBg, borderColor: 'rgba(255,255,255,0.1)' },
-            ]}
-            onPress={() => {
-              updateSettings({ soundEnabled: !settings.soundEnabled });
-              if (!settings.soundEnabled) {
-                soundManager.enabled = true;
-                soundManager.playClick();
-              }
-            }}
-          >
-            <Text style={styles.iconBtnText}>{settings.soundEnabled ? '🔊' : '🔇'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Hero Title Area */}
-        <View style={styles.heroSection}>
-          <View style={styles.badgeBanner}>
-            <Text style={[styles.badgeText, { color: currentTheme.accentSecondary }]}>★ ARCADE EDITION ★</Text>
-          </View>
-          <Text style={[styles.mainTitle, { color: currentTheme.accent }]}>NEON SNAKE</Text>
-          <Text style={[styles.subtitle, { color: currentTheme.textSecondary }]}>
-            Cyberpunk Snake Simulator
-          </Text>
-
-          {/* High Score Banner */}
-          <View style={[styles.highScoreCard, { backgroundColor: currentTheme.cardBg, borderColor: currentTheme.accent }]}>
-            <Text style={[styles.highScoreLabel, { color: currentTheme.textSecondary }]}>PERSONAL RECORD</Text>
-            <View style={styles.highScoreRow}>
-              <Text style={styles.trophyIcon}>🏆</Text>
-              <Text style={[styles.highScoreValue, { color: currentTheme.accent }]}>{profile.bestScore}</Text>
-              <Text style={[styles.ptsLabel, { color: currentTheme.textSecondary }]}>PTS</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Difficulty Selector */}
-        <View style={[styles.sectionCard, { backgroundColor: currentTheme.cardBg }]}>
-          <Text style={[styles.sectionHeader, { color: currentTheme.accent }]}>DIFFICULTY LEVEL</Text>
-          <View style={styles.choiceGrid}>
-            {[
-              { id: 'Casual', icon: '🐢', label: 'Casual', sub: 'Chill & Relaxed' },
-              { id: 'Normal', icon: '🐍', label: 'Normal', sub: 'Classic Speed' },
-              { id: 'Hardcore', icon: '⚡', label: 'Hardcore', sub: 'High Velocity' },
-              { id: 'Insane', icon: '💀', label: 'Insane', sub: 'Extreme Reflex' },
-            ].map((d) => {
-              const active = settings.difficulty === d.id;
-              return (
-                <TouchableOpacity
-                  key={d.id}
-                  style={[
-                    styles.difficultyOption,
-                    active && {
-                      borderColor: currentTheme.accent,
-                      backgroundColor: 'rgba(0, 240, 255, 0.12)',
-                    },
-                    !active && { borderColor: 'rgba(255,255,255,0.08)' },
-                  ]}
-                  onPress={() => {
-                    soundManager.playClick();
-                    updateSettings({ difficulty: d.id as any });
-                  }}
-                >
-                  <Text style={styles.diffIcon}>{d.icon}</Text>
-                  <Text style={[styles.diffLabel, { color: active ? currentTheme.accent : currentTheme.textPrimary }]}>
-                    {d.label}
-                  </Text>
-                  <Text style={[styles.diffSub, { color: currentTheme.textSecondary }]}>{d.sub}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Border Mode & Theme Options */}
-        <View style={[styles.sectionCard, { backgroundColor: currentTheme.cardBg }]}>
-          <Text style={[styles.sectionHeader, { color: currentTheme.accent }]}>GAME MODES & STYLE</Text>
-
-          {/* Wall Collision Toggle */}
-          <View style={styles.toggleRow}>
-            <View>
-              <Text style={[styles.toggleTitle, { color: currentTheme.textPrimary }]}>
-                {settings.solidBorders ? '🧱 Solid Borders (Deadly)' : '🔄 Wall Wrap (Pass-Through)'}
-              </Text>
-              <Text style={[styles.toggleSub, { color: currentTheme.textSecondary }]}>
-                {settings.solidBorders ? 'Hitting walls will cause game over' : 'Wrap to the opposite wall smoothly'}
-              </Text>
-            </View>
+          <View style={styles.topRightActions}>
             <TouchableOpacity
               style={[
-                styles.toggleSwitch,
-                settings.solidBorders && { backgroundColor: currentTheme.accentSecondary },
-                !settings.solidBorders && { backgroundColor: 'rgba(255,255,255,0.1)' },
+                styles.iconBtn,
+                { backgroundColor: currentTheme.cardBg, borderColor: 'rgba(255,255,255,0.1)' },
+              ]}
+              onPress={() => {
+                updateSettings({ soundEnabled: !settings.soundEnabled });
+                if (!settings.soundEnabled) {
+                  soundManager.enabled = true;
+                  soundManager.playClick();
+                }
+              }}
+            >
+              <Text style={styles.iconBtnText}>{settings.soundEnabled ? '🔊' : '🔇'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                { backgroundColor: currentTheme.cardBg, borderColor: currentTheme.accent },
               ]}
               onPress={() => {
                 soundManager.playClick();
-                updateSettings({ solidBorders: !settings.solidBorders });
+                navigation.navigate('Leaderboard', { theme: settings.theme });
               }}
             >
-              <Text style={styles.toggleSwitchText}>{settings.solidBorders ? 'ON' : 'OFF'}</Text>
+              <Text style={styles.iconBtnText}>🏆</Text>
             </TouchableOpacity>
           </View>
+        </View>
 
-          {/* Theme Selector */}
-          <Text style={[styles.subSectionTitle, { color: currentTheme.textSecondary }]}>COLOR THEME</Text>
-          <View style={styles.themeRow}>
+        {/* Hero Header Banner */}
+        <View style={styles.heroSection}>
+          <View style={styles.badgeBanner}>
+            <Text style={[styles.badgeText, { color: currentTheme.accentSecondary }]}>
+              ★ 5-IN-1 RETRO CYBER ARCADE ★
+            </Text>
+          </View>
+          <Text style={[styles.mainTitle, { color: currentTheme.accent }]}>CYBER ARCADE</Text>
+          <Text style={[styles.subtitle, { color: currentTheme.textSecondary }]}>
+            5 Neon Arcade Classics • Zero Latency Audio
+          </Text>
+        </View>
+
+        {/* Theme Selector Strip */}
+        <View style={[styles.themeStrip, { backgroundColor: currentTheme.cardBg }]}>
+          <Text style={[styles.themeStripTitle, { color: currentTheme.textSecondary }]}>THEME</Text>
+          <View style={styles.themeStripRow}>
             {[
               { id: 'neon', name: 'Cyber Neon', color: '#00f0ff', emoji: '🔮' },
               { id: 'matrix', name: 'Matrix Core', color: '#00ff66', emoji: '🕹️' },
@@ -211,17 +239,17 @@ export default function Home({ navigation }: any) {
                 <TouchableOpacity
                   key={thm.id}
                   style={[
-                    styles.themeBtn,
-                    active && { borderColor: thm.color, backgroundColor: 'rgba(255,255,255,0.08)' },
-                    !active && { borderColor: 'rgba(255,255,255,0.08)' },
+                    styles.themeChip,
+                    active && { borderColor: thm.color, backgroundColor: 'rgba(255,255,255,0.1)' },
+                    !active && { borderColor: 'rgba(255,255,255,0.06)' },
                   ]}
                   onPress={() => {
                     soundManager.playClick();
                     updateSettings({ theme: thm.id as any });
                   }}
                 >
-                  <Text style={styles.themeEmoji}>{thm.emoji}</Text>
-                  <Text style={[styles.themeLabel, { color: active ? thm.color : currentTheme.textSecondary }]}>
+                  <Text style={styles.themeChipEmoji}>{thm.emoji}</Text>
+                  <Text style={[styles.themeChipText, { color: active ? thm.color : currentTheme.textSecondary }]}>
                     {thm.name}
                   </Text>
                 </TouchableOpacity>
@@ -230,52 +258,69 @@ export default function Home({ navigation }: any) {
           </View>
         </View>
 
-        {/* Big Action Launch Buttons */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity
-            style={[styles.playBtn, { backgroundColor: currentTheme.accent }]}
-            onPress={handleStartGame}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.playBtnIcon}>▶</Text>
-            <Text style={styles.playBtnText}>START GAME</Text>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryButtonsRow}>
+        {/* 5 Game Cards Showcase */}
+        <View style={styles.gamesList}>
+          {GAMES.map((game) => (
             <TouchableOpacity
+              key={game.id}
               style={[
-                styles.secBtn,
-                { backgroundColor: currentTheme.cardBg, borderColor: currentTheme.accent },
+                styles.gameCard,
+                {
+                  backgroundColor: currentTheme.cardBg,
+                  borderColor: game.color,
+                },
               ]}
-              onPress={() => {
-                soundManager.playClick();
-                navigation.navigate('Leaderboard', { theme: settings.theme });
-              }}
+              onPress={() => handleLaunchGame(game)}
+              activeOpacity={0.85}
             >
-              <Text style={styles.secBtnIcon}>🏆</Text>
-              <Text style={[styles.secBtnText, { color: currentTheme.accent }]}>LEADERBOARD</Text>
-            </TouchableOpacity>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardEmojiBox}>
+                  <Text style={styles.cardEmoji}>{game.emoji}</Text>
+                </View>
 
-            <TouchableOpacity
-              style={[
-                styles.secBtn,
-                { backgroundColor: currentTheme.cardBg, borderColor: 'rgba(255,255,255,0.2)' },
-              ]}
-              onPress={() => {
-                soundManager.playClick();
-                setShowHowToPlay(true);
-              }}
-            >
-              <Text style={styles.secBtnIcon}>📖</Text>
-              <Text style={[styles.secBtnText, { color: currentTheme.textPrimary }]}>CONTROLS</Text>
+                <View style={styles.cardHeaderInfo}>
+                  <View style={styles.cardTagRow}>
+                    <Text style={[styles.cardTag, { color: game.color }]}>{game.tag}</Text>
+                    <View style={[styles.cardBadge, { backgroundColor: game.color }]}>
+                      <Text style={styles.cardBadgeText}>{game.badge}</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.cardTitle, { color: currentTheme.textPrimary }]}>{game.name}</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.cardDesc, { color: currentTheme.textSecondary }]}>{game.desc}</Text>
+
+              <View style={styles.cardFooter}>
+                <View style={styles.scoreBadgeBox}>
+                  <Text style={[styles.scoreBadgeText, { color: game.color }]}>{game.highScoreText}</Text>
+                </View>
+
+                <View style={[styles.playPill, { backgroundColor: game.color }]}>
+                  <Text style={styles.playPillText}>PLAY NOW ▶</Text>
+                </View>
+              </View>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-        {/* Footer Hint */}
+        {/* Global Controls Guide Button */}
+        <TouchableOpacity
+          style={[styles.controlsBtn, { backgroundColor: currentTheme.cardBg, borderColor: 'rgba(255,255,255,0.15)' }]}
+          onPress={() => {
+            soundManager.playClick();
+            setShowHowToPlay(true);
+          }}
+        >
+          <Text style={[styles.controlsBtnText, { color: currentTheme.accent }]}>
+            📖 HOW TO PLAY & CONTROLS GUIDE
+          </Text>
+        </TouchableOpacity>
+
+        {/* Footer Note */}
         <View style={styles.footerNote}>
           <Text style={[styles.footerText, { color: currentTheme.textSecondary }]}>
-            ⌨️ Keyboard: Arrow Keys or W-A-S-D to steer • Spacebar to pause
+            🎮 Supports Arrow Keys, WASD, Spacebar, Mouse & Touch Screens
           </Text>
         </View>
       </ScrollView>
@@ -284,33 +329,40 @@ export default function Home({ navigation }: any) {
       <Modal visible={showHowToPlay} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: currentTheme.cardBg, borderColor: currentTheme.accent }]}>
-            <Text style={[styles.modalTitle, { color: currentTheme.accent }]}>HOW TO PLAY</Text>
-            
+            <Text style={[styles.modalTitle, { color: currentTheme.accent }]}>ARCADE CONTROLS GUIDE</Text>
+
             <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🍎</Text>
+              <Text style={styles.ruleIcon}>🐍</Text>
               <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                Eat red apples to grow longer and gain 10 points.
+                <Text style={{ fontWeight: 'bold', color: '#00f0ff' }}>Neon Snake</Text>: Arrow Keys / WASD to steer, Space to pause.
               </Text>
             </View>
 
             <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>⭐</Text>
+              <Text style={styles.ruleIcon}>🏓</Text>
               <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                Golden stars give 30 bonus points!
+                <Text style={{ fontWeight: 'bold', color: '#ff007f' }}>Cyber Pong</Text>: Left / Right Arrow or A / D to move paddle.
               </Text>
             </View>
 
             <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>❄️</Text>
+              <Text style={styles.ruleIcon}>🧱</Text>
               <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                Frost berries slow down time for easier maneuvering.
+                <Text style={{ fontWeight: 'bold', color: '#ffd700' }}>Neon Breakout</Text>: Steer paddle to shatter bricks and catch falling powerups.
               </Text>
             </View>
 
             <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🎮</Text>
+              <Text style={styles.ruleIcon}>🚀</Text>
               <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                Use Arrow Keys, W/A/S/D, or on-screen D-Pad.
+                <Text style={{ fontWeight: 'bold', color: '#00ff66' }}>Galaxy Defender</Text>: Move starfighter to dodge bombs & shoot down aliens.
+              </Text>
+            </View>
+
+            <View style={styles.ruleItem}>
+              <Text style={styles.ruleIcon}>🛸</Text>
+              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                <Text style={{ fontWeight: 'bold', color: '#a020f0' }}>Cyber Glider</Text>: Tap or Spacebar to thrust through laser gates.
               </Text>
             </View>
 
@@ -321,7 +373,7 @@ export default function Home({ navigation }: any) {
                 setShowHowToPlay(false);
               }}
             >
-              <Text style={styles.modalCloseText}>GOT IT!</Text>
+              <Text style={styles.modalCloseText}>CLOSE</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -336,8 +388,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 30,
-    maxWidth: 550,
+    paddingBottom: 40,
+    maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
   },
@@ -367,6 +419,10 @@ const styles = StyleSheet.create({
   profileEditIcon: {
     fontSize: 14,
   },
+  topRightActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   iconBtn: {
     width: 42,
     height: 42,
@@ -380,7 +436,7 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   badgeBanner: {
     marginBottom: 6,
@@ -399,185 +455,153 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 4,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  highScoreCard: {
-    width: '100%',
+  themeStrip: {
     borderRadius: 14,
-    borderWidth: 1.5,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  highScoreLabel: {
-    fontSize: 11,
-    letterSpacing: 1.5,
-    fontWeight: '800',
-  },
-  highScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  trophyIcon: {
-    fontSize: 22,
-  },
-  highScoreValue: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  ptsLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
-  },
-  sectionCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  sectionHeader: {
-    fontSize: 12,
+  themeStripTitle: {
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1.5,
     fontFamily: 'monospace',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  choiceGrid: {
+  themeStripRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
-  difficultyOption: {
+  themeChip: {
     flex: 1,
-    minWidth: '45%',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    gap: 6,
   },
-  diffIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  diffLabel: {
+  themeChipEmoji: {
     fontSize: 14,
-    fontWeight: '800',
   },
-  diffSub: {
+  themeChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  gamesList: {
+    gap: 16,
+  },
+  gameCard: {
+    borderRadius: 18,
+    borderWidth: 1.8,
+    padding: 18,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 10,
+  },
+  cardEmojiBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardEmoji: {
+    fontSize: 30,
+  },
+  cardHeaderInfo: {
+    flex: 1,
+  },
+  cardTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  cardTag: {
     fontSize: 10,
-    marginTop: 2,
+    fontWeight: '900',
+    letterSpacing: 1,
+    fontFamily: 'monospace',
   },
-  toggleRow: {
+  cardBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cardBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#000',
+  },
+  cardTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 1,
+    fontFamily: 'monospace',
+  },
+  cardDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
-    marginBottom: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  toggleTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  scoreBadgeBox: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
-  toggleSub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  toggleSwitch: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  toggleSwitchText: {
-    color: '#fff',
+  scoreBadgeText: {
     fontSize: 12,
     fontWeight: '800',
   },
-  subSectionTitle: {
-    fontSize: 11,
-    fontWeight: '800',
+  playPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  playPillText: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '900',
     letterSpacing: 1,
-    marginTop: 8,
-    marginBottom: 10,
   },
-  themeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  themeBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
+  controlsBtn: {
+    marginTop: 20,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
   },
-  themeEmoji: {
-    fontSize: 18,
-    marginBottom: 2,
-  },
-  themeLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  actionSection: {
-    marginTop: 6,
-    gap: 12,
-  },
-  playBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 10,
-    elevation: 8,
-    shadowColor: '#00f0ff',
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-  },
-  playBtnIcon: {
-    fontSize: 22,
-    color: '#000',
-    fontWeight: '900',
-  },
-  playBtnText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#000',
-    letterSpacing: 2,
-  },
-  secondaryButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  secBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    gap: 8,
-  },
-  secBtnIcon: {
-    fontSize: 16,
-  },
-  secBtnText: {
-    fontSize: 12,
+  controlsBtnText: {
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
   },
   footerNote: {
-    marginTop: 18,
+    marginTop: 14,
     alignItems: 'center',
   },
   footerText: {
@@ -586,14 +610,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalCard: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 440,
     borderRadius: 18,
     borderWidth: 2,
     padding: 22,
@@ -613,7 +637,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   ruleIcon: {
-    fontSize: 22,
+    fontSize: 24,
   },
   ruleText: {
     fontSize: 13,

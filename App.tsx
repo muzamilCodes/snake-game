@@ -3,6 +3,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Home from './screen/home';
 import SnakeGame from './screen/snake';
+import CyberPong from './screen/pong';
+import NeonBreakout from './screen/breakout';
+import GalaxyDefender from './screen/shooter';
+import CyberGlider from './screen/flappy';
 import LeaderboardScreen from './screen/leaderboard';
 import RegisterScreen from './screen/register';
 
@@ -20,6 +24,10 @@ export default function App() {
       >
         <Stack.Screen name="Home" component={Home} />
         <Stack.Screen name="Snake" component={SnakeGame} />
+        <Stack.Screen name="Pong" component={CyberPong} />
+        <Stack.Screen name="Breakout" component={NeonBreakout} />
+        <Stack.Screen name="Shooter" component={GalaxyDefender} />
+        <Stack.Screen name="Flappy" component={CyberGlider} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
       </Stack.Navigator>
