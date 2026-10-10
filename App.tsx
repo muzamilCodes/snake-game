@@ -2,6 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Home from './screen/home';
+import NeonRacing from './screen/racing';
 import SnakeGame from './screen/snake';
 import CyberPong from './screen/pong';
 import NeonBreakout from './screen/breakout';
@@ -23,6 +24,7 @@ export default function App() {
         }}
       >
         <Stack.Screen name="Home" component={Home} />
+        <Stack.Screen name="Racing" component={NeonRacing} />
         <Stack.Screen name="Snake" component={SnakeGame} />
         <Stack.Screen name="Pong" component={CyberPong} />
         <Stack.Screen name="Breakout" component={NeonBreakout} />

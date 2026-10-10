@@ -37,6 +37,7 @@ export default function Home({ navigation }: any) {
   });
 
   const [gameScores, setGameScores] = useState({
+    racing: 1,
     snake: 0,
     pong: 0,
     breakout: 0,
@@ -44,6 +45,7 @@ export default function Home({ navigation }: any) {
     glider: 0,
   });
 
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   useEffect(() => {
@@ -66,8 +68,16 @@ export default function Home({ navigation }: any) {
       const breakHs = await AsyncStorage.getItem('BREAKOUT_HIGH_SCORE');
       const shootHs = await AsyncStorage.getItem('SHOOTER_HIGH_SCORE');
       const glideHs = await AsyncStorage.getItem('GLIDER_HIGH_SCORE');
+      const racingLvls = await AsyncStorage.getItem('RACING_UNLOCKED_LEVELS');
+
+      let unlockedCount = 1;
+      if (racingLvls) {
+        const parsed = JSON.parse(racingLvls);
+        if (Array.isArray(parsed)) unlockedCount = parsed.length;
+      }
 
       setGameScores({
+        racing: unlockedCount,
         snake: prof.bestScore || 0,
         pong: pongHs ? parseInt(pongHs) : 0,
         breakout: breakHs ? parseInt(breakHs) : 0,
@@ -88,16 +98,30 @@ export default function Home({ navigation }: any) {
 
   const currentTheme: ThemeColors = THEMES[settings.theme] || THEMES.neon;
 
-  const GAMES = [
+  const ALL_GAMES = [
+    {
+      id: 'Racing',
+      route: 'Racing',
+      category: 'RACING & SPEED',
+      name: 'NEON VELOCITY 2077',
+      tag: '10 CHAMPIONSHIP LEVELS',
+      emoji: '🏎️',
+      badge: '★ FLAGSHIP ★',
+      color: '#ff0055',
+      desc: '3-Lane high-speed pseudo-3D neon highway racing! 10 progressive circuits, traffic dodging, nitro flames, shield pickups & speedometers.',
+      highScoreText: `Circuit Unlocked: Lvl ${gameScores.racing}/10`,
+      params: { theme: settings.theme },
+    },
     {
       id: 'Snake',
       route: 'Snake',
+      category: 'CLASSIC ARCADE',
       name: 'NEON SNAKE 2077',
       tag: 'CLASSIC REINVENTED',
       emoji: '🐍',
       badge: 'POPULAR',
       color: '#00f0ff',
-      desc: 'Wall-wrap or solid borders with golden apples, slow-mo frost berries & combo multiplier.',
+      desc: 'Wall-wrap or solid borders, golden apples, slow-mo frost berries & combo multiplier.',
       highScoreText: `Best: ${gameScores.snake} pts`,
       params: {
         difficulty: settings.difficulty,
@@ -109,6 +133,7 @@ export default function Home({ navigation }: any) {
     {
       id: 'Pong',
       route: 'Pong',
+      category: 'RACING & SPEED',
       name: 'CYBER PONG 2077',
       tag: 'PADDLE AI DUEL',
       emoji: '🏓',
@@ -121,6 +146,7 @@ export default function Home({ navigation }: any) {
     {
       id: 'Breakout',
       route: 'Breakout',
+      category: 'CLASSIC ARCADE',
       name: 'NEON BREAKOUT',
       tag: 'BRICK CRUSHER',
       emoji: '🧱',
@@ -133,6 +159,7 @@ export default function Home({ navigation }: any) {
     {
       id: 'Shooter',
       route: 'Shooter',
+      category: 'ACTION & SHOOTER',
       name: 'GALAXY DEFENDER',
       tag: 'SYNTHWAVE SHOOTER',
       emoji: '🚀',
@@ -145,6 +172,7 @@ export default function Home({ navigation }: any) {
     {
       id: 'Flappy',
       route: 'Flappy',
+      category: 'RACING & SPEED',
       name: 'CYBER GLIDER',
       tag: 'PRECISION PHYSICS',
       emoji: '🛸',
@@ -156,7 +184,11 @@ export default function Home({ navigation }: any) {
     },
   ];
 
-  const handleLaunchGame = (game: (typeof GAMES)[0]) => {
+  const filteredGames = selectedCategory === 'ALL'
+    ? ALL_GAMES
+    : ALL_GAMES.filter((g) => g.category === selectedCategory);
+
+  const handleLaunchGame = (game: (typeof ALL_GAMES)[0]) => {
     soundManager.playClick();
     navigation.navigate(game.route, game.params);
   };
@@ -212,22 +244,60 @@ export default function Home({ navigation }: any) {
           </View>
         </View>
 
-        {/* Hero Header Banner */}
+        {/* Hero Section */}
         <View style={styles.heroSection}>
           <View style={styles.badgeBanner}>
             <Text style={[styles.badgeText, { color: currentTheme.accentSecondary }]}>
-              ★ 5-IN-1 RETRO CYBER ARCADE ★
+              ★ ULTIMATE CYBER ARCADE PLATFORM ★
             </Text>
           </View>
-          <Text style={[styles.mainTitle, { color: currentTheme.accent }]}>CYBER ARCADE</Text>
+          <Text style={[styles.mainTitle, { color: currentTheme.accent }]}>NEON GAMING HUB</Text>
           <Text style={[styles.subtitle, { color: currentTheme.textSecondary }]}>
-            5 Neon Arcade Classics • Zero Latency Audio
+            6 High-Octane Cyber Games • 10-Level Racing Championship
           </Text>
         </View>
 
+        {/* Featured Flagship Card: NEON VELOCITY 2077 RACING */}
+        <TouchableOpacity
+          style={[styles.flagshipCard, { borderColor: '#ff0055' }]}
+          onPress={() => handleLaunchGame(ALL_GAMES[0])}
+          activeOpacity={0.88}
+        >
+          <View style={styles.flagshipGlowOverlay} />
+          <View style={styles.flagshipContent}>
+            <View style={styles.flagshipTopRow}>
+              <View style={styles.flagshipTagPill}>
+                <Text style={styles.flagshipTagText}>🔥 FEATURED RELEASE</Text>
+              </View>
+              <View style={styles.flagshipLevelPill}>
+                <Text style={styles.flagshipLevelText}>10 CIRCUITS</Text>
+              </View>
+            </View>
+
+            <View style={styles.flagshipMiddleRow}>
+              <Text style={styles.flagshipEmoji}>🏎️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.flagshipTitle}>NEON VELOCITY 2077</Text>
+                <Text style={styles.flagshipSub}>
+                  Pseudo-3D Highway Racer • Dodge Cyber Traffic • Nitro Boosts • 10 Unique Levels!
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.flagshipFooter}>
+              <Text style={styles.flagshipStats}>
+                🏁 Circuit: Lvl {gameScores.racing}/10 Unlocked
+              </Text>
+              <View style={styles.flagshipLaunchBtn}>
+                <Text style={styles.flagshipLaunchText}>ENTER RACE ▶</Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+
         {/* Theme Selector Strip */}
         <View style={[styles.themeStrip, { backgroundColor: currentTheme.cardBg }]}>
-          <Text style={[styles.themeStripTitle, { color: currentTheme.textSecondary }]}>THEME</Text>
+          <Text style={[styles.themeStripTitle, { color: currentTheme.textSecondary }]}>COLOR THEME</Text>
           <View style={styles.themeStripRow}>
             {[
               { id: 'neon', name: 'Cyber Neon', color: '#00f0ff', emoji: '🔮' },
@@ -258,9 +328,39 @@ export default function Home({ navigation }: any) {
           </View>
         </View>
 
-        {/* 5 Game Cards Showcase */}
+        {/* Category Filter Tabs */}
+        <View style={styles.categoryRow}>
+          {['ALL', 'RACING & SPEED', 'CLASSIC ARCADE', 'ACTION & SHOOTER'].map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryPill,
+                  isSelected && { backgroundColor: currentTheme.accent, borderColor: currentTheme.accent },
+                  !isSelected && { backgroundColor: currentTheme.cardBg, borderColor: 'rgba(255,255,255,0.08)' },
+                ]}
+                onPress={() => {
+                  soundManager.playClick();
+                  setSelectedCategory(cat);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.categoryText,
+                    { color: isSelected ? '#000' : currentTheme.textSecondary },
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* All Games Grid / List */}
         <View style={styles.gamesList}>
-          {GAMES.map((game) => (
+          {filteredGames.map((game) => (
             <TouchableOpacity
               key={game.id}
               style={[
@@ -313,14 +413,14 @@ export default function Home({ navigation }: any) {
           }}
         >
           <Text style={[styles.controlsBtnText, { color: currentTheme.accent }]}>
-            📖 HOW TO PLAY & CONTROLS GUIDE
+            📖 HOW TO PLAY ALL 6 GAMES
           </Text>
         </TouchableOpacity>
 
         {/* Footer Note */}
         <View style={styles.footerNote}>
           <Text style={[styles.footerText, { color: currentTheme.textSecondary }]}>
-            🎮 Supports Arrow Keys, WASD, Spacebar, Mouse & Touch Screens
+            🎮 Supports Arrow Keys, WASD, Spacebar, Touch & Mobile Responsive
           </Text>
         </View>
       </ScrollView>
@@ -331,40 +431,49 @@ export default function Home({ navigation }: any) {
           <View style={[styles.modalCard, { backgroundColor: currentTheme.cardBg, borderColor: currentTheme.accent }]}>
             <Text style={[styles.modalTitle, { color: currentTheme.accent }]}>ARCADE CONTROLS GUIDE</Text>
 
-            <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🐍</Text>
-              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                <Text style={{ fontWeight: 'bold', color: '#00f0ff' }}>Neon Snake</Text>: Arrow Keys / WASD to steer, Space to pause.
-              </Text>
-            </View>
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🏎️</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#ff0055' }}>Neon Velocity Racing</Text>: Arrow Left/Right to change lane, Spacebar / Up for Nitro Turbo boost. Finish distance to unlock next level (1 to 10).
+                </Text>
+              </View>
 
-            <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🏓</Text>
-              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                <Text style={{ fontWeight: 'bold', color: '#ff007f' }}>Cyber Pong</Text>: Left / Right Arrow or A / D to move paddle.
-              </Text>
-            </View>
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🐍</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#00f0ff' }}>Neon Snake</Text>: Arrow Keys / WASD to steer, Space to pause. Eat apples & golden stars.
+                </Text>
+              </View>
 
-            <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🧱</Text>
-              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                <Text style={{ fontWeight: 'bold', color: '#ffd700' }}>Neon Breakout</Text>: Steer paddle to shatter bricks and catch falling powerups.
-              </Text>
-            </View>
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🏓</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#ff007f' }}>Cyber Pong</Text>: Left / Right Arrow or A / D to move paddle against AI.
+                </Text>
+              </View>
 
-            <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🚀</Text>
-              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                <Text style={{ fontWeight: 'bold', color: '#00ff66' }}>Galaxy Defender</Text>: Move starfighter to dodge bombs & shoot down aliens.
-              </Text>
-            </View>
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🧱</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#ffd700' }}>Neon Breakout</Text>: Steer paddle to shatter bricks and catch falling powerups.
+                </Text>
+              </View>
 
-            <View style={styles.ruleItem}>
-              <Text style={styles.ruleIcon}>🛸</Text>
-              <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
-                <Text style={{ fontWeight: 'bold', color: '#a020f0' }}>Cyber Glider</Text>: Tap or Spacebar to thrust through laser gates.
-              </Text>
-            </View>
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🚀</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#00ff66' }}>Galaxy Defender</Text>: Move starfighter to dodge bombs & shoot down aliens.
+                </Text>
+              </View>
+
+              <View style={styles.ruleItem}>
+                <Text style={styles.ruleIcon}>🛸</Text>
+                <Text style={[styles.ruleText, { color: currentTheme.textPrimary }]}>
+                  <Text style={{ fontWeight: 'bold', color: '#a020f0' }}>Cyber Glider</Text>: Tap or Spacebar to thrust through laser gates.
+                </Text>
+              </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={[styles.modalCloseBtn, { backgroundColor: currentTheme.accent }]}
@@ -389,7 +498,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
-    maxWidth: 600,
+    maxWidth: 620,
     width: '100%',
     alignSelf: 'center',
   },
@@ -448,7 +557,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   mainTitle: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
     letterSpacing: 3,
     fontFamily: 'monospace',
@@ -460,10 +569,111 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
+  flagshipCard: {
+    borderRadius: 20,
+    borderWidth: 2,
+    backgroundColor: '#120517',
+    padding: 18,
+    marginBottom: 18,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#ff0055',
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  flagshipGlowOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 0, 85, 0.08)',
+  },
+  flagshipContent: {
+    zIndex: 2,
+  },
+  flagshipTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  flagshipTagPill: {
+    backgroundColor: '#ff0055',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  flagshipTagText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  flagshipLevelPill: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  flagshipLevelText: {
+    color: '#ffd700',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  flagshipMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 14,
+  },
+  flagshipEmoji: {
+    fontSize: 42,
+  },
+  flagshipTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 1.5,
+    fontFamily: 'monospace',
+  },
+  flagshipSub: {
+    color: '#ddb5e3',
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  flagshipFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  flagshipStats: {
+    color: '#ffd700',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  flagshipLaunchBtn: {
+    backgroundColor: '#ff0055',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  flagshipLaunchText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
   themeStrip: {
     borderRadius: 14,
     padding: 12,
-    marginBottom: 18,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
@@ -495,6 +705,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   gamesList: {
     gap: 16,
   },
@@ -513,15 +740,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardEmojiBox: {
-    width: 54,
-    height: 54,
+    width: 52,
+    height: 52,
     borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardEmoji: {
-    fontSize: 30,
+    fontSize: 28,
   },
   cardHeaderInfo: {
     flex: 1,
@@ -549,7 +776,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   cardTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,
     fontFamily: 'monospace',
@@ -617,7 +844,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 460,
     borderRadius: 18,
     borderWidth: 2,
     padding: 22,
@@ -633,11 +860,13 @@ const styles = StyleSheet.create({
   },
   ruleItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+    marginBottom: 14,
   },
   ruleIcon: {
-    fontSize: 24,
+    fontSize: 22,
+    marginTop: 2,
   },
   ruleText: {
     fontSize: 13,
