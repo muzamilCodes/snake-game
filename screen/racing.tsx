@@ -14,558 +14,721 @@ import {
 import { soundManager } from '../utils/sound';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// --- 10 EXPEDITION CIRCUITS (EXACTLY 300M + 300M EACH LEVEL) ---
+// --- 10 EXPEDITION CIRCUITS (STRICT 300M INCREMENTS: 300m, 600m, 900m ... 3000m) ---
 export interface CircuitConfig {
   level: number;
   name: string;
   theme: string;
-  distMeters: number; // 300m, 600m, 900m, ... up to 3000m
-  baseRivalSpeed: number; // km/h
+  distMeters: number;
+  baseAIspeed: number; // km/h
   rivalsCount: number;
-  skyColors: [string, string];
+  skyTop: string;
+  skyBottom: string;
   roadColor: string;
   stripeColor: string;
-  curbColor1: string;
-  curbColor2: string;
+  curb1: string;
+  curb2: string;
+  envType: 'neonCity' | 'sunsetCoast' | 'cyberTunnel' | 'desert' | 'nightBay';
   unlockedByDefault?: boolean;
 }
 
-const CAMPAIGN_CIRCUITS: CircuitConfig[] = [
-  { level: 1, name: 'Neon Sprint 300', theme: 'Dusk Qualifier', distMeters: 300, baseRivalSpeed: 170, rivalsCount: 5, skyColors: ['#1e082b', '#8f2d56'], roadColor: '#141624', stripeColor: '#00f0ff', curbColor1: '#ff0055', curbColor2: '#ffffff', unlockedByDefault: true },
-  { level: 2, name: 'Tokyo Overpass 600', theme: 'Night Lights', distMeters: 600, baseRivalSpeed: 185, rivalsCount: 6, skyColors: ['#070a1e', '#161b40'], roadColor: '#101221', stripeColor: '#ff007f', curbColor1: '#00f0ff', curbColor2: '#101221' },
-  { level: 3, name: 'Cyber Tunnel 900', theme: 'Matrix Underground', distMeters: 900, baseRivalSpeed: 200, rivalsCount: 6, skyColors: ['#030d07', '#092415'], roadColor: '#08140c', stripeColor: '#00ff66', curbColor1: '#00ff66', curbColor2: '#003314' },
-  { level: 4, name: 'Rainy Expressway 1200', theme: 'Wet Reflection', distMeters: 1200, baseRivalSpeed: 215, rivalsCount: 7, skyColors: ['#0a1424', '#1c3454'], roadColor: '#0c1626', stripeColor: '#00e5ff', curbColor1: '#0099ff', curbColor2: '#ffffff' },
-  { level: 5, name: 'Sunset Canyon 1500', theme: 'Golden Cliffs', distMeters: 1500, baseRivalSpeed: 230, rivalsCount: 7, skyColors: ['#3b1106', '#bd4b0f'], roadColor: '#241410', stripeColor: '#ffaa00', curbColor1: '#ff5500', curbColor2: '#ffffff' },
-  { level: 6, name: 'Industrial Docks 1800', theme: 'Harbor Sprint', distMeters: 1800, baseRivalSpeed: 245, rivalsCount: 7, skyColors: ['#121417', '#252a33'], roadColor: '#14171c', stripeColor: '#ffd700', curbColor1: '#ffaa00', curbColor2: '#222222' },
-  { level: 7, name: 'Neo Seoul 2100', theme: 'Police Grid', distMeters: 2100, baseRivalSpeed: 260, rivalsCount: 8, skyColors: ['#160824', '#3d1266'], roadColor: '#170e26', stripeColor: '#ff0055', curbColor1: '#00e5ff', curbColor2: '#ff0055' },
-  { level: 8, name: 'Desert Outrun 2400', theme: 'Sandstorm Highway', distMeters: 2400, baseRivalSpeed: 275, rivalsCount: 8, skyColors: ['#291405', '#6b360a'], roadColor: '#24170d', stripeColor: '#ff9900', curbColor1: '#ff6600', curbColor2: '#ffffff' },
-  { level: 9, name: 'Orbital Bridge 2700', theme: 'Skyway High-G', distMeters: 2700, baseRivalSpeed: 295, rivalsCount: 8, skyColors: ['#040214', '#150a3d'], roadColor: '#0d0726', stripeColor: '#bd00ff', curbColor1: '#00f0ff', curbColor2: '#bd00ff' },
-  { level: 10, name: 'Apex Grand Prix 3000', theme: 'Championship Finale', distMeters: 3000, baseRivalSpeed: 320, rivalsCount: 8, skyColors: ['#050814', '#0f1838'], roadColor: '#0a1026', stripeColor: '#ffd700', curbColor1: '#ffd700', curbColor2: '#ff0055' },
+export const CAMPAIGN_CIRCUITS: CircuitConfig[] = [
+  { level: 1, name: 'Miami Sprint 300', theme: 'Sunset Palms', distMeters: 300, baseAIspeed: 175, rivalsCount: 5, skyTop: '#15082e', skyBottom: '#a6245e', roadColor: '#171a26', stripeColor: '#ffffff', curb1: '#ff0055', curb2: '#ffffff', envType: 'sunsetCoast', unlockedByDefault: true },
+  { level: 2, name: 'Tokyo Expressway 600', theme: 'Neon Midnight', distMeters: 600, baseAIspeed: 190, rivalsCount: 5, skyTop: '#070b24', skyBottom: '#18245c', roadColor: '#141829', stripeColor: '#00e5ff', curb1: '#00e5ff', curb2: '#11162b', envType: 'neonCity' },
+  { level: 3, name: 'Cyber Tunnel 900', theme: 'Matrix Grid', distMeters: 900, baseAIspeed: 205, rivalsCount: 6, skyTop: '#021207', skyBottom: '#0a3318', roadColor: '#0c1a12', stripeColor: '#00ff66', curb1: '#00ff66', curb2: '#021207', envType: 'cyberTunnel' },
+  { level: 4, name: 'Rainstorm Overpass 1200', theme: 'Wet Asphalt', distMeters: 1200, baseAIspeed: 220, rivalsCount: 6, skyTop: '#091526', skyBottom: '#1c395e', roadColor: '#101b2b', stripeColor: '#00e5ff', curb1: '#0088ff', curb2: '#ffffff', envType: 'neonCity' },
+  { level: 5, name: 'Sunset Canyon 1500', theme: 'Golden Ridge', distMeters: 1500, baseAIspeed: 235, rivalsCount: 6, skyTop: '#3b1206', skyBottom: '#bd4b0f', roadColor: '#241712', stripeColor: '#ffaa00', curb1: '#ff5500', curb2: '#ffffff', envType: 'sunsetCoast' },
+  { level: 6, name: 'Industrial Docks 1800', theme: 'Harbor Sprint', distMeters: 1800, baseAIspeed: 250, rivalsCount: 7, skyTop: '#14171a', skyBottom: '#282f3b', roadColor: '#171a21', stripeColor: '#ffd700', curb1: '#ffaa00', curb2: '#111111', envType: 'nightBay' },
+  { level: 7, name: 'Neo Seoul 2100', theme: 'Laser Highway', distMeters: 2100, baseAIspeed: 265, rivalsCount: 7, skyTop: '#160824', skyBottom: '#3d1266', roadColor: '#1a102b', stripeColor: '#ff0055', curb1: '#00e5ff', curb2: '#ff0055', envType: 'neonCity' },
+  { level: 8, name: 'Desert Outrun 2400', theme: 'Sandstorm Speedway', distMeters: 2400, baseAIspeed: 280, rivalsCount: 7, skyTop: '#2b1606', skyBottom: '#753b0a', roadColor: '#291b10', stripeColor: '#ff9900', curb1: '#ff6600', curb2: '#ffffff', envType: 'desert' },
+  { level: 9, name: 'Orbital Skyway 2700', theme: 'Stratosphere Bridge', distMeters: 2700, baseAIspeed: 295, rivalsCount: 8, skyTop: '#05021a', skyBottom: '#190a47', roadColor: '#10082b', stripeColor: '#bd00ff', curb1: '#00f0ff', curb2: '#bd00ff', envType: 'cyberTunnel' },
+  { level: 10, name: 'Apex Grand Prix 3000', theme: 'World Championship', distMeters: 3000, baseAIspeed: 315, rivalsCount: 8, skyTop: '#060917', skyBottom: '#121e42', roadColor: '#0d1329', stripeColor: '#ffd700', curb1: '#ffd700', curb2: '#ff0055', envType: 'neonCity' },
 ];
 
-interface RivalRacer {
+export interface CompetitorRacer {
   id: number;
   name: string;
-  dist: number; // distance traveled in meters
-  x: number; // lateral track offset (-0.8 to 0.8)
-  speed: number; // current speed
-  maxSpeed: number;
   color: string;
-  model: 'viper' | 'phantom' | 'coupe' | 'f1';
+  accentColor: string;
+  dist: number; // distance traveled in meters
+  x: number; // lateral track position (-0.85 to 0.85)
+  speed: number; // current speed km/h
+  maxSpeed: number; // top speed km/h
+  accel: number;
+  steerDir: number;
   finished: boolean;
-  finishTime?: number;
-  finishRank?: number;
+  finishTimeSec?: number;
+  finishTimeStr?: string;
+  rank?: number;
+}
+
+interface RoadsideObject {
+  dist: number; // track distance in meters
+  side: -1 | 1; // -1 left, 1 right
+  type: 'lamp' | 'palm' | 'billboard' | 'gantry';
+  label?: string;
 }
 
 interface Particle {
-  x: number;
-  y: number;
+  x: number; // track X (-1 to 1)
+  y: number; // screen ratio (0 to 1)
   vx: number;
   vy: number;
   size: number;
   color: string;
   alpha: number;
+  life: number;
 }
 
-export default function NeonRacing({ navigation }: any) {
+export default function RealisticRacing({ navigation }: any) {
   const { width: winWidth, height: winHeight } = useWindowDimensions();
 
-  // Canvas Viewport Sizing
-  const canvasW = Math.min(winWidth * 0.96, 520);
-  const canvasH = Math.min(winHeight * 0.58, 540);
+  // Responsive Viewport Sizing
+  const canvasW = Math.min(winWidth * 0.98, 620);
+  const canvasH = Math.min(winHeight * 0.60, 580);
   const canvasRef = useRef<any>(null);
 
-  // Campaign level progression
+  // Campaign State
   const [currentLevel, setCurrentLevel] = useState<number>(1);
   const [unlockedLevels, setUnlockedLevels] = useState<number[]>([1]);
-  const [levelModalOpen, setLevelModalOpen] = useState<boolean>(false);
+  const [circuitModalOpen, setCircuitModalOpen] = useState<boolean>(false);
 
-  // HUD Real-time Values
+  // HUD & Telemetry State
   const [hudSpeed, setHudSpeed] = useState<number>(0);
+  const [hudRPM, setHudRPM] = useState<number>(1000);
   const [hudDist, setHudDist] = useState<number>(0);
   const [hudNitro, setHudNitro] = useState<number>(100);
-  const [hudPosition, setHudPosition] = useState<number>(1);
-  const [hudTotalRacers, setHudTotalRacers] = useState<number>(6);
+  const [hudRank, setHudRank] = useState<number>(1);
+  const [hudTotalCars, setHudTotalCars] = useState<number>(6);
   const [hudGear, setHudGear] = useState<number>(1);
-  const [countdownText, setCountdownText] = useState<string | null>(null);
+  const [isDrafting, setIsDrafting] = useState<boolean>(false);
 
-  // Game Lifecycle
+  // Race Sequences
+  const [gantryLights, setGantryLights] = useState<number>(-1); // -1 inactive, 0..5 red lights, 6 = green GO
   const [raceActive, setRaceActive] = useState<boolean>(false);
-  const [podiumModalVisible, setPodiumModalVisible] = useState<boolean>(false);
-  const [crashedModalVisible, setCrashedModalVisible] = useState<boolean>(false);
-  const [finalRankings, setFinalRankings] = useState<RivalRacer[]>([]);
+  const [podiumOpen, setPodiumOpen] = useState<boolean>(false);
+  const [podiumList, setPodiumList] = useState<CompetitorRacer[]>([]);
 
-  // High performance game state refs (60 FPS loop without React re-render lag)
-  const stateRef = useRef({
+  // 60 FPS Real-time Engine State
+  const engineRef = useRef({
+    active: false,
+    countingDown: false,
+    raceOver: false,
+    startTime: 0,
+    levelNumber: 1,
+    cfg: CAMPAIGN_CIRCUITS[0],
+
+    // Player Physics
     playerDist: 0,
-    playerX: 0, // -1 to 1
-    playerSpeed: 0,
-    maxPlayerSpeed: 280,
-    nitro: 100,
+    playerX: 0, // -1 (left curb) to +1 (right curb)
+    playerSpeed: 0, // km/h
+    playerTargetSpeed: 0,
+    playerRoll: 0, // chassis tilt angle
+    steerDir: 0, // -1 left, +1 right
+    isThrottle: false,
+    isBrake: false,
     isNitro: false,
-    steering: 0,
-    accelerating: false,
-    braking: false,
+    nitro: 100,
     gear: 1,
+    rpm: 1000,
+    drafting: false,
+
+    // Track Geometry
+    roadScroll: 0,
     curve: 0,
     targetCurve: 0,
-    roadRoll: 0,
     screenShake: 0,
-    rivals: [] as RivalRacer[],
+
+    // Simulation Entities
+    competitors: [] as CompetitorRacer[],
+    roadsideObjects: [] as RoadsideObject[],
     particles: [] as Particle[],
-    raceFinished: false,
-    raceStartTime: 0,
-    countdown: 3,
-    countdownActive: false,
-    config: CAMPAIGN_CIRCUITS[0],
-    levelNum: 1,
-    running: false,
   });
 
   const animFrameRef = useRef<any>(null);
 
+  // Load Unlocked Levels from Storage
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem('RACING_UNLOCKED_LEVELS');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) setUnlockedLevels(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setUnlockedLevels(parsed);
+          }
         }
       } catch (_) {}
     })();
   }, []);
 
-  const saveUnlockedProgress = async (levels: number[]) => {
+  // Save Progress
+  const persistUnlockProgress = async (unlocked: number[]) => {
     try {
-      await AsyncStorage.setItem('RACING_UNLOCKED_LEVELS', JSON.stringify(levels));
+      await AsyncStorage.setItem('RACING_UNLOCKED_LEVELS', JSON.stringify(unlocked));
     } catch (_) {}
   };
 
-  // Keyboard controls listener
+  // Keyboard Event Listeners for Desktop / Web
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const s = stateRef.current;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const eng = engineRef.current;
+      if (!eng.active) return;
+
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        s.steering = -1;
+        eng.steerDir = -1;
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         e.preventDefault();
-        s.steering = 1;
+        eng.steerDir = 1;
       } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
         e.preventDefault();
-        s.accelerating = true;
+        eng.isThrottle = true;
       } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
         e.preventDefault();
-        s.braking = true;
-      } else if (e.key === ' ' || e.code === 'Space') {
+        eng.isBrake = true;
+      } else if (e.key === ' ' || e.code === 'Space' || e.key === 'Shift') {
         e.preventDefault();
-        activateNitro();
+        triggerNitro();
       }
     };
 
-    const onKeyUp = (e: KeyboardEvent) => {
-      const s = stateRef.current;
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const eng = engineRef.current;
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-        if (s.steering < 0) s.steering = 0;
+        if (eng.steerDir === -1) eng.steerDir = 0;
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-        if (s.steering > 0) s.steering = 0;
+        if (eng.steerDir === 1) eng.steerDir = 0;
       } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
-        s.accelerating = false;
+        eng.isThrottle = false;
       } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
-        s.braking = false;
+        eng.isBrake = false;
       }
     };
 
     if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', onKeyDown);
-      window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
       return () => {
-        window.removeEventListener('keydown', onKeyDown);
-        window.removeEventListener('keyup', onKeyUp);
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
       };
     }
   }, []);
 
-  // Main 60 FPS Render Loop
+  // Main 60 FPS Engine Tick Loop
   useEffect(() => {
     let active = true;
 
-    const loop = () => {
+    const tick = () => {
       if (!active) return;
-      updateGamePhysics();
-      render3DHighway();
-      animFrameRef.current = requestAnimationFrame(loop);
+      stepPhysicsEngine();
+      renderHighwayScene();
+      animFrameRef.current = requestAnimationFrame(tick);
     };
 
-    animFrameRef.current = requestAnimationFrame(loop);
+    animFrameRef.current = requestAnimationFrame(tick);
 
     return () => {
       active = false;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      soundManager.stopEngineLoop();
     };
   }, [canvasW, canvasH]);
 
-  const activateNitro = () => {
-    const s = stateRef.current;
-    if (!s.running || s.countdownActive || s.raceFinished || s.nitro < 15) return;
+  // Nitro Trigger
+  const triggerNitro = () => {
+    const eng = engineRef.current;
+    if (!eng.active || eng.countingDown || eng.raceOver || eng.nitro < 15 || eng.isNitro) return;
+    eng.isNitro = true;
     soundManager.playNitro();
-    s.isNitro = true;
     setTimeout(() => {
-      s.isNitro = false;
-    }, 2400);
+      eng.isNitro = false;
+    }, 3200);
   };
 
-  // Launch a Level Race with 3-2-1 Countdown & Grid Rivals
-  const startCircuitRace = (lvlNum: number = currentLevel) => {
-    const cfg = CAMPAIGN_CIRCUITS.find((c) => c.level === lvlNum) || CAMPAIGN_CIRCUITS[0];
-    setCurrentLevel(lvlNum);
+  // Launch Race With 5-Light Formula 1 Gantry Sequence
+  const launchRace = (lvl: number = currentLevel) => {
+    const cfg = CAMPAIGN_CIRCUITS.find((c) => c.level === lvl) || CAMPAIGN_CIRCUITS[0];
+    setCurrentLevel(lvl);
 
-    const s = stateRef.current;
-    s.config = cfg;
-    s.levelNum = lvlNum;
-    s.playerDist = 0;
-    s.playerX = 0;
-    s.playerSpeed = 0;
-    s.maxPlayerSpeed = cfg.baseRivalSpeed + 45;
-    s.nitro = 100;
-    s.isNitro = false;
-    s.steering = 0;
-    s.accelerating = true;
-    s.braking = false;
-    s.gear = 1;
-    s.curve = 0;
-    s.targetCurve = 0;
-    s.roadRoll = 0;
-    s.screenShake = 0;
-    s.particles = [];
-    s.raceFinished = false;
-    s.countdown = 3;
-    s.countdownActive = true;
-    s.running = true;
+    const eng = engineRef.current;
+    eng.cfg = cfg;
+    eng.levelNumber = lvl;
+    eng.playerDist = 0;
+    eng.playerX = 0;
+    eng.playerSpeed = 0;
+    eng.playerRoll = 0;
+    eng.steerDir = 0;
+    eng.isThrottle = false;
+    eng.isBrake = false;
+    eng.isNitro = false;
+    eng.nitro = 100;
+    eng.gear = 1;
+    eng.rpm = 1000;
+    eng.drafting = false;
+    eng.curve = 0;
+    eng.targetCurve = 0;
+    eng.roadScroll = 0;
+    eng.screenShake = 0;
+    eng.particles = [];
+    eng.raceOver = false;
+    eng.countingDown = true;
+    eng.active = true;
 
-    // Generate Competitor Rivals on Starting Grid
-    const rivalNames = [
-      'Ghost Viper',
-      'Phantom GTR',
-      'Cyber Mustang',
-      'Apex Falcon',
-      'Shadow 911',
-      'Red Devil',
-      'Vortex Turbo',
-      'Boss Dreadnought',
+    // Build Distinctive Competitor Grid
+    const rivalDrivers = [
+      { name: 'Phantom GTR', color: '#00e5ff', accent: '#ffffff' },
+      { name: 'Venom Viper', color: '#ffaa00', accent: '#111111' },
+      { name: 'Ghost 911', color: '#ffffff', accent: '#ff0055' },
+      { name: 'Apex Demon', color: '#00ff66', accent: '#041209' },
+      { name: 'Red Fury', color: '#ff1744', accent: '#ffd700' },
+      { name: 'Shadow GT', color: '#bd00ff', accent: '#00f0ff' },
+      { name: 'Turbo Raptor', color: '#ffd700', accent: '#1a102b' },
+      { name: 'Cyber Chiron', color: '#0088ff', accent: '#ffffff' },
     ];
-    const rivalColors = ['#00e5ff', '#ffaa00', '#00ff66', '#a020f0', '#ffffff', '#ff0055', '#ffff00', '#ff3300'];
-    const rivalModels: Array<'viper' | 'phantom' | 'coupe' | 'f1'> = ['viper', 'phantom', 'coupe', 'f1'];
 
-    const rivals: RivalRacer[] = [];
+    const competitors: CompetitorRacer[] = [];
     for (let i = 0; i < cfg.rivalsCount; i++) {
-      // Spread rivals on starting grid
-      const gridRow = Math.floor(i / 2) + 1;
-      const gridLane = (i % 2 === 0) ? -0.45 : 0.45;
-      rivals.push({
+      const driver = rivalDrivers[i % rivalDrivers.length];
+      const gridRow = Math.floor(i / 2) + 1; // 1, 2, 3...
+      const gridSide = (i % 2 === 0) ? -0.42 : 0.42;
+
+      competitors.push({
         id: i + 1,
-        name: rivalNames[i % rivalNames.length],
-        dist: Math.max(0, 15 - gridRow * 8), // slightly ahead on grid
-        x: gridLane,
+        name: driver.name,
+        color: driver.color,
+        accentColor: driver.accent,
+        dist: Math.max(0, 16 - gridRow * 7), // Starting grid line staggered ahead
+        x: gridSide,
         speed: 0,
-        maxSpeed: cfg.baseRivalSpeed + (Math.random() - 0.5) * 20,
-        color: rivalColors[i % rivalColors.length],
-        model: rivalModels[i % rivalModels.length],
+        maxSpeed: cfg.baseAIspeed + (Math.random() - 0.45) * 18,
+        accel: 2.2 + Math.random() * 0.8,
+        steerDir: 0,
         finished: false,
       });
     }
-    s.rivals = rivals;
+    eng.competitors = competitors;
+
+    // Generate Roadside Scenery Objects (Poles, Palms, Billboards)
+    const scenery: RoadsideObject[] = [];
+    const totalDist = cfg.distMeters + 150;
+    for (let d = 20; d < totalDist; d += 28) {
+      scenery.push({
+        dist: d,
+        side: -1,
+        type: cfg.envType === 'sunsetCoast' ? 'palm' : 'lamp',
+      });
+      scenery.push({
+        dist: d,
+        side: 1,
+        type: cfg.envType === 'sunsetCoast' ? 'palm' : 'lamp',
+      });
+    }
+
+    // Billboards every 75 meters
+    for (let b = 60; b < totalDist - 80; b += 75) {
+      scenery.push({
+        dist: b,
+        side: Math.random() > 0.5 ? 1 : -1,
+        type: 'billboard',
+        label: b > totalDist - 150 ? 'FINISH SPRINT' : 'APEX GP 2077',
+      });
+    }
+    eng.roadsideObjects = scenery;
 
     setHudSpeed(0);
+    setHudRPM(1000);
     setHudDist(0);
     setHudNitro(100);
-    setHudPosition(cfg.rivalsCount + 1); // Start at back of grid
-    setHudTotalRacers(cfg.rivalsCount + 1);
+    setHudRank(cfg.rivalsCount + 1);
+    setHudTotalCars(cfg.rivalsCount + 1);
     setHudGear(1);
-    setPodiumModalVisible(false);
-    setCrashedModalVisible(false);
-    setLevelModalOpen(false);
+    setIsDrafting(false);
+    setPodiumOpen(false);
+    setCircuitModalOpen(false);
     setRaceActive(true);
 
-    // Realistic Countdown 3... 2... 1... GO!
-    setCountdownText('3');
-    soundManager.playCountdownBeep(false);
+    // Start 5-Light Formula 1 Gantry Sequence
+    soundManager.startEngineLoop();
+    setGantryLights(0);
 
-    setTimeout(() => {
-      setCountdownText('2');
-      soundManager.playCountdownBeep(false);
-    }, 900);
+    // Sequence: 1, 2, 3, 4, 5 Red Lights then GREEN
+    const lightTimes = [500, 1100, 1700, 2300, 2900];
+    lightTimes.forEach((delay, idx) => {
+      setTimeout(() => {
+        setGantryLights(idx + 1);
+        soundManager.playCountdownBeep(false);
+      }, delay);
+    });
 
+    // Lights out & GO!
     setTimeout(() => {
-      setCountdownText('1');
-      soundManager.playCountdownBeep(false);
-    }, 1800);
-
-    setTimeout(() => {
-      setCountdownText('GO!');
+      setGantryLights(6); // 6 = ALL GREEN / GO!
       soundManager.playCountdownBeep(true);
-      s.countdownActive = false;
-      s.raceStartTime = Date.now();
-      setTimeout(() => setCountdownText(null), 800);
-    }, 2700);
+      eng.countingDown = false;
+      eng.startTime = Date.now();
+      eng.isThrottle = true; // Auto launch throttle for smooth experience
+
+      // Clear gantry overlay after 900ms
+      setTimeout(() => {
+        setGantryLights(-1);
+      }, 900);
+    }, 3600);
   };
 
-  const updateGamePhysics = () => {
-    const s = stateRef.current;
-    if (!s.running || s.countdownActive) return;
+  // 60 FPS Physics Step
+  const stepPhysicsEngine = () => {
+    const eng = engineRef.current;
+    if (!eng.active) return;
 
-    // 1. Acceleration & Gearbox Physics
-    const targetMax = s.isNitro ? s.maxPlayerSpeed + 80 : s.maxPlayerSpeed;
+    if (eng.countingDown) {
+      // Idle engine sound at starting line
+      soundManager.setEngineRPM(0.12);
+      return;
+    }
 
-    if (s.isNitro) {
-      s.playerSpeed = Math.min(targetMax, s.playerSpeed + 5.2);
-      s.nitro = Math.max(0, s.nitro - 0.8);
-      if (s.nitro <= 0) s.isNitro = false;
+    // 1. Player Acceleration & Top Speed Dynamics
+    let targetSpeed = eng.isThrottle ? eng.cfg.baseAIspeed + 30 : 0;
+    if (eng.isNitro) targetSpeed += 75;
+    if (eng.drafting) targetSpeed += 25;
 
-      // Nitro exhaust flame particles
-      for (let i = 0; i < 3; i++) {
-        s.particles.push({
-          x: s.playerX,
-          y: 0.88,
-          vx: (Math.random() - 0.5) * 0.04,
-          vy: 0.05 + Math.random() * 0.04,
-          size: 6 + Math.random() * 7,
-          color: Math.random() > 0.5 ? '#00f0ff' : '#ff007f',
-          alpha: 1,
-        });
-      }
-    } else if (s.braking) {
-      s.playerSpeed = Math.max(0, s.playerSpeed - 4.5);
-    } else {
-      // Accelerating
-      if (s.playerSpeed < targetMax) {
-        s.playerSpeed = Math.min(targetMax, s.playerSpeed + 1.8);
+    if (eng.isNitro) {
+      eng.playerSpeed = Math.min(targetSpeed, eng.playerSpeed + 3.2);
+      eng.nitro = Math.max(0, eng.nitro - 0.55);
+      if (eng.nitro <= 0) eng.isNitro = false;
+
+      // Nitro exhaust particle blast
+      eng.particles.push({
+        x: eng.playerX + (Math.random() - 0.5) * 0.04,
+        y: 0.90,
+        vx: (Math.random() - 0.5) * 0.03,
+        vy: 0.05 + Math.random() * 0.04,
+        size: 7 + Math.random() * 7,
+        color: Math.random() > 0.5 ? '#00f0ff' : '#ff0055',
+        alpha: 1,
+        life: 14,
+      });
+    } else if (eng.isBrake) {
+      eng.playerSpeed = Math.max(0, eng.playerSpeed - 4.5);
+    } else if (eng.isThrottle) {
+      if (eng.playerSpeed < targetSpeed) {
+        eng.playerSpeed = Math.min(targetSpeed, eng.playerSpeed + 1.25);
       } else {
-        s.playerSpeed = Math.max(targetMax, s.playerSpeed - 1.2);
+        eng.playerSpeed = Math.max(targetSpeed, eng.playerSpeed - 0.8);
       }
-      s.nitro = Math.min(100, s.nitro + 0.07);
+      eng.nitro = Math.min(100, eng.nitro + 0.06);
+    } else {
+      // Natural engine friction coasting
+      eng.playerSpeed = Math.max(0, eng.playerSpeed - 1.2);
     }
 
-    // Dynamic Gear determination (1 to 6)
-    const spd = s.playerSpeed;
-    s.gear = spd < 50 ? 1 : spd < 100 ? 2 : spd < 155 ? 3 : spd < 210 ? 4 : spd < 270 ? 5 : 6;
+    // 2. Realistic Distance Increment: (km/h / 3.6) / 60 = meters/frame
+    // At 180 km/h: 50 m/s / 60 = ~0.83 meters per frame. 300m takes ~14-16s!
+    const metersDelta = (eng.playerSpeed / 3.6) / 60;
+    eng.playerDist += metersDelta;
+    eng.roadScroll = (eng.roadScroll + eng.playerSpeed * 0.04) % 1000;
 
-    // 2. Steering & Track Bounds
-    if (s.steering !== 0) {
-      const turnPower = 0.025 * (s.playerSpeed / 130);
-      s.playerX += s.steering * turnPower;
+    // 3. Realistic Gear Shifting & RPM calculation
+    const currentSpeed = eng.playerSpeed;
+    let gear = 1;
+    let rpmNorm = 0.2;
+    if (currentSpeed < 45) {
+      gear = 1;
+      rpmNorm = currentSpeed / 45;
+    } else if (currentSpeed < 90) {
+      gear = 2;
+      rpmNorm = (currentSpeed - 45) / 45;
+    } else if (currentSpeed < 145) {
+      gear = 3;
+      rpmNorm = (currentSpeed - 90) / 55;
+    } else if (currentSpeed < 205) {
+      gear = 4;
+      rpmNorm = (currentSpeed - 145) / 60;
+    } else if (currentSpeed < 265) {
+      gear = 5;
+      rpmNorm = (currentSpeed - 205) / 60;
+    } else {
+      gear = 6;
+      rpmNorm = Math.min(1, (currentSpeed - 265) / 75);
+    }
 
-      // Tire smoke when drifting at high speed
-      if (s.playerSpeed > 150 && Math.random() < 0.35) {
-        s.particles.push({
-          x: s.playerX + (s.steering > 0 ? -0.06 : 0.06),
-          y: 0.86,
+    if (gear !== eng.gear && eng.playerSpeed > 30) {
+      soundManager.playGearShift();
+    }
+    eng.gear = gear;
+    eng.rpm = Math.round(1500 + rpmNorm * 6500);
+    soundManager.setEngineRPM(rpmNorm);
+
+    // 4. Steering & Cornering Grip
+    if (eng.steerDir !== 0) {
+      const steerAgility = 0.024 * (Math.min(180, eng.playerSpeed) / 100);
+      eng.playerX += eng.steerDir * steerAgility;
+      eng.playerRoll = Math.max(-0.18, Math.min(0.18, eng.playerRoll + eng.steerDir * 0.035));
+
+      // Tire smoke particles during sharp high-speed cornering
+      if (eng.playerSpeed > 130 && Math.random() < 0.4) {
+        eng.particles.push({
+          x: eng.playerX + (eng.steerDir > 0 ? -0.09 : 0.09),
+          y: 0.88,
           vx: (Math.random() - 0.5) * 0.02,
-          vy: 0.03,
-          size: 4 + Math.random() * 6,
-          color: 'rgba(255,255,255,0.4)',
-          alpha: 0.6,
+          vy: 0.02,
+          size: 5 + Math.random() * 6,
+          color: 'rgba(255,255,255,0.45)',
+          alpha: 0.7,
+          life: 12,
         });
       }
+    } else {
+      // Auto-center chassis roll
+      eng.playerRoll *= 0.75;
     }
 
-    // Road Bounds (Grass / Curb deceleration)
-    if (Math.abs(s.playerX) > 0.85) {
-      s.playerSpeed = Math.max(50, s.playerSpeed - 3.2);
-      s.screenShake = 3.5;
+    // Off-road Grass / Curb friction penalty
+    if (Math.abs(eng.playerX) > 0.88) {
+      eng.playerSpeed = Math.max(35, eng.playerSpeed - 3.2);
+      eng.screenShake = 4;
     }
-    s.playerX = Math.max(-0.95, Math.min(0.95, s.playerX));
+    eng.playerX = Math.max(-0.96, Math.min(0.96, eng.playerX));
 
-    // 3. Distance & Curve
-    const metersDelta = s.playerSpeed * 0.038;
-    s.playerDist += metersDelta;
-    s.roadRoll = (s.roadRoll + s.playerSpeed * 0.08) % 1000;
-
-    // Dynamic track curving
+    // Dynamic Road Curve Physics
     if (Math.random() < 0.02) {
-      s.targetCurve = (Math.random() - 0.5) * 1.5;
+      eng.targetCurve = (Math.random() - 0.5) * 1.6;
     }
-    s.curve += (s.targetCurve - s.curve) * 0.03;
+    eng.curve += (eng.targetCurve - eng.curve) * 0.025;
 
-    // 4. Competitor Rivals AI Physics
-    for (let r of s.rivals) {
-      if (!r.finished) {
-        // AI accelerates toward max speed
-        if (r.speed < r.maxSpeed) {
-          r.speed = Math.min(r.maxSpeed, r.speed + 1.2 + Math.random() * 0.6);
-        }
-        r.dist += r.speed * 0.038;
+    // 5. Competitor AI Dynamics & Grid Racing
+    let draftingFound = false;
 
-        // Slight AI lateral lane drifting
-        if (Math.random() < 0.02) {
-          r.x = Math.max(-0.75, Math.min(0.75, r.x + (Math.random() - 0.5) * 0.2));
+    for (let c of eng.competitors) {
+      if (!c.finished) {
+        // Accelerate off starting grid
+        if (c.speed < c.maxSpeed) {
+          c.speed = Math.min(c.maxSpeed, c.speed + c.accel * (0.8 + Math.random() * 0.4));
         }
 
-        // Check if rival crossed finish line
-        if (r.dist >= s.config.distMeters) {
-          r.finished = true;
-          r.finishTime = Date.now() - s.raceStartTime;
+        const aiMetersDelta = (c.speed / 3.6) / 60;
+        c.dist += aiMetersDelta;
+
+        // AI Lane shifting & overtaking logic
+        if (Math.random() < 0.025) {
+          c.steerDir = (Math.random() - 0.5) * 0.35;
+        }
+        c.x = Math.max(-0.82, Math.min(0.82, c.x + c.steerDir * 0.015));
+
+        // Check if player is drafting behind this competitor (within 22m and same lane)
+        const relDist = c.dist - eng.playerDist;
+        if (relDist > 3 && relDist < 25 && Math.abs(c.x - eng.playerX) < 0.28) {
+          draftingFound = true;
+        }
+
+        // AI Finish line check
+        if (c.dist >= eng.cfg.distMeters) {
+          c.finished = true;
+          const secs = (Date.now() - eng.startTime) / 1000;
+          c.finishTimeSec = secs;
+          c.finishTimeStr = `${secs.toFixed(2)}s`;
         }
       }
     }
 
-    // 5. Live Rank / Standings Calculation
+    // Drafting state update
+    if (draftingFound && !eng.drafting) {
+      soundManager.playDraftingWhoosh();
+    }
+    eng.drafting = draftingFound;
+    setIsDrafting(draftingFound);
+
+    // 6. Live Position / Rank Standings
     const allRacers = [
-      { id: 0, name: 'PLAYER (YOU)', dist: s.playerDist, isPlayer: true },
-      ...s.rivals.map((r) => ({ id: r.id, name: r.name, dist: r.dist, isPlayer: false })),
+      { id: 0, name: 'YOU (PLAYER)', dist: eng.playerDist, isPlayer: true },
+      ...eng.competitors.map((c) => ({ id: c.id, name: c.name, dist: c.dist, isPlayer: false })),
     ];
     allRacers.sort((a, b) => b.dist - a.dist);
     const playerRank = allRacers.findIndex((r) => r.isPlayer) + 1;
 
-    // 6. Check Player Finish Line
-    if (s.playerDist >= s.config.distMeters && !s.raceFinished) {
-      s.raceFinished = true;
-      s.running = false;
+    // 7. Finish Line Check For Player
+    if (eng.playerDist >= eng.cfg.distMeters && !eng.raceOver) {
+      eng.raceOver = true;
+      eng.active = false;
+      soundManager.stopEngineLoop();
       soundManager.playVictoryFanfare();
 
-      // Final rankings table
-      const sortedRivals = [
+      const playerSecs = (Date.now() - eng.startTime) / 1000;
+
+      // Build Complete Official Standings Table
+      const finalRoster: CompetitorRacer[] = [
         {
           id: 0,
           name: 'YOU (PLAYER)',
-          dist: s.playerDist,
-          speed: s.playerSpeed,
-          maxSpeed: s.maxPlayerSpeed,
-          x: s.playerX,
           color: '#ff0055',
-          model: 'viper' as const,
+          accentColor: '#ffffff',
+          dist: eng.playerDist,
+          x: eng.playerX,
+          speed: eng.playerSpeed,
+          maxSpeed: eng.playerSpeed,
+          accel: 0,
+          steerDir: 0,
           finished: true,
-          finishRank: playerRank,
+          finishTimeSec: playerSecs,
+          finishTimeStr: `${playerSecs.toFixed(2)}s`,
         },
-        ...s.rivals,
-      ].sort((a, b) => b.dist - a.dist);
+        ...eng.competitors.map((c) => {
+          if (!c.finished) {
+            // Estimate finish time based on current speed
+            const rem = Math.max(0, eng.cfg.distMeters - c.dist);
+            const addSec = rem / Math.max(20, c.speed / 3.6);
+            const est = playerSecs + addSec;
+            return {
+              ...c,
+              finished: true,
+              finishTimeSec: est,
+              finishTimeStr: `+${(est - playerSecs).toFixed(2)}s`,
+            };
+          } else {
+            const diff = (c.finishTimeSec || playerSecs) - playerSecs;
+            return {
+              ...c,
+              finishTimeStr: diff > 0 ? `+${diff.toFixed(2)}s` : `${(c.finishTimeSec || playerSecs).toFixed(2)}s`,
+            };
+          }
+        }),
+      ];
 
-      setFinalRankings(sortedRivals);
-      setPodiumModalVisible(true);
+      // Sort by actual arrival time (or distance if tied)
+      finalRoster.sort((a, b) => (a.finishTimeSec || 999) - (b.finishTimeSec || 999));
+      finalRoster.forEach((r, idx) => {
+        r.rank = idx + 1;
+      });
+
+      setPodiumList(finalRoster);
+      setPodiumOpen(true);
       setRaceActive(false);
 
-      // Qualify and unlock next level if finished in top 3!
-      if (playerRank <= 3 && s.levelNum < 10) {
-        const nextLvl = s.levelNum + 1;
+      // Unlock next level if finished in top 3
+      const finalRank = finalRoster.findIndex((r) => r.name.includes('YOU')) + 1;
+      if (finalRank <= 3 && eng.levelNumber < 10) {
+        const nextLvl = eng.levelNumber + 1;
         if (!unlockedLevels.includes(nextLvl)) {
           const updated = [...unlockedLevels, nextLvl];
           setUnlockedLevels(updated);
-          saveUnlockedProgress(updated);
+          persistUnlockProgress(updated);
         }
       }
-      return;
     }
 
-    // 7. Update Particles
-    const activeParticles: Particle[] = [];
-    for (let pt of s.particles) {
-      pt.y += pt.vy;
-      pt.x += pt.vx;
-      pt.alpha -= 0.038;
-      if (pt.alpha > 0) activeParticles.push(pt);
+    // Step particle life
+    for (let i = eng.particles.length - 1; i >= 0; i--) {
+      const p = eng.particles[i];
+      p.life--;
+      p.alpha = Math.max(0, p.life / 14);
+      p.size *= 1.04;
+      p.y -= p.vy;
+      p.x += p.vx;
+      if (p.life <= 0) eng.particles.splice(i, 1);
     }
-    s.particles = activeParticles;
 
-    // 8. Update HUD Throttled
-    if (Math.random() < 0.28) {
-      setHudSpeed(Math.round(s.playerSpeed));
-      setHudDist(Math.round(s.playerDist));
-      setHudNitro(Math.round(s.nitro));
-      setHudPosition(playerRank);
-      setHudGear(s.gear);
-    }
+    // Sync Telemetry with React HUD (Throttled update)
+    setHudSpeed(Math.round(eng.playerSpeed));
+    setHudRPM(eng.rpm);
+    setHudDist(Math.round(eng.playerDist));
+    setHudNitro(Math.round(eng.nitro));
+    setHudRank(playerRank);
+    setHudGear(eng.gear);
   };
 
-  // 3D Perspective Road Rendering Engine
-  const render3DHighway = () => {
+  // High-Definition Pseudo-3D Canvas Scene Renderer
+  const renderHighwayScene = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const s = stateRef.current;
+    const eng = engineRef.current;
     const w = canvasW;
     const h = canvasH;
 
     ctx.save();
-    if (s.screenShake > 0) {
-      const shakeX = (Math.random() - 0.5) * s.screenShake;
-      const shakeY = (Math.random() - 0.5) * s.screenShake;
-      ctx.translate(shakeX, shakeY);
-      s.screenShake *= 0.88;
+    // Screen shake on nitro or rough off-road driving
+    if (eng.screenShake > 0) {
+      const sx = (Math.random() - 0.5) * eng.screenShake;
+      const sy = (Math.random() - 0.5) * eng.screenShake;
+      ctx.translate(sx, sy);
+      eng.screenShake *= 0.85;
     }
 
     // 1. SKY & HORIZON
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.44);
-    skyGrad.addColorStop(0, s.config.skyColors[0]);
-    skyGrad.addColorStop(1, s.config.skyColors[1]);
+    const horizonY = h * 0.44;
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+    skyGrad.addColorStop(0, eng.cfg.skyTop);
+    skyGrad.addColorStop(1, eng.cfg.skyBottom);
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, w, h * 0.44);
+    ctx.fillRect(0, 0, w, horizonY);
 
-    // Parallax Mountain Silhouettes
-    const horizonY = h * 0.42;
-    ctx.fillStyle = '#070a1a';
+    // Parallax Skyline / Mountains that pan with track curvature
+    const panOffset = eng.curve * 40;
+
+    // Distant mountain ridge
+    ctx.fillStyle = 'rgba(5, 8, 20, 0.85)';
     ctx.beginPath();
     ctx.moveTo(0, horizonY);
-    for (let i = 0; i <= w; i += 40) {
-      const mH = 25 + Math.sin(i * 0.03 + s.levelNum) * 20;
-      ctx.lineTo(i, horizonY - mH);
+    for (let x = 0; x <= w; x += 30) {
+      const my = horizonY - 18 - Math.sin((x + panOffset * 0.4) * 0.025 + eng.levelNumber) * 22;
+      ctx.lineTo(x, my);
     }
     ctx.lineTo(w, horizonY);
     ctx.closePath();
     ctx.fill();
 
-    // Cyberpunk Skyline Buildings
-    const bldCount = 12;
-    const bldW = w / bldCount;
-    ctx.fillStyle = '#040714';
-    for (let i = 0; i < bldCount; i++) {
-      const bH = 20 + Math.sin(i * 1.8 + s.levelNum) * 30 + 15;
-      const bx = i * bldW;
-      ctx.fillRect(bx, horizonY - bH, bldW + 1, bH + 2);
+    // Cyber Skyline Skyscrapers
+    const towerCount = 14;
+    const towerW = w / towerCount;
+    for (let i = 0; i < towerCount; i++) {
+      const bx = i * towerW + (panOffset * 0.7 % towerW);
+      const th = 25 + Math.sin(i * 1.7 + eng.levelNumber) * 35 + 20;
+      ctx.fillStyle = '#060914';
+      ctx.fillRect(bx, horizonY - th, towerW + 1, th + 2);
 
       // Glowing Neon Windows
-      ctx.fillStyle = (i % 2 === 0) ? s.config.stripeColor : '#ff0055';
+      ctx.fillStyle = (i % 2 === 0) ? eng.cfg.stripeColor : '#ff0055';
       ctx.globalAlpha = 0.5;
-      ctx.fillRect(bx + 4, horizonY - bH + 6, bldW - 8, 3);
-      ctx.fillRect(bx + 4, horizonY - bH + 16, bldW - 8, 3);
+      ctx.fillRect(bx + 4, horizonY - th + 6, towerW - 8, 3);
+      ctx.fillRect(bx + 4, horizonY - th + 18, towerW - 8, 3);
       ctx.globalAlpha = 1.0;
-      ctx.fillStyle = '#040714';
     }
 
-    // Glowing Horizon Sun
-    const sunGrad = ctx.createRadialGradient(w / 2, horizonY - 15, 6, w / 2, horizonY - 15, 75);
-    sunGrad.addColorStop(0, s.config.stripeColor);
-    sunGrad.addColorStop(0.5, 'rgba(255, 0, 85, 0.4)');
+    // Horizon Sun / Moon
+    const sunGrad = ctx.createRadialGradient(w / 2 + panOffset * 0.5, horizonY - 10, 4, w / 2 + panOffset * 0.5, horizonY - 10, 80);
+    sunGrad.addColorStop(0, eng.cfg.stripeColor);
+    sunGrad.addColorStop(0.4, 'rgba(255, 0, 85, 0.45)');
     sunGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = sunGrad;
     ctx.beginPath();
-    ctx.arc(w / 2, horizonY - 15, 75, 0, Math.PI * 2);
+    ctx.arc(w / 2 + panOffset * 0.5, horizonY - 10, 80, 0, Math.PI * 2);
     ctx.fill();
 
     // 2. 3D ROAD PROJECTION
     const roadTopY = horizonY;
     const roadBottomY = h;
-    const roadTopW = w * 0.22;
-    const roadBottomW = w * 0.94;
-    const centerX = w / 2 + s.curve * 32;
+    const roadTopW = w * 0.18;
+    const roadBottomW = w * 0.96;
+    const roadCenterX = w / 2 + eng.curve * 38;
 
-    // Road Surface
+    // Roadbed Base Polygon
     ctx.beginPath();
-    ctx.moveTo(centerX - roadTopW / 2, roadTopY);
-    ctx.lineTo(centerX + roadTopW / 2, roadTopY);
+    ctx.moveTo(roadCenterX - roadTopW / 2, roadTopY);
+    ctx.lineTo(roadCenterX + roadTopW / 2, roadTopY);
     ctx.lineTo(w / 2 + roadBottomW / 2, roadBottomY);
     ctx.lineTo(w / 2 - roadBottomW / 2, roadBottomY);
     ctx.closePath();
-    ctx.fillStyle = s.config.roadColor;
+    ctx.fillStyle = eng.cfg.roadColor;
     ctx.fill();
 
-    // Road Segments (Striped Curbs & Lane Markings)
-    const segments = 24;
-    for (let i = 0; i < segments; i++) {
-      const p1 = i / segments;
-      const p2 = (i + 1) / segments;
+    // Road Segments with Alternating Red/White Curbs & Lane Markings
+    const numSegments = 28;
+    for (let i = 0; i < numSegments; i++) {
+      const p1 = i / numSegments;
+      const p2 = (i + 1) / numSegments;
 
       const y1 = roadTopY + Math.pow(p1, 2) * (roadBottomY - roadTopY);
       const y2 = roadTopY + Math.pow(p2, 2) * (roadBottomY - roadTopY);
@@ -573,16 +736,16 @@ export default function NeonRacing({ navigation }: any) {
       const rw1 = roadTopW + Math.pow(p1, 2) * (roadBottomW - roadTopW);
       const rw2 = roadTopW + Math.pow(p2, 2) * (roadBottomW - roadTopW);
 
-      const cx1 = (centerX) * (1 - p1) + (w / 2) * p1;
-      const cx2 = (centerX) * (1 - p2) + (w / 2) * p2;
+      const cx1 = (roadCenterX) * (1 - p1) + (w / 2) * p1;
+      const cx2 = (roadCenterX) * (1 - p2) + (w / 2) * p2;
 
-      const curbW1 = rw1 * 0.085;
-      const curbW2 = rw2 * 0.085;
+      // Color toggle based on road scrolling
+      const isAlt = Math.floor((i + eng.roadScroll * 0.12) % 2) === 0;
 
-      const stripePhase = Math.floor((p1 * 12 + s.roadRoll * 0.02) % 2);
-      ctx.fillStyle = stripePhase === 0 ? s.config.curbColor1 : s.config.curbColor2;
-
-      // Left curb
+      // Left 3D Curb
+      const curbW1 = rw1 * 0.08;
+      const curbW2 = rw2 * 0.08;
+      ctx.fillStyle = isAlt ? eng.cfg.curb1 : eng.cfg.curb2;
       ctx.beginPath();
       ctx.moveTo(cx1 - rw1 / 2, y1);
       ctx.lineTo(cx1 - rw1 / 2 - curbW1, y1);
@@ -591,7 +754,7 @@ export default function NeonRacing({ navigation }: any) {
       ctx.closePath();
       ctx.fill();
 
-      // Right curb
+      // Right 3D Curb
       ctx.beginPath();
       ctx.moveTo(cx1 + rw1 / 2, y1);
       ctx.lineTo(cx1 + rw1 / 2 + curbW1, y1);
@@ -600,118 +763,244 @@ export default function NeonRacing({ navigation }: any) {
       ctx.closePath();
       ctx.fill();
 
-      // Dashed lane lines
-      if (stripePhase === 0) {
-        ctx.fillStyle = s.config.stripeColor;
-        ctx.shadowColor = s.config.stripeColor;
-        ctx.shadowBlur = 6;
+      // Dashed Center Lanes (3-Lane Highway)
+      if (isAlt) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        // Left divider
+        const divX1 = cx1 - rw1 * 0.16;
+        const divX2 = cx2 - rw2 * 0.16;
+        const lineW = Math.max(2, rw2 * 0.018);
+        ctx.fillRect(divX1 - lineW / 2, y1, lineW, Math.max(2, y2 - y1));
 
-        [-0.5, 0, 0.5].forEach((divOffset) => {
-          const lx1 = cx1 + (rw1 / 2) * divOffset;
-          const lx2 = cx2 + (rw2 / 2) * divOffset;
-          const lw = Math.max(1.5, p1 * 5);
-
-          ctx.beginPath();
-          ctx.moveTo(lx1 - lw / 2, y1);
-          ctx.lineTo(lx1 + lw / 2, y1);
-          ctx.lineTo(lx2 + lw / 2, y2);
-          ctx.lineTo(lx2 - lw / 2, y2);
-          ctx.closePath();
-          ctx.fill();
-        });
-        ctx.shadowBlur = 0;
+        // Right divider
+        const divX1R = cx1 + rw1 * 0.16;
+        const divX2R = cx2 + rw2 * 0.16;
+        ctx.fillRect(divX1R - lineW / 2, y1, lineW, Math.max(2, y2 - y1));
       }
     }
 
-    // 3. 3D CHECKERED FINISH LINE OVERHEAD BANNER
-    const finishDistRemaining = s.config.distMeters - s.playerDist;
-    if (finishDistRemaining >= 0 && finishDistRemaining <= 180) {
-      const finishRatio = 1 - (finishDistRemaining / 180);
-      const fy = roadTopY + Math.pow(finishRatio, 2) * (roadBottomY - roadTopY);
-      const frw = roadTopW + Math.pow(finishRatio, 2) * (roadBottomW - roadTopW);
-      const fcx = (centerX) * (1 - finishRatio) + (w / 2) * finishRatio;
+    // 3. STARTING GRID BOXES (Visible on first 40 meters)
+    if (eng.playerDist < 45) {
+      for (let g = 0; g < 4; g++) {
+        const gridDist = 12 + g * 8;
+        const rel = gridDist - eng.playerDist;
+        if (rel > 0 && rel < 90) {
+          const ratio = 1 - (rel / 90);
+          const gy = roadTopY + Math.pow(ratio, 2) * (roadBottomY - roadTopY);
+          const grw = roadTopW + Math.pow(ratio, 2) * (roadBottomW - roadTopW);
+          const gcx = (roadCenterX) * (1 - ratio) + (w / 2) * ratio;
 
-      // Finish Banner Arch Across Track
-      const archH = 45 * (0.3 + finishRatio * 0.9);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = Math.max(1, 3 * ratio);
+          ctx.strokeRect(gcx - grw * 0.35, gy - 4 * ratio, grw * 0.7, 8 * ratio);
+        }
+      }
+    }
+
+    // 4. OVERHEAD 3D CHECKERED FINISH LINE ARCH GANTRY
+    const finishRem = eng.cfg.distMeters - eng.playerDist;
+    if (finishRem >= -15 && finishRem <= 160) {
+      const fRatio = Math.max(0, Math.min(1, 1 - (finishRem / 160)));
+      const fy = roadTopY + Math.pow(fRatio, 2) * (roadBottomY - roadTopY);
+      const frw = roadTopW + Math.pow(fRatio, 2) * (roadBottomW - roadTopW);
+      const fcx = (roadCenterX) * (1 - fRatio) + (w / 2) * fRatio;
+      const archH = 55 * (0.35 + fRatio * 0.85);
+
       ctx.save();
-      ctx.fillStyle = '#0a0d1f';
+      // Left and Right Gantry Support Pillars
+      ctx.fillStyle = '#111726';
       ctx.strokeStyle = '#ffd700';
-      ctx.lineWidth = 3;
-      ctx.shadowColor = '#ffd700';
-      ctx.shadowBlur = 15;
-      ctx.strokeRect(fcx - frw / 2, fy - archH, frw, 22 * (0.3 + finishRatio * 0.8));
-      ctx.fillRect(fcx - frw / 2, fy - archH, frw, 22 * (0.3 + finishRatio * 0.8));
+      ctx.lineWidth = 2;
+      ctx.fillRect(fcx - frw / 2 - 12 * fRatio, fy - archH, 12 * fRatio, archH);
+      ctx.fillRect(fcx + frw / 2, fy - archH, 12 * fRatio, archH);
+
+      // Overhead Checkered Banner Beam
+      const beamH = 26 * (0.35 + fRatio * 0.85);
+      ctx.fillStyle = '#060914';
+      ctx.fillRect(fcx - frw / 2, fy - archH, frw, beamH);
+      ctx.strokeRect(fcx - frw / 2, fy - archH, frw, beamH);
 
       // Checkered Pattern
-      const checkCols = 16;
-      const chW = frw / checkCols;
-      const chH = 11 * (0.3 + finishRatio * 0.8);
-      for (let c = 0; c < checkCols; c++) {
-        ctx.fillStyle = (c % 2 === 0) ? '#ffffff' : '#000000';
+      const numCols = 16;
+      const chW = frw / numCols;
+      const chH = beamH / 2;
+      for (let c = 0; c < numCols; c++) {
+        ctx.fillStyle = c % 2 === 0 ? '#ffffff' : '#000000';
         ctx.fillRect(fcx - frw / 2 + c * chW, fy - archH, chW, chH);
-        ctx.fillStyle = (c % 2 === 1) ? '#ffffff' : '#000000';
+        ctx.fillStyle = c % 2 === 1 ? '#ffffff' : '#000000';
         ctx.fillRect(fcx - frw / 2 + c * chW, fy - archH + chH, chW, chH);
+      }
+
+      // "FINISH LINE" Banner Text
+      if (fRatio > 0.4) {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = `bold ${Math.round(14 * fRatio)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('🏁 FINISH 🏁', fcx, fy - archH - 6);
       }
       ctx.restore();
     }
 
-    // 4. DRAW RIVAL RACERS IN 3D PERSPECTIVE
-    // Sort rivals by relative distance so farther cars draw first
-    const rivalsToDraw = s.rivals.map((r) => {
-      const relDist = r.dist - s.playerDist; // + is ahead, - is behind
-      return { ...r, relDist };
-    }).filter((r) => r.relDist > -60 && r.relDist < 250);
+    // 5. ROADSIDE 3D SCENERY (Poles, Palms, Billboards)
+    const activeScenery = eng.roadsideObjects
+      .map((obj) => ({ ...obj, rel: obj.dist - eng.playerDist }))
+      .filter((obj) => obj.rel > 0 && obj.rel < 140)
+      .sort((a, b) => b.rel - a.rel);
 
-    rivalsToDraw.sort((a, b) => b.relDist - a.relDist);
+    for (let obj of activeScenery) {
+      const sRatio = 1 - (obj.rel / 140);
+      const sy = roadTopY + Math.pow(sRatio, 2) * (roadBottomY - roadTopY);
+      const srw = roadTopW + Math.pow(sRatio, 2) * (roadBottomW - roadTopW);
+      const scx = (roadCenterX) * (1 - sRatio) + (w / 2) * sRatio;
+      const sx = scx + (srw / 2 + 18 * sRatio) * obj.side;
+      const sScale = 0.2 + sRatio * 1.1;
 
-    for (let rival of rivalsToDraw) {
-      // Perspective calculation: 0 (player) to 250m (horizon)
-      const pRatio = Math.max(0, Math.min(1, 1 - (rival.relDist / 250)));
-      const ry = roadTopY + Math.pow(pRatio, 2) * (roadBottomY - roadTopY);
-      const rrw = roadTopW + Math.pow(pRatio, 2) * (roadBottomW - roadTopW);
-      const rcx = (centerX) * (1 - pRatio) + (w / 2) * pRatio;
-      const rx = rcx + (rrw / 2) * rival.x;
-      const rScale = 0.35 + pRatio * 0.85;
-
-      drawVectorSupercar(ctx, rx, ry, rScale, rival.color, false, false, 0);
-
-      // Name & Rank Tag above rival car
       ctx.save();
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(rx - 35 * rScale, ry - 38 * rScale, 70 * rScale, 14 * rScale);
-      ctx.fillStyle = rival.color;
-      ctx.font = `bold ${Math.round(10 * rScale)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(rival.name, rx, ry - 27 * rScale);
+      if (obj.type === 'palm') {
+        // Cyber Palm Tree
+        ctx.strokeStyle = '#5a3d28';
+        ctx.lineWidth = Math.max(2, 6 * sScale);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(sx + (obj.side > 0 ? 8 : -8) * sScale, sy - 35 * sScale, sx, sy - 60 * sScale);
+        ctx.stroke();
+
+        // Palm Fronds
+        ctx.fillStyle = '#00ff66';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy - 60 * sScale, 22 * sScale, 10 * sScale, (obj.side > 0 ? 0.3 : -0.3), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (obj.type === 'billboard') {
+        // Neon Billboard
+        const bbW = 54 * sScale;
+        const bbH = 28 * sScale;
+        ctx.fillStyle = '#0a0d1a';
+        ctx.strokeStyle = eng.cfg.stripeColor;
+        ctx.lineWidth = 2 * sScale;
+        ctx.fillRect(sx - bbW / 2, sy - bbH - 20 * sScale, bbW, bbH);
+        ctx.strokeRect(sx - bbW / 2, sy - bbH - 20 * sScale, bbW, bbH);
+
+        // Billboard post
+        ctx.fillStyle = '#555';
+        ctx.fillRect(sx - 2 * sScale, sy - 20 * sScale, 4 * sScale, 20 * sScale);
+
+        // Text
+        if (sScale > 0.45) {
+          ctx.fillStyle = '#ffd700';
+          ctx.font = `bold ${Math.round(8 * sScale)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(obj.label || 'APEX GP', sx, sy - 20 * sScale - bbH / 2 + 3);
+        }
+      } else {
+        // Neon Streetlight Pole
+        ctx.strokeStyle = '#2b3652';
+        ctx.lineWidth = Math.max(1, 4 * sScale);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, sy - 55 * sScale);
+        ctx.lineTo(sx - obj.side * 18 * sScale, sy - 55 * sScale);
+        ctx.stroke();
+
+        // Glowing Lamp Head
+        ctx.fillStyle = eng.cfg.stripeColor;
+        ctx.shadowColor = eng.cfg.stripeColor;
+        ctx.shadowBlur = 12 * sScale;
+        ctx.beginPath();
+        ctx.arc(sx - obj.side * 18 * sScale, sy - 55 * sScale, 4 * sScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
       ctx.restore();
     }
 
-    // 5. DRAW PLAYER SUPERCAR (Near bottom)
-    const playerScreenY = roadBottomY - 70;
-    const playerScreenX = w / 2 + (roadBottomW / 2) * s.playerX;
-    const playerScale = 1.18;
+    // 6. DRAW COMPETITOR RACERS IN 3D REAR PERSPECTIVE
+    const rivalsSorted = eng.competitors
+      .map((r) => ({ ...r, relDist: r.dist - eng.playerDist }))
+      .filter((r) => r.relDist > -30 && r.relDist < 160)
+      .sort((a, b) => b.relDist - a.relDist);
 
-    // Forward Xenon Light Fog Beams
+    for (let rival of rivalsSorted) {
+      const pRatio = Math.max(0, Math.min(1, 1 - (rival.relDist / 160)));
+      const ry = roadTopY + Math.pow(pRatio, 2) * (roadBottomY - roadTopY);
+      const rrw = roadTopW + Math.pow(pRatio, 2) * (roadBottomW - roadTopW);
+      const rcx = (roadCenterX) * (1 - pRatio) + (w / 2) * pRatio;
+      const rx = rcx + (rrw / 2) * rival.x;
+      const rScale = 0.35 + pRatio * 0.95;
+
+      drawRealisticRearSupercar(ctx, rx, ry, rScale, rival.color, rival.accentColor, false, false, rival.steerDir);
+
+      // Driver Tag & Distance Floating Badge
+      ctx.save();
+      const tagW = 74 * rScale;
+      const tagH = 16 * rScale;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.strokeStyle = rival.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx - tagW / 2, ry - 44 * rScale, tagW, tagH);
+      ctx.fillRect(rx - tagW / 2, ry - 44 * rScale, tagW, tagH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(9 * rScale)}px sans-serif`;
+      ctx.textAlign = 'center';
+      const gapM = rival.relDist > 0 ? `+${Math.round(rival.relDist)}m` : `${Math.round(rival.relDist)}m`;
+      ctx.fillText(`${rival.name} • ${gapM}`, rx, ry - 32 * rScale);
+      ctx.restore();
+    }
+
+    // 7. DRAW PLAYER SUPERCAR (Authentic 3D Rear View)
+    const playerScreenY = roadBottomY - 75;
+    const playerScreenX = w / 2 + (roadBottomW / 2) * eng.playerX;
+    const playerScale = 1.35;
+
+    // Headlight Illuminating Beams onto Road Ahead
     ctx.save();
-    ctx.globalAlpha = 0.22;
-    const beamGrad = ctx.createLinearGradient(playerScreenX, playerScreenY, playerScreenX, playerScreenY - 170);
+    ctx.globalAlpha = 0.25;
+    const beamGrad = ctx.createLinearGradient(playerScreenX, playerScreenY, playerScreenX, playerScreenY - 180);
     beamGrad.addColorStop(0, '#ffffff');
     beamGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
     ctx.fillStyle = beamGrad;
     ctx.beginPath();
-    ctx.moveTo(playerScreenX - 24, playerScreenY);
-    ctx.lineTo(playerScreenX - 85, playerScreenY - 170);
-    ctx.lineTo(playerScreenX + 85, playerScreenY - 170);
-    ctx.lineTo(playerScreenX + 24, playerScreenY);
+    ctx.moveTo(playerScreenX - 30, playerScreenY);
+    ctx.lineTo(playerScreenX - 95, playerScreenY - 180);
+    ctx.lineTo(playerScreenX + 95, playerScreenY - 180);
+    ctx.lineTo(playerScreenX + 30, playerScreenY);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
-    // Draw Player Car Model
-    drawVectorSupercar(ctx, playerScreenX, playerScreenY, playerScale, '#ff0055', true, s.isNitro, s.steering);
+    // Render 3D Rear-View Player Hypercar
+    drawRealisticRearSupercar(
+      ctx,
+      playerScreenX,
+      playerScreenY,
+      playerScale,
+      '#ff0055', // Championship Magenta Body
+      '#00f0ff', // Cyberpunk Accent
+      true,
+      eng.isNitro,
+      eng.playerRoll
+    );
 
-    // 6. DRAW PARTICLES (Tire Smoke & Nitro Flame Blasts)
-    for (let pt of s.particles) {
+    // 8. SPEED LINES (Motion Streaks above 180 km/h)
+    if (eng.playerSpeed > 180) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.5;
+      const numLines = Math.min(18, Math.round((eng.playerSpeed - 180) * 0.2));
+      for (let s = 0; s < numLines; s++) {
+        const lx = Math.random() * w;
+        const ly = horizonY + Math.random() * (h - horizonY);
+        const lLen = 25 + Math.random() * 45;
+        ctx.beginPath();
+        ctx.moveTo(lx, ly);
+        ctx.lineTo(lx + (eng.playerX * -15), ly + lLen);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 9. DRAW PARTICLES (Exhaust Flames & Tire Smoke)
+    for (let pt of eng.particles) {
       const pty = h * pt.y;
       const ptx = w / 2 + (roadBottomW / 2) * pt.x;
 
@@ -719,7 +1008,7 @@ export default function NeonRacing({ navigation }: any) {
       ctx.globalAlpha = pt.alpha;
       ctx.fillStyle = pt.color;
       ctx.shadowColor = pt.color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(ptx, pty, pt.size, 0, Math.PI * 2);
       ctx.fill();
@@ -729,98 +1018,167 @@ export default function NeonRacing({ navigation }: any) {
     ctx.restore();
   };
 
-  // High-Fidelity Vector Supercar Renderer
-  const drawVectorSupercar = (
+  // --- AUTHENTIC 3D REAR-PERSPECTIVE SUPERCAR VECTOR RENDERER ---
+  const drawRealisticRearSupercar = (
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
     scale: number,
-    color: string,
+    bodyColor: string,
+    accentColor: string,
     isPlayer: boolean,
     isNitro: boolean = false,
-    steering: number = 0
+    rollAngle: number = 0
   ) => {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(scale, scale);
 
-    if (isPlayer && steering !== 0) {
-      ctx.rotate(steering * 0.08);
+    // Chassis dynamic banking roll during steering
+    if (rollAngle !== 0) {
+      ctx.rotate(rollAngle);
     }
 
-    const carW = 38;
-    const carH = 62;
+    const carW = 48; // Wide rear hypercar profile
+    const carH = 34;
 
-    // Shadow underneath
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    // 1. Ground Drop Shadow with Soft Ambient Occlusion
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.beginPath();
-    ctx.ellipse(0, 6, carW * 0.7, carH * 0.55, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 10, carW * 0.72, 9, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 4 Wide Rubber Tires
+    // 2. Wide Rear Slick Tires with Tread & Rim Detail
+    const tireW = 9;
+    const tireH = 22;
+    // Left Rear Tire
     ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(-carW / 2 - 3, -carH / 2 + 8, 5, 12);
-    ctx.fillRect(carW / 2 - 2, -carH / 2 + 8, 5, 12);
-    ctx.fillRect(-carW / 2 - 3, carH / 2 - 18, 5, 15);
-    ctx.fillRect(carW / 2 - 2, carH / 2 - 18, 5, 15);
+    ctx.fillRect(-carW / 2 - 4, -tireH / 2 + 3, tireW, tireH);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-carW / 2 - 2, -tireH / 2 + 5, tireW - 4, tireH - 4);
 
-    // Main Metallic Chassis Body
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = isPlayer ? 14 : 5;
+    // Right Rear Tire
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(carW / 2 - tireW + 4, -tireH / 2 + 3, tireW, tireH);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(carW / 2 - tireW + 6, -tireH / 2 + 5, tireW - 4, tireH - 4);
+
+    // 3. Lower Carbon-Fiber Rear Diffuser (Aero Fins)
+    ctx.fillStyle = '#11131a';
+    ctx.fillRect(-carW / 2 + 4, 4, carW - 8, 8);
+    // Vertical Diffuser Fins
+    ctx.fillStyle = '#2b3040';
+    for (let f = -14; f <= 14; f += 7) {
+      ctx.fillRect(f - 1, 4, 2, 8);
+    }
+
+    // 4. Main Muscular Rear Bumper & Wheel Arches
+    ctx.fillStyle = bodyColor;
+    ctx.shadowColor = bodyColor;
+    ctx.shadowBlur = isPlayer ? 15 : 6;
+
+    // Robust Slanted Bumper Path (Cross-Browser Compatible)
     ctx.beginPath();
-    ctx.roundRect(-carW / 2, -carH / 2, carW, carH, [12, 12, 6, 6]);
+    ctx.moveTo(-carW / 2 + 2, 6);
+    ctx.lineTo(-carW / 2 - 2, -4);
+    ctx.quadraticCurveTo(-carW / 2 - 2, -10, -carW / 2 + 6, -10);
+    ctx.lineTo(carW / 2 - 6, -10);
+    ctx.quadraticCurveTo(carW / 2 + 2, -10, carW / 2 + 2, -4);
+    ctx.lineTo(carW / 2 - 2, 6);
+    ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Cockpit Roof & Windshield Glass
-    ctx.fillStyle = '#0a0d17';
+    // 5. Slanted Cockpit Cabin & Rear Window Louvers
+    ctx.fillStyle = '#080c14';
     ctx.beginPath();
-    ctx.roundRect(-carW / 2 + 5, -carH / 2 + 14, carW - 10, carH - 26, 6);
+    ctx.moveTo(-carW * 0.32, -10);
+    ctx.lineTo(-carW * 0.22, -24);
+    ctx.lineTo(carW * 0.22, -24);
+    ctx.lineTo(carW * 0.32, -10);
+    ctx.closePath();
     ctx.fill();
 
-    // Front Windshield Tint Reflection
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+    // Rear Window Glass Tint with Cyber Reflection
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
     ctx.beginPath();
-    ctx.roundRect(-carW / 2 + 7, -carH / 2 + 16, carW - 14, 10, 4);
+    ctx.moveTo(-carW * 0.28, -11);
+    ctx.lineTo(-carW * 0.19, -22);
+    ctx.lineTo(carW * 0.19, -22);
+    ctx.lineTo(carW * 0.28, -11);
+    ctx.closePath();
     ctx.fill();
 
-    // Rear Windshield Tint
-    ctx.beginPath();
-    ctx.roundRect(-carW / 2 + 7, carH / 2 - 24, carW - 14, 8, 4);
-    ctx.fill();
+    // V12 Engine Bay Louver Slats
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-carW * 0.18, -18, carW * 0.36, 2);
+    ctx.fillRect(-carW * 0.22, -14, carW * 0.44, 2);
 
-    // Taillights (Red Neon LED Bar)
+    // 6. Full-Width Cyberpunk Neon LED Taillight Bar
     ctx.fillStyle = '#ff0033';
     ctx.shadowColor = '#ff0033';
-    ctx.shadowBlur = 10;
-    ctx.fillRect(-carW / 2 + 4, carH / 2 - 4, 8, 3);
-    ctx.fillRect(carW / 2 - 12, carH / 2 - 4, 8, 3);
-    ctx.shadowBlur = 0;
-
-    // Headlights (Xenon White)
+    ctx.shadowBlur = isPlayer ? 16 : 8;
+    ctx.fillRect(-carW / 2 + 4, -8, carW - 8, 4);
+    // Center Brake Glow Accent
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 8;
-    ctx.fillRect(-carW / 2 + 4, -carH / 2 + 1, 7, 3);
-    ctx.fillRect(carW / 2 - 11, -carH / 2 + 1, 7, 3);
+    ctx.fillRect(-carW * 0.2, -7, carW * 0.4, 2);
     ctx.shadowBlur = 0;
 
-    // Aerodynamic Rear Spoiler
+    // 7. Titanium Dual Exhaust Tips (Pulsating Heat Glow)
+    const exL = -10;
+    const exR = 10;
+    // Left tip
     ctx.fillStyle = '#111';
-    ctx.fillRect(-carW / 2 + 2, carH / 2 - 1, carW - 4, 4);
+    ctx.fillRect(exL - 4, 3, 8, 5);
+    ctx.fillStyle = isPlayer && isNitro ? '#00e5ff' : '#ff5500';
+    ctx.fillRect(exL - 2, 4, 4, 3);
 
-    // Nitro Jet Flames
+    // Right tip
+    ctx.fillStyle = '#111';
+    ctx.fillRect(exR - 4, 3, 8, 5);
+    ctx.fillStyle = isPlayer && isNitro ? '#00e5ff' : '#ff5500';
+    ctx.fillRect(exR - 2, 4, 4, 3);
+
+    // 8. High-Performance Elevated Carbon GT Wing / Spoiler
+    const wingW = carW + 4;
+    ctx.fillStyle = '#11131a';
+    ctx.fillRect(-wingW / 2, -26, wingW, 4);
+
+    // Left and Right Wing Endplates (Downforce fins)
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(-wingW / 2 - 2, -29, 3, 9);
+    ctx.fillRect(wingW / 2 - 1, -29, 3, 9);
+
+    // Wing Struts / Pylons
+    ctx.fillStyle = '#444';
+    ctx.fillRect(-12, -22, 3, 12);
+    ctx.fillRect(9, -22, 3, 12);
+
+    // 9. NITRO JET AFTERBURNER FLAMES
     if (isPlayer && isNitro) {
-      ctx.fillStyle = '#00f0ff';
-      ctx.shadowColor = '#ff007f';
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      ctx.moveTo(-8, carH / 2);
-      ctx.lineTo(0, carH / 2 + 26 + Math.random() * 12);
-      ctx.lineTo(8, carH / 2);
-      ctx.closePath();
-      ctx.fill();
+      // Sonic Shock Diamond Plumes from Dual Exhausts
+      [exL, exR].forEach((pipeX) => {
+        ctx.save();
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#ff007f';
+        ctx.shadowBlur = 24;
+        ctx.beginPath();
+        ctx.moveTo(pipeX - 5, 8);
+        ctx.lineTo(pipeX, 8 + 32 + Math.random() * 16);
+        ctx.lineTo(pipeX + 5, 8);
+        ctx.closePath();
+        ctx.fill();
+
+        // Inner white-hot core
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(pipeX - 2, 8);
+        ctx.lineTo(pipeX, 8 + 18 + Math.random() * 8);
+        ctx.lineTo(pipeX + 2, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
     }
 
     ctx.restore();
@@ -847,57 +1205,69 @@ export default function NeonRacing({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Top Header */}
+      {/* Top Header Navigation */}
       <View style={styles.headerBar}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
             soundManager.playClick();
-            stateRef.current.running = false;
+            soundManager.stopEngineLoop();
+            engineRef.current.active = false;
             navigation.goBack();
           }}
         >
           <Text style={styles.backBtnText}>‹ Arcade</Text>
         </TouchableOpacity>
 
+        {/* Level & Meter Display */}
         <TouchableOpacity
           style={styles.levelBadgeBtn}
           onPress={() => {
             soundManager.playClick();
-            setLevelModalOpen(true);
+            setCircuitModalOpen(true);
           }}
         >
           <Text style={styles.levelBadgeText}>
-            LEVEL {currentLevel} • {curCfg.distMeters} METERS ▾
+            LEVEL {currentLevel} • {curCfg.distMeters}M CIRCUIT ▾
           </Text>
         </TouchableOpacity>
 
         {/* Live Race Position Box */}
-        <View style={[styles.posBadge, { borderColor: getRankBadgeColor(hudPosition) }]}>
-          <Text style={[styles.posText, { color: getRankBadgeColor(hudPosition) }]}>
-            {getRankOrdinal(hudPosition)} / {hudTotalRacers}
+        <View style={[styles.posBadge, { borderColor: getRankBadgeColor(hudRank) }]}>
+          <Text style={[styles.posText, { color: getRankBadgeColor(hudRank) }]}>
+            {getRankOrdinal(hudRank)} / {hudTotalCars}
           </Text>
         </View>
       </View>
 
-      {/* Realistic Cockpit Dashboard Ribbon */}
+      {/* Realistic Supercar Cockpit Dashboard Ribbon */}
       <View style={styles.cockpitHud}>
         {/* Speedometer */}
         <View style={styles.speedBlock}>
           <Text style={styles.hudMicroLabel}>SPEED</Text>
           <View style={styles.speedRow}>
-            <Text style={[styles.speedNum, { color: stateRef.current.isNitro ? '#ff007f' : '#00f0ff' }]}>
+            <Text style={[styles.speedNum, { color: engineRef.current.isNitro ? '#ff007f' : '#00f0ff' }]}>
               {hudSpeed}
             </Text>
             <Text style={styles.speedUnit}>KM/H</Text>
           </View>
         </View>
 
+        {/* Tachometer RPM Dial */}
+        <View style={styles.rpmBlock}>
+          <Text style={styles.hudMicroLabel}>RPM (x1000)</Text>
+          <Text style={[styles.rpmNum, { color: hudRPM > 6800 ? '#ff0055' : '#ffd700' }]}>
+            {(hudRPM / 1000).toFixed(1)}
+          </Text>
+        </View>
+
         {/* Distance Progress */}
         <View style={styles.progressBlock}>
           <View style={styles.distLabelRow}>
-            <Text style={styles.hudMicroLabel}>FINISH LINE</Text>
-            <Text style={styles.distVal}>{hudDist}m / {curCfg.distMeters}m ({progressPercent}%)</Text>
+            <Text style={styles.hudMicroLabel}>DISTANCE</Text>
+            <Text style={styles.distVal}>
+              {hudDist}m / {curCfg.distMeters}m ({progressPercent}%)
+            </Text>
           </View>
           <View style={styles.progressTrackBg}>
             <View
@@ -915,7 +1285,7 @@ export default function NeonRacing({ navigation }: any) {
           <Text style={styles.gearVal}>G{hudGear}</Text>
         </View>
 
-        {/* Nitro Gauge */}
+        {/* Nitro NOS Tank */}
         <View style={styles.nitroBlock}>
           <Text style={styles.hudMicroLabel}>NOS</Text>
           <View style={styles.nitroTankBg}>
@@ -932,7 +1302,14 @@ export default function NeonRacing({ navigation }: any) {
         </View>
       </View>
 
-      {/* Canvas Viewport */}
+      {/* Slipstream Drafting Indicator Banner */}
+      {isDrafting && (
+        <View style={styles.draftingBanner}>
+          <Text style={styles.draftingText}>⚡ SLIPSTREAM DRAFTING BOOST ACTIVE (+25 KM/H)</Text>
+        </View>
+      )}
+
+      {/* 60 FPS Highway Canvas Viewport */}
       <View style={styles.canvasContainer}>
         <View style={[styles.canvasWrapper, { width: canvasW, height: canvasH }]}>
           {Platform.OS === 'web' && (
@@ -949,83 +1326,123 @@ export default function NeonRacing({ navigation }: any) {
             />
           )}
 
-          {/* Starting Countdown Overlay (3... 2... 1... GO!) */}
-          {countdownText && (
-            <View style={styles.countdownOverlay}>
-              <Text
-                style={[
-                  styles.countdownHugeText,
-                  { color: countdownText === 'GO!' ? '#00ff66' : '#ff0055' },
-                ]}
-              >
-                {countdownText}
-              </Text>
+          {/* 5-Light Formula 1 Starting Gantry Overlay */}
+          {gantryLights >= 0 && (
+            <View style={styles.gantryOverlay}>
+              <View style={styles.gantryFrame}>
+                <Text style={styles.gantryTitle}>
+                  {gantryLights === 6 ? 'LIGHTS OUT & AWAY WE GO!' : 'STARTING GRID'}
+                </Text>
+                <View style={styles.lightsRow}>
+                  {[1, 2, 3, 4, 5].map((idx) => {
+                    const isLit = gantryLights >= idx && gantryLights < 6;
+                    const isGo = gantryLights === 6;
+                    return (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.gantryBulb,
+                          isLit && styles.gantryRedLit,
+                          isGo && styles.gantryGreenLit,
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
             </View>
           )}
 
-          {/* Launch Ready Overlay */}
-          {!raceActive && !podiumModalVisible && !crashedModalVisible && (
+          {/* Launch Ready Overlay (Before clicking start) */}
+          {!raceActive && !podiumOpen && (
             <TouchableOpacity
               style={styles.launchOverlay}
-              onPress={() => startCircuitRace(currentLevel)}
+              onPress={() => launchRace(currentLevel)}
               activeOpacity={0.9}
             >
-              <Text style={styles.launchTitle}>NEON GRAND PRIX</Text>
+              <Text style={styles.launchBadge}>TOURNAMENT CHAMPIONSHIP</Text>
+              <Text style={styles.launchTitle}>{curCfg.name.toUpperCase()}</Text>
               <Text style={styles.launchSub}>
-                LEVEL {currentLevel}: {curCfg.name} • {curCfg.distMeters} METERS
-              </Text>
-              <Text style={styles.launchRivalCount}>
-                Compete against {curCfg.rivalsCount} AI Rivals for 1st Place!
+                LEVEL {currentLevel} • {curCfg.distMeters} METERS SPRINT • {curCfg.rivalsCount} RIVALS
               </Text>
 
               <View style={styles.launchBtn}>
                 <Text style={styles.launchBtnText}>LINE UP ON GRID ▶</Text>
               </View>
 
-              <Text style={styles.launchHint}>
-                Steer: Left/Right / A-D • Accel: Up/W • Nitro: Spacebar
-              </Text>
+              <View style={styles.controlsLegend}>
+                <Text style={styles.legendText}>Steer: Left/Right / A-D</Text>
+                <Text style={styles.legendText}>•</Text>
+                <Text style={styles.legendText}>Gas: Up / W</Text>
+                <Text style={styles.legendText}>•</Text>
+                <Text style={styles.legendText}>Nitro: Spacebar</Text>
+              </View>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Cockpit Drive Controls */}
+      {/* Tactile On-Screen Driving Pedals & Steer Controls */}
       <View style={styles.controlsBar}>
-        <TouchableOpacity
-          style={styles.steerBtn}
-          onPressIn={() => (stateRef.current.steering = -1)}
-          onPressOut={() => (stateRef.current.steering = 0)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.steerBtnText}>◀ STEER LEFT</Text>
-        </TouchableOpacity>
+        {/* Left Side: Steer Controls */}
+        <View style={styles.steerGroup}>
+          <TouchableOpacity
+            style={styles.steerBtn}
+            onPressIn={() => (engineRef.current.steerDir = -1)}
+            onPressOut={() => (engineRef.current.steerDir = 0)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.steerBtnText}>◀ LEFT</Text>
+          </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.steerBtn}
+            onPressIn={() => (engineRef.current.steerDir = 1)}
+            onPressOut={() => (engineRef.current.steerDir = 0)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.steerBtnText}>RIGHT ▶</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Center: Nitro NOS Button */}
         <TouchableOpacity
-          style={[styles.nitroActionBtn, stateRef.current.isNitro && { backgroundColor: '#ff007f' }]}
-          onPress={activateNitro}
+          style={[styles.nitroActionBtn, engineRef.current.isNitro && { backgroundColor: '#ff007f' }]}
+          onPress={triggerNitro}
           activeOpacity={0.8}
         >
           <Text style={styles.nitroBtnText}>🚀 NITRO</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.steerBtn}
-          onPressIn={() => (stateRef.current.steering = 1)}
-          onPressOut={() => (stateRef.current.steering = 0)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.steerBtnText}>STEER RIGHT ▶</Text>
-        </TouchableOpacity>
+        {/* Right Side: Throttle & Brake Pedals */}
+        <View style={styles.pedalsGroup}>
+          <TouchableOpacity
+            style={styles.brakePedalBtn}
+            onPressIn={() => (engineRef.current.isBrake = true)}
+            onPressOut={() => (engineRef.current.isBrake = false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.brakePedalText}>🔴 BRAKE</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.gasPedalBtn}
+            onPressIn={() => (engineRef.current.isThrottle = true)}
+            onPressOut={() => (engineRef.current.isThrottle = false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.gasPedalText}>🟢 GAS</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* 10 Campaign Circuits Modal (300m, 600m, 900m...) */}
-      <Modal visible={levelModalOpen} transparent animationType="slide">
+      {/* 10 Campaign Circuits Selection Modal (300m, 600m, 900m...) */}
+      <Modal visible={circuitModalOpen} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeaderRow}>
               <Text style={styles.modalTitle}>CHOOSE RACING CIRCUIT</Text>
-              <TouchableOpacity onPress={() => setLevelModalOpen(false)}>
+              <TouchableOpacity onPress={() => setCircuitModalOpen(false)}>
                 <Text style={styles.modalCloseX}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -1045,7 +1462,7 @@ export default function NeonRacing({ navigation }: any) {
                       !isUnlocked && { opacity: 0.4 },
                     ]}
                     disabled={!isUnlocked}
-                    onPress={() => startCircuitRace(c.level)}
+                    onPress={() => launchRace(c.level)}
                   >
                     <View style={styles.circuitNumBadge}>
                       <Text style={[styles.circuitNumText, { color: c.stripeColor }]}>#{c.level}</Text>
@@ -1053,7 +1470,7 @@ export default function NeonRacing({ navigation }: any) {
                     <View style={{ flex: 1, marginLeft: 8 }}>
                       <Text style={styles.circuitName}>{c.name}</Text>
                       <Text style={styles.circuitDetails}>
-                        Distance: {c.distMeters}m (+300m) • {c.rivalsCount} Competitors
+                        Sprint: {c.distMeters}m (+300m) • {c.rivalsCount} AI Rivals
                       </Text>
                     </View>
                     <Text style={{ fontSize: 18 }}>{isUnlocked ? '🏁' : '🔒'}</Text>
@@ -1065,20 +1482,20 @@ export default function NeonRacing({ navigation }: any) {
         </View>
       </Modal>
 
-      {/* Official Race Podium Results Modal (1st, 2nd, 3rd) */}
-      <Modal visible={podiumModalVisible} transparent animationType="fade">
+      {/* Official Race Arrival-Order Podium Modal */}
+      <Modal visible={podiumOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.podiumBox}>
             <Text style={styles.podiumEmoji}>🏁</Text>
-            <Text style={styles.podiumTitle}>OFFICIAL RACE RESULTS</Text>
+            <Text style={styles.podiumTitle}>OFFICIAL FINISH STANDINGS</Text>
             <Text style={styles.podiumSub}>
-              Level {currentLevel}: {curCfg.name} ({curCfg.distMeters}m)
+              Level {currentLevel}: {curCfg.name} ({curCfg.distMeters}m Sprint)
             </Text>
 
-            {/* Standings Table */}
+            {/* Standings Table with Exact Arrival Order & Times */}
             <View style={styles.rankingsTable}>
-              {finalRankings.map((r, idx) => {
-                const rankNum = idx + 1;
+              {podiumList.map((r) => {
+                const rankNum = r.rank || 1;
                 const isPlayer = r.name.includes('YOU');
 
                 return (
@@ -1094,68 +1511,44 @@ export default function NeonRacing({ navigation }: any) {
                         {rankNum === 1 ? '🥇 1st' : rankNum === 2 ? '🥈 2nd' : rankNum === 3 ? '🥉 3rd' : `${rankNum}th`}
                       </Text>
                     </View>
-                    <Text style={[styles.driverName, isPlayer && { color: '#00f0ff', fontWeight: 'bold' }]}>
-                      {r.name}
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.rankDriverName, isPlayer && { color: '#00f0ff', fontWeight: 'bold' }]}>
+                        {r.name}
+                      </Text>
+                      <Text style={styles.rankSubText}>
+                        Top Speed: {Math.round(r.maxSpeed || r.speed)} km/h
+                      </Text>
+                    </View>
+                    <Text style={[styles.rankTime, isPlayer && { color: '#ffd700' }]}>
+                      {r.finishTimeStr}
                     </Text>
-                    <Text style={styles.driverDist}>{Math.round(r.dist)}m</Text>
                   </View>
                 );
               })}
             </View>
 
             {/* Action Buttons */}
-            {hudPosition <= 3 ? (
+            <View style={styles.podiumActionRow}>
               <TouchableOpacity
-                style={[styles.podiumActionBtn, { backgroundColor: '#00ff66' }]}
-                onPress={() => {
-                  if (currentLevel < 10) startCircuitRace(currentLevel + 1);
-                  else startCircuitRace(1);
-                }}
+                style={styles.retryBtn}
+                onPress={() => launchRace(currentLevel)}
+                activeOpacity={0.8}
               >
-                <Text style={styles.podiumActionText}>
-                  {currentLevel < 10 ? `QUALIFIED! ADVANCE TO LEVEL ${currentLevel + 1} (${(currentLevel + 1) * 300}M) ▶` : 'CHAMPIONSHIP COMPLETED! 🏆'}
-                </Text>
+                <Text style={styles.retryBtnText}>RETRY LEVEL</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.podiumActionBtn, { backgroundColor: '#ff0055' }]}
-                onPress={() => startCircuitRace(currentLevel)}
-              >
-                <Text style={styles.podiumActionText}>FINISH IN TOP 3 TO ADVANCE • RETRY RACE</Text>
-              </TouchableOpacity>
-            )}
 
-            <TouchableOpacity
-              style={styles.podiumSecBtn}
-              onPress={() => setLevelModalOpen(true)}
-            >
-              <Text style={styles.podiumSecText}>SELECT CIRCUIT</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Crashed Modal */}
-      <Modal visible={crashedModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.podiumBox, { borderColor: '#ff0055' }]}>
-            <Text style={styles.podiumEmoji}>💥</Text>
-            <Text style={[styles.podiumTitle, { color: '#ff0055' }]}>CRASH & RETIRE</Text>
-            <Text style={styles.podiumSub}>Car sustained heavy collision damage</Text>
-
-            <TouchableOpacity
-              style={[styles.podiumActionBtn, { backgroundColor: '#ff0055' }]}
-              onPress={() => startCircuitRace(currentLevel)}
-            >
-              <Text style={styles.podiumActionText}>RETRY RACE</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.podiumSecBtn}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.podiumSecText}>ARCADE MENU</Text>
-            </TouchableOpacity>
+              {currentLevel < 10 && unlockedLevels.includes(currentLevel + 1) && (
+                <TouchableOpacity
+                  style={styles.nextLevelBtn}
+                  onPress={() => launchRace(currentLevel + 1)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.nextLevelBtnText}>
+                    NEXT LEVEL ({CAMPAIGN_CIRCUITS[currentLevel]?.distMeters}M) ▶
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -1166,115 +1559,131 @@ export default function NeonRacing({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#050714',
+    backgroundColor: '#050711',
+    alignItems: 'center',
   },
   headerBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#0a0d1f',
+    backgroundColor: '#090d1c',
     borderBottomWidth: 1,
-    borderBottomColor: '#00f0ff',
+    borderBottomColor: 'rgba(0, 240, 255, 0.25)',
   },
   backBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
   },
   backBtnText: {
     color: '#00f0ff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
   levelBadgeBtn: {
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: '#00f0ff',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    backgroundColor: 'rgba(0, 240, 255, 0.08)',
-    borderColor: '#00f0ff',
   },
   levelBadgeText: {
     color: '#00f0ff',
     fontSize: 12,
-    fontWeight: '900',
-    fontFamily: 'monospace',
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   posBadge: {
     borderWidth: 1.5,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   posText: {
     fontSize: 13,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
   cockpitHud: {
+    width: '96%',
+    maxWidth: 620,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 14,
-    marginTop: 8,
-    backgroundColor: '#0c1026',
-    borderRadius: 14,
+    justifyContent: 'space-between',
+    backgroundColor: '#0b0f21',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  speedBlock: {
-    minWidth: 70,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginVertical: 6,
   },
   hudMicroLabel: {
-    color: '#8a99c7',
+    color: '#6b7a99',
     fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  speedBlock: {
+    alignItems: 'center',
+    minWidth: 70,
   },
   speedRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 3,
   },
   speedNum: {
     fontSize: 22,
     fontWeight: '900',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
   speedUnit: {
-    color: '#8a99c7',
+    color: '#6b7a99',
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: 'bold',
+    marginLeft: 3,
+  },
+  rpmBlock: {
+    alignItems: 'center',
+    minWidth: 55,
+  },
+  rpmNum: {
+    fontSize: 17,
+    fontWeight: '900',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
   },
   progressBlock: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   distLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
   },
   distVal: {
-    color: '#00f0ff',
+    color: '#ffffff',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: 'bold',
   },
   progressTrackBg: {
-    height: 7,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    marginTop: 3,
     overflow: 'hidden',
   },
   progressTrackFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   gearBlock: {
     alignItems: 'center',
-    paddingHorizontal: 8,
+    marginRight: 8,
   },
   gearVal: {
     color: '#ffd700',
@@ -1285,49 +1694,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nitroTankBg: {
-    width: 26,
-    height: 22,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 14,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
-    overflow: 'hidden',
     justifyContent: 'flex-end',
-    marginTop: 2,
+    overflow: 'hidden',
   },
   nitroTankFill: {
     width: '100%',
-    borderRadius: 2,
+    borderRadius: 4,
+  },
+  draftingBanner: {
+    backgroundColor: 'rgba(0, 240, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: '#00f0ff',
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  draftingText: {
+    color: '#00f0ff',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   canvasContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
   },
   canvasWrapper: {
-    position: 'relative',
+    backgroundColor: '#03050c',
     borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#00f0ff',
-    boxShadow: '0 0 25px rgba(0, 240, 255, 0.4)',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 240, 255, 0.2)',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.8)',
   },
-  countdownOverlay: {
+  gantryOverlay: {
     position: 'absolute',
-    top: 0,
+    top: 20,
     left: 0,
     right: 0,
-    bottom: 0,
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 60,
+    zIndex: 10,
   },
-  countdownHugeText: {
-    fontSize: 84,
+  gantryFrame: {
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderWidth: 2,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  gantryTitle: {
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '900',
-    fontFamily: 'monospace',
-    textShadowColor: '#000',
-    textShadowRadius: 20,
-    letterSpacing: 4,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  lightsRow: {
+    flexDirection: 'row',
+  },
+  gantryBulb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    borderWidth: 2,
+    borderColor: '#0f172a',
+    marginHorizontal: 5,
+  },
+  gantryRedLit: {
+    backgroundColor: '#ff0033',
+    borderColor: '#ff6688',
+    boxShadow: '0 0 16px #ff0033',
+  },
+  gantryGreenLit: {
+    backgroundColor: '#00ff66',
+    borderColor: '#88ffaa',
+    boxShadow: '0 0 20px #00ff66',
   },
   launchOverlay: {
     position: 'absolute',
@@ -1335,102 +1785,150 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.82)',
+    backgroundColor: 'rgba(4, 7, 20, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    zIndex: 50,
+    padding: 24,
+    zIndex: 20,
   },
-  launchTitle: {
+  launchBadge: {
     color: '#00f0ff',
-    fontSize: 28,
+    fontSize: 12,
     fontWeight: '900',
     letterSpacing: 2,
-    fontFamily: 'monospace',
-    textShadowColor: '#00f0ff',
-    textShadowRadius: 15,
+    marginBottom: 4,
+  },
+  launchTitle: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   launchSub: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  launchRivalCount: {
-    color: '#ffd700',
-    fontSize: 12,
+    color: '#a0aec0',
+    fontSize: 13,
     fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   launchBtn: {
     backgroundColor: '#ff0055',
-    paddingHorizontal: 26,
-    paddingVertical: 12,
-    borderRadius: 20,
-    marginTop: 8,
-    boxShadow: '0 0 15px #ff0055',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 28,
+    boxShadow: '0 4px 20px rgba(255, 0, 85, 0.6)',
+    marginBottom: 16,
   },
   launchBtnText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
   },
-  launchHint: {
-    color: '#8a99c7',
+  controlsLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendText: {
+    color: '#6b7a99',
     fontSize: 11,
-    marginTop: 6,
+    fontWeight: '600',
   },
   controlsBar: {
+    width: '96%',
+    maxWidth: 620,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  steerGroup: {
+    flexDirection: 'row',
+    gap: 8,
   },
   steerBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: '#131b33',
     borderWidth: 1.5,
-    borderColor: '#00f0ff',
-    backgroundColor: '#0c1026',
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   steerBtnText: {
     color: '#00f0ff',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1,
   },
   nitroActionBtn: {
     backgroundColor: '#00f0ff',
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    boxShadow: '0 0 15px #00f0ff',
+    justifyContent: 'center',
+    boxShadow: '0 4px 15px rgba(0, 240, 255, 0.4)',
   },
   nitroBtnText: {
-    color: '#000000',
+    color: '#040718',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  pedalsGroup: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  brakePedalBtn: {
+    backgroundColor: '#2b0d19',
+    borderWidth: 1.5,
+    borderColor: '#ff0055',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brakePedalText: {
+    color: '#ff0055',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  gasPedalBtn: {
+    backgroundColor: '#092917',
+    borderWidth: 1.5,
+    borderColor: '#00ff66',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gasPedalText: {
+    color: '#00ff66',
     fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
-    padding: 20,
+    alignItems: 'center',
+    padding: 16,
   },
   modalBox: {
     width: '100%',
-    maxWidth: 440,
-    borderRadius: 18,
-    borderWidth: 2,
+    maxWidth: 480,
+    backgroundColor: '#090d1c',
+    borderWidth: 1.5,
     borderColor: '#00f0ff',
-    backgroundColor: '#0a0d1f',
-    padding: 20,
+    borderRadius: 16,
+    padding: 18,
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -1438,41 +1936,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    paddingBottom: 10,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 8,
   },
   modalTitle: {
     color: '#00f0ff',
     fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 1.5,
-    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   modalCloseX: {
-    color: '#fff',
+    color: '#a0aec0',
     fontSize: 18,
     fontWeight: 'bold',
   },
   circuitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
   },
   circuitNumBadge: {
-    width: 36,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   circuitNumText: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '900',
   },
   circuitName: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   circuitDetails: {
     color: '#8a99c7',
@@ -1481,91 +1983,101 @@ const styles = StyleSheet.create({
   },
   podiumBox: {
     width: '100%',
-    maxWidth: 420,
-    borderRadius: 18,
+    maxWidth: 500,
+    backgroundColor: '#080c1d',
     borderWidth: 2,
     borderColor: '#ffd700',
-    backgroundColor: '#0a0d1f',
-    padding: 22,
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
+    boxShadow: '0 0 35px rgba(255, 215, 0, 0.3)',
   },
   podiumEmoji: {
-    fontSize: 42,
+    fontSize: 36,
+    marginBottom: 4,
   },
   podiumTitle: {
     color: '#ffd700',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1.5,
-    fontFamily: 'monospace',
-    marginTop: 4,
+    letterSpacing: 1.2,
   },
   podiumSub: {
-    color: '#ffffff',
+    color: '#a0aec0',
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   rankingsTable: {
     width: '100%',
-    gap: 6,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   rankRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   rankBadge: {
     minWidth: 50,
   },
   rankBadgeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
   },
-  driverName: {
-    flex: 1,
+  rankDriverName: {
     color: '#ffffff',
     fontSize: 13,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  driverDist: {
-    color: '#8a99c7',
-    fontSize: 11,
     fontWeight: '700',
   },
-  podiumActionBtn: {
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+  rankSubText: {
+    color: '#6b7a99',
+    fontSize: 10,
+    marginTop: 1,
   },
-  podiumActionText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  podiumSecBtn: {
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#00f0ff',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  podiumSecText: {
-    color: '#00f0ff',
-    fontSize: 12,
+  rankTime: {
+    color: '#a0aec0',
+    fontSize: 13,
     fontWeight: '800',
+    fontFamily: Platform.OS === 'web' ? 'monospace' : undefined,
+  },
+  podiumActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  retryBtn: {
+    flex: 1,
+    backgroundColor: '#1b2238',
+    borderWidth: 1,
+    borderColor: '#3b486b',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  retryBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  nextLevelBtn: {
+    flex: 1.4,
+    backgroundColor: '#00f0ff',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    boxShadow: '0 4px 15px rgba(0, 240, 255, 0.4)',
+  },
+  nextLevelBtnText: {
+    color: '#040718',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });

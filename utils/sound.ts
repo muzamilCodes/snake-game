@@ -162,6 +162,124 @@ class SoundController {
     } catch (_) {}
   }
 
+  private engineOsc: any = null;
+  private engineGain: any = null;
+
+  startEngineLoop() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx || this.engineOsc) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(65, ctx.currentTime);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+
+      // Low pass filter to make it sound like a throaty V8/V12 exhaust rumble
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320, ctx.currentTime);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+
+      this.engineOsc = osc;
+      this.engineGain = gain;
+    } catch (_) {}
+  }
+
+  setEngineRPM(ratio: number) {
+    if (!this.engineOsc || !this.ctx) return;
+    try {
+      const clamped = Math.max(0, Math.min(1, ratio));
+      // Frequency from 65Hz (idle) to 220Hz (high redline)
+      const targetFreq = 65 + clamped * 155;
+      this.engineOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.05);
+      if (this.engineGain) {
+        this.engineGain.gain.setTargetAtTime(0.04 + clamped * 0.08, this.ctx.currentTime, 0.05);
+      }
+    } catch (_) {}
+  }
+
+  stopEngineLoop() {
+    try {
+      if (this.engineOsc) {
+        this.engineOsc.stop();
+        this.engineOsc.disconnect();
+        this.engineOsc = null;
+      }
+      if (this.engineGain) {
+        this.engineGain.disconnect();
+        this.engineGain = null;
+      }
+    } catch (_) {}
+  }
+
+  playGearShift() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      // Turbo blowoff hiss / shift pop
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch (_) {}
+  }
+
+  playDraftingWhoosh() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } catch (_) {}
+  }
+
+  playWallBump() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.ensureContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch (_) {}
+  }
+
   playEngineRev() {
     if (!this.enabled) return;
     try {

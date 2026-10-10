@@ -288,18 +288,26 @@ export default function CyberGlider({ navigation, route }: any) {
                 ]}
               />
 
-              {/* Spark orb inside gap */}
+              {/* Spark plasma orb inside gap */}
               {p.hasSpark && (
                 <View
                   style={[
                     styles.spark,
                     {
-                      left: p.x + pipeWidth / 2 - 8,
-                      top: p.topHeight + pipeGap / 2 - 8,
+                      left: p.x + pipeWidth / 2 - 9,
+                      top: p.topHeight + pipeGap / 2 - 9,
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      backgroundColor: '#ffd700',
+                      borderWidth: 2,
+                      borderColor: '#ffffff',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     },
                   ]}
                 >
-                  <Text style={{ fontSize: 16 }}>⚡</Text>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ffffff' }} />
                 </View>
               )}
 
@@ -321,19 +329,45 @@ export default function CyberGlider({ navigation, route }: any) {
             </React.Fragment>
           ))}
 
-          {/* Player Drone */}
+          {/* Player High-Tech Cyber Glider */}
           <View
             style={[
               styles.drone,
               {
                 left: droneX,
                 top: droneY,
-                width: droneSize,
-                height: droneSize,
+                width: 38,
+                height: 24,
               },
             ]}
           >
-            <Text style={{ fontSize: 24 }}>🛸</Text>
+            <View
+              style={{
+                width: 36,
+                height: 20,
+                backgroundColor: '#050c1f',
+                borderRadius: 5,
+                borderWidth: 2,
+                borderColor: '#00f0ff',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+              }}
+            >
+              {/* Cockpit Canopy */}
+              <View style={{ width: 14, height: 6, backgroundColor: '#00f0ff', borderRadius: 3 }} />
+              {/* Rear Jet Exhaust Thruster */}
+              <View
+                style={{
+                  position: 'absolute',
+                  left: -8,
+                  width: 8,
+                  height: 10,
+                  backgroundColor: '#ff0055',
+                  borderRadius: 4,
+                }}
+              />
+            </View>
           </View>
 
           {/* Start overlay */}
@@ -355,7 +389,7 @@ export default function CyberGlider({ navigation, route }: any) {
           onPress={jump}
           activeOpacity={0.7}
         >
-          <Text style={styles.thrustBtnText}>🚀 THRUST JET (TAP / SPACE)</Text>
+          <Text style={styles.thrustBtnText}>THRUST JET (TAP / SPACE)</Text>
         </TouchableOpacity>
       </View>
 
@@ -363,7 +397,9 @@ export default function CyberGlider({ navigation, route }: any) {
       <Modal visible={gameOver} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalBox, { backgroundColor: theme.cardBg, borderColor: '#ff0055' }]}>
-            <Text style={styles.modalEmoji}>💥</Text>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: '#ff0055', textAlign: 'center', marginBottom: 8 }}>
+              MISSION FAILED
+            </Text>
             <Text style={[styles.modalTitle, { color: '#ff0055' }]}>CRASH DOWN</Text>
             <Text style={[styles.modalScoreText, { color: theme.textPrimary }]}>Score: {score}</Text>
             <Text style={[styles.modalSub, { color: theme.textSecondary }]}>Best: {highScore}</Text>
