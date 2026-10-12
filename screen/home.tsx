@@ -103,13 +103,13 @@ export default function Home({ navigation }: any) {
       id: 'ShadowStrike',
       route: 'ShadowStrike',
       category: 'ACTION & SHOOTER',
-      name: 'SHADOW STRIKE: OPEN WORLD',
-      tag: '3D THIRD-PERSON SURVIVAL',
-      emoji: '🥷',
-      badge: '★ AAA 3D ★',
+      name: 'SHADOW STRIKE: BATTLE ROYALE',
+      tag: '100-LEVEL PUBG SURVIVAL',
+      emoji: '🪂',
+      badge: '★ AAA 3D BATTLE ROYALE ★',
       color: '#00f0ff',
-      desc: 'Third-person open world tactical action! Explore abandoned military facility, collect access keycards, neutralize enemy patrol AI, and evacuate with classified intel.',
-      highScoreText: 'Mission: Escape the Facility',
+      desc: 'PUBG-inspired 3D battle royale! C-130 airplane drop, freefall & parachute landing, 500m city & outpost island, drivable tactical buggy, 100 progressive campaign levels & shrinking blue storm zone!',
+      highScoreText: 'Survival: 100-Level Battle Royale',
       params: { theme: settings.theme },
     },
     {
@@ -288,21 +288,21 @@ export default function Home({ navigation }: any) {
             </View>
 
             <View style={styles.flagshipMiddleRow}>
-              <Text style={styles.flagshipEmoji}>🥷</Text>
+              <Text style={styles.flagshipEmoji}>🪂</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.flagshipTitle}>SHADOW STRIKE: OPEN WORLD</Text>
+                <Text style={styles.flagshipTitle}>SHADOW STRIKE: BATTLE ROYALE</Text>
                 <Text style={styles.flagshipSub}>
-                  Third-Person 3D Tactical Action • Abandoned Military Base • Enemy AI Patrols • Weapon Combat!
+                  PUBG-Inspired 3D Survival • C-130 Airplane Drop • Parachute Gliding • Drivable Buggy • 100 Levels!
                 </Text>
               </View>
             </View>
 
             <View style={styles.flagshipFooter}>
               <Text style={styles.flagshipStats}>
-                🎯 Mission: Escape The Facility
+                🪂 100-Level Campaign • Shrinking Storm
               </Text>
               <View style={[styles.flagshipLaunchBtn, { backgroundColor: '#00f0ff' }]}>
-                <Text style={[styles.flagshipLaunchText, { color: '#000' }]}>DEPLOY OPERATIVE ▶</Text>
+                <Text style={[styles.flagshipLaunchText, { color: '#000' }]}>DEPLOY BATTLE ROYALE ▶</Text>
               </View>
             </View>
           </View>
