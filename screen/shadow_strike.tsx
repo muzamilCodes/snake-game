@@ -287,6 +287,328 @@ class ShadowSoundSystem {
 const gameSounds = new ShadowSoundSystem();
 
 // ==========================================
+// HIGH PRO MAX: PROCEDURAL TEXTURE GENERATION SUITE
+// ==========================================
+const createTerrainCanvasTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#23381e';
+  ctx.fillRect(0, 0, 512, 512);
+
+  for (let i = 0; i < 4000; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const r = Math.random() * 6 + 2;
+    const colors = ['#2e4726', '#1c2d18', '#382b1d', '#2c2217', '#424a3c', '#172414'];
+    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (let i = 0; i < 1500; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    ctx.fillStyle = Math.random() > 0.5 ? '#555b50' : '#141812';
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(24, 24);
+  return texture;
+};
+
+const createTerrainBumpTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, 256, 256);
+
+  for (let i = 0; i < 2500; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const v = Math.floor(Math.random() * 255);
+    ctx.fillStyle = `rgb(${v},${v},${v})`;
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(24, 24);
+  return texture;
+};
+
+const createRoadCanvasTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#14161a';
+  ctx.fillRect(0, 0, 512, 512);
+
+  for (let i = 0; i < 7000; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    ctx.fillStyle = Math.random() > 0.6 ? '#282c33' : '#0c0d10';
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+
+  ctx.fillStyle = 'rgba(10, 11, 14, 0.45)';
+  ctx.fillRect(110, 0, 60, 512);
+  ctx.fillRect(342, 0, 60, 512);
+
+  ctx.fillStyle = '#ffaa00';
+  ctx.fillRect(35, 0, 10, 512);
+  ctx.fillRect(467, 0, 10, 512);
+
+  ctx.fillStyle = '#f0f4f8';
+  for (let y = 15; y < 512; y += 80) {
+    ctx.fillRect(250, y, 12, 45);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 12);
+  return texture;
+};
+
+const createCamoCanvasTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#263423';
+  ctx.fillRect(0, 0, 256, 256);
+
+  const colors = ['#3b3327', '#171c14', '#47533c', '#544633', '#1e241c'];
+  for (let i = 0; i < 350; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const w = Math.random() * 26 + 8;
+    const h = Math.random() * 26 + 8;
+    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    ctx.fillRect(x, y, w, h);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return texture;
+};
+
+const createBunkerConcreteTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#4c525a';
+  ctx.fillRect(0, 0, 512, 512);
+
+  for (let i = 0; i < 4000; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    ctx.fillStyle = Math.random() > 0.5 ? '#5a626b' : '#3e444b';
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  ctx.strokeStyle = '#282b30';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(4, 4, 250, 250);
+  ctx.strokeRect(258, 4, 250, 250);
+  ctx.strokeRect(4, 258, 250, 250);
+  ctx.strokeRect(258, 258, 250, 250);
+
+  ctx.fillStyle = '#1b1d20';
+  [12, 246, 266, 500].forEach((px) => {
+    [12, 246, 266, 500].forEach((py) => {
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 20px monospace';
+  ctx.fillText('SECTOR 07 // MIL-RESTRICTED', 30, 230);
+  ctx.fillText('WARNING: LETHAL FORCE', 285, 230);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2, 2);
+  return texture;
+};
+
+const createSkyDomeTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0.0, '#060a16');
+  grad.addColorStop(0.35, '#0d192e');
+  grad.addColorStop(0.7, '#1b2f48');
+  grad.addColorStop(0.9, '#3a332a');
+  grad.addColorStop(1.0, '#4a3d2e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 240;
+    const alpha = Math.random() * 0.8 + 0.2;
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+
+  ctx.fillStyle = 'rgba(45, 60, 85, 0.28)';
+  for (let i = 0; i < 18; i++) {
+    const x = Math.random() * 512;
+    const y = 290 + Math.random() * 130;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 100, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  return new THREE.CanvasTexture(canvas);
+};
+
+const createBarkCanvasTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#261b14';
+  ctx.fillRect(0, 0, 128, 256);
+
+  for (let x = 0; x < 128; x += 4) {
+    ctx.fillStyle = Math.random() > 0.5 ? '#38281d' : '#1c130d';
+    ctx.fillRect(x, 0, 3, 256);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1, 3);
+  return texture;
+};
+
+const createGrassTuftTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, 128, 128);
+
+  const blades = [
+    { x1: 64, y1: 128, x2: 28, y2: 20, color: '#385e28' },
+    { x1: 64, y1: 128, x2: 44, y2: 12, color: '#4a7534' },
+    { x1: 64, y1: 128, x2: 64, y2: 6, color: '#55873c' },
+    { x1: 64, y1: 128, x2: 82, y2: 14, color: '#446e2f' },
+    { x1: 64, y1: 128, x2: 100, y2: 24, color: '#325424' },
+    { x1: 60, y1: 128, x2: 18, y2: 45, color: '#2d4720' },
+    { x1: 68, y1: 128, x2: 112, y2: 40, color: '#3f632b' },
+  ];
+
+  blades.forEach((b) => {
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(b.x1, b.y1);
+    ctx.quadraticCurveTo((b.x1 + b.x2) / 2 + 6, (b.y1 + b.y2) / 2, b.x2, b.y2);
+    ctx.stroke();
+  });
+
+  return new THREE.CanvasTexture(canvas);
+};
+
+const createCrateTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#2d3b2b';
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.fillStyle = '#1c261b';
+  ctx.fillRect(0, 0, 256, 18);
+  ctx.fillRect(0, 238, 256, 18);
+  ctx.fillRect(0, 0, 18, 256);
+  ctx.fillRect(238, 0, 18, 256);
+
+  ctx.strokeStyle = '#1c261b';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(18, 18);
+  ctx.lineTo(238, 238);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 15px monospace';
+  ctx.fillText('AMMO 5.56mm', 40, 120);
+  ctx.fillText('US FORCES', 50, 145);
+
+  return new THREE.CanvasTexture(canvas);
+};
+
+const createSandbagTexture = (): THREE.CanvasTexture | null => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#7a6b52';
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.fillStyle = 'rgba(60, 50, 35, 0.25)';
+  for (let i = 0; i < 256; i += 4) {
+    ctx.fillRect(i, 0, 1.5, 256);
+    ctx.fillRect(0, i, 256, 1.5);
+  }
+
+  return new THREE.CanvasTexture(canvas);
+};
+
+// ==========================================
 // MAIN 3D SHADOW STRIKE COMPONENT
 // ==========================================
 export default function ShadowStrikeScreen({ navigation }: any) {
@@ -319,6 +641,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene: null as THREE.Scene | null,
     camera: null as THREE.PerspectiveCamera | null,
     renderer: null as THREE.WebGLRenderer | null,
+    dirSun: null as THREE.DirectionalLight | null,
+    ambientLight: null as THREE.HemisphereLight | null,
     animFrameId: null as any,
 
     // Clock & Timers
@@ -345,14 +669,21 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       isPointerLocked: false,
     },
 
-    // Player Physics
+    // Player Physics & Articulated Rig
     player: {
       position: new THREE.Vector3(0, 2, 45),
       velocity: new THREE.Vector3(0, 0, 0),
       mesh: null as THREE.Group | null,
+      torsoGroup: null as THREE.Group | null,
       bodyMesh: null as THREE.Mesh | null,
+      legL: null as THREE.Group | null,
+      legR: null as THREE.Group | null,
+      armL: null as THREE.Group | null,
+      armR: null as THREE.Group | null,
+      gunGroup: null as THREE.Group | null,
       gunMesh: null as THREE.Mesh | null,
       muzzleLight: null as THREE.PointLight | null,
+      muzzleFlashMesh: null as THREE.Mesh | null,
       onGround: true,
       hp: 100,
       armor: 100,
@@ -372,7 +703,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     camTarget: new THREE.Vector3(),
     currentCamPos: new THREE.Vector3(0, 3, 50),
 
-    // World & Entities
+    // World & High Pro Max Entities
     terrainMesh: null as THREE.Mesh | null,
     obstacles: [] as THREE.Box3[],
     enemies: [] as EnemyEntity[],
@@ -380,6 +711,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     bulletTracers: [] as { line: THREE.Line; life: number }[],
     explosiveBarrels: [] as ExplosiveBarrel[],
     searchlights: [] as THREE.SpotLight[],
+    volumetricCones: [] as THREE.Mesh[],
+    grassMeshes: [] as THREE.Mesh[],
+    dustParticles: [] as THREE.Mesh[],
+    cloudsMesh: null as THREE.Mesh | null,
+    radarDish: null as THREE.Mesh | null,
+    beaconLight: null as THREE.PointLight | null,
 
     // Key Mission Items
     keycardMesh: null as THREE.Group | null,
@@ -405,16 +742,60 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     // 1. Scene with Rich Atmospheric Sky
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0b1324');
-    scene.fog = new THREE.FogExp2('#0e182c', 0.0075);
+    scene.background = new THREE.Color('#0a1120');
+    scene.fog = new THREE.FogExp2('#0d182b', 0.007);
     g.scene = scene;
 
+    // Celestial Skydome Sphere with atmospheric gradient & stars
+    const skyGeo = new THREE.SphereGeometry(450, 32, 16);
+    const skyTex = createSkyDomeTexture();
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: skyTex || undefined,
+      side: THREE.BackSide,
+      fog: false,
+    });
+    const skyDome = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(skyDome);
+
+    // Drifting Volumetric Cloud Layer
+    const cloudGeo = new THREE.PlaneGeometry(600, 600);
+    cloudGeo.rotateX(-Math.PI / 2);
+    const cloudMat = new THREE.MeshBasicMaterial({
+      color: '#1a2b42',
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    });
+    const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+    cloudMesh.position.y = 135;
+    scene.add(cloudMesh);
+    g.cloudsMesh = cloudMesh;
+
+    // Atmospheric Floating Dust Particles
+    const dustGeo = new THREE.BufferGeometry();
+    const dustCount = 80;
+    const dustPos = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount * 3; i += 3) {
+      dustPos[i] = (Math.random() - 0.5) * 120;
+      dustPos[i + 1] = Math.random() * 10 + 0.5;
+      dustPos[i + 2] = (Math.random() - 0.5) * 120;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: '#ffea9f',
+      size: 0.22,
+      transparent: true,
+      opacity: 0.6,
+    });
+    const dustPoints = new THREE.Points(dustGeo, dustMat);
+    scene.add(dustPoints);
+
     // 2. Camera
-    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 900);
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 950);
     camera.position.set(0, 3, 50);
     g.camera = camera;
 
-    // 3. Renderer with HIGH PRO MAX Filmic Tone Mapping & Shadows
+    // 3. Renderer with HIGH PRO MAX Filmic Tone Mapping & Soft Shadows
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: 'high-performance',
@@ -424,7 +805,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; // Photorealistic console tone mapping
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.35;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     g.renderer = renderer;
@@ -434,28 +815,30 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     mountRef.current.appendChild(renderer.domElement);
 
     // 4. Photorealistic Cinematic Lighting Rig
-    const ambientLight = new THREE.HemisphereLight('#87b5ff', '#33271d', 0.85);
+    const ambientLight = new THREE.HemisphereLight('#8ebcff', '#36281e', 0.9);
     scene.add(ambientLight);
+    g.ambientLight = ambientLight;
 
-    const dirSun = new THREE.DirectionalLight('#ffe8d6', 2.2);
-    dirSun.position.set(80, 130, 60);
+    const dirSun = new THREE.DirectionalLight('#fff0db', 2.4);
+    dirSun.position.set(85, 140, 65);
     dirSun.castShadow = true;
     dirSun.shadow.mapSize.width = 2048;
     dirSun.shadow.mapSize.height = 2048;
     dirSun.shadow.camera.near = 10;
-    dirSun.shadow.camera.far = 380;
-    const d = 120;
+    dirSun.shadow.camera.far = 400;
+    const d = 130;
     dirSun.shadow.camera.left = -d;
     dirSun.shadow.camera.right = d;
     dirSun.shadow.camera.top = d;
     dirSun.shadow.camera.bottom = -d;
-    dirSun.shadow.bias = -0.0004;
+    dirSun.shadow.bias = -0.0003;
     scene.add(dirSun);
+    g.dirSun = dirSun;
 
     // Sun flare glow
     const sunOrb = new THREE.Mesh(
-      new THREE.SphereGeometry(14, 16, 16),
-      new THREE.MeshBasicMaterial({ color: '#ffea9f' })
+      new THREE.SphereGeometry(16, 16, 16),
+      new THREE.MeshBasicMaterial({ color: '#ffea9f', fog: false })
     );
     sunOrb.position.set(240, 390, 180);
     scene.add(sunOrb);
@@ -488,6 +871,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const gameLoop = () => {
       if (!isRunning) return;
       const dt = Math.min(g.clock.getDelta(), 0.1);
+      const t = g.clock.getElapsedTime();
+
+      // Atmospheric Cloud Drift
+      if (g.cloudsMesh) {
+        g.cloudsMesh.rotation.y += dt * 0.006;
+      }
+
+      // Wind Sway on Wild Grass Clumps
+      if (g.grassMeshes && g.grassMeshes.length > 0) {
+        for (let i = 0; i < g.grassMeshes.length; i++) {
+          const m = g.grassMeshes[i];
+          m.rotation.z = Math.sin(t * 1.8 + m.position.x * 0.4) * 0.12;
+        }
+      }
+
+      // Rotating Rooftop Radar Dish
+      if (g.radarDish) {
+        g.radarDish.rotation.y += dt * 0.55;
+      }
 
       if (g.state === 'PLAYING') {
         updatePlayerPhysics(dt, g);
@@ -497,10 +899,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         updateParticles(dt, g);
         updateTacticalLaser(g);
 
-        // Animate searchlights swinging
-        const t = g.clock.getElapsedTime();
+        // Animate searchlights swinging with volumetric beam cones
         g.searchlights.forEach((sl: any, idx: number) => {
-          sl.target.position.x = Math.sin(t * 0.8 + idx * 2) * 25;
+          const sweepX = Math.sin(t * 0.75 + idx * 2.2) * 26;
+          sl.target.position.x = sweepX;
+          if (g.volumetricCones[idx]) {
+            g.volumetricCones[idx].lookAt(sl.target.position);
+          }
         });
       } else if (g.state === 'MENU') {
         // Cinematic camera orbit around mountain facility
@@ -534,11 +939,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   }, [winWidth, winHeight]);
 
   // ==========================================
-  // PROCEDURAL OPEN-WORLD TERRAIN GENERATION
+  // PROCEDURAL OPEN-WORLD TERRAIN GENERATION (HIGH PRO MAX)
   // ==========================================
   const buildOpenWorldTerrain = (scene: THREE.Scene, g: any) => {
-    const size = 340;
-    const segments = 90;
+    const size = 360;
+    const segments = 100;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
@@ -547,44 +952,88 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
 
-      // Distance from center facility
       const distFromCenter = Math.sqrt(x * x + z * z);
 
       let height = 0;
       if (distFromCenter > 35) {
         height =
-          Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8 +
-          Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4;
+          Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8.5 +
+          Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4.2;
 
         if (distFromCenter > 115) {
           height += Math.pow((distFromCenter - 115) * 0.28, 1.85);
         }
       } else {
-        height = Math.sin(x * 0.02) * 0.4;
+        height = Math.sin(x * 0.02) * 0.35;
       }
 
       pos.setY(i, height);
     }
     geo.computeVertexNormals();
 
+    const terrainTex = createTerrainCanvasTexture();
+    const terrainBump = createTerrainBumpTexture();
+
     const terrainMat = new THREE.MeshStandardMaterial({
-      color: '#283823',
-      roughness: 0.85,
-      metalness: 0.05,
-      flatShading: true,
+      map: terrainTex || undefined,
+      bumpMap: terrainBump || undefined,
+      bumpScale: 0.18,
+      roughness: 0.88,
+      metalness: 0.04,
     });
     const terrain = new THREE.Mesh(geo, terrainMat);
     terrain.receiveShadow = true;
     scene.add(terrain);
     g.terrainMesh = terrain;
 
-    // Pine Trees & Boulders
-    const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 4, 6);
-    const treeFoliageGeo = new THREE.ConeGeometry(3.2, 7.5, 7);
-    const trunkMat = new THREE.MeshStandardMaterial({ color: '#3d2b1f', roughness: 0.9 });
-    const foliageMat = new THREE.MeshStandardMaterial({ color: '#16381e', roughness: 0.8 });
-    const rockGeo = new THREE.DodecahedronGeometry(1.6, 1);
-    const rockMat = new THREE.MeshStandardMaterial({ color: '#4a4f54', roughness: 0.85, flatShading: true });
+    // Towering Perimeter Mountain Ring enclosing the tactical valley
+    const mountainRingGeo = new THREE.CylinderGeometry(210, 160, 80, 32, 4, true);
+    mountainRingGeo.rotateY(Math.PI / 4);
+    const mRingPos = mountainRingGeo.attributes.position;
+    for (let i = 0; i < mRingPos.count; i++) {
+      const vx = mRingPos.getX(i);
+      const vy = mRingPos.getY(i);
+      const vz = mRingPos.getZ(i);
+      const crag = Math.sin(vx * 0.08) * Math.cos(vz * 0.08) * 12;
+      mRingPos.setY(i, vy + crag);
+    }
+    mountainRingGeo.computeVertexNormals();
+
+    const mountainRingMat = new THREE.MeshStandardMaterial({
+      color: '#1b241c',
+      roughness: 0.95,
+      metalness: 0.05,
+      bumpMap: terrainBump || undefined,
+      bumpScale: 0.3,
+      side: THREE.BackSide,
+      flatShading: true,
+    });
+    const mountainRing = new THREE.Mesh(mountainRingGeo, mountainRingMat);
+    mountainRing.position.y = 28;
+    scene.add(mountainRing);
+
+    // Realistic Multi-Tier Pine Trees & Boulders
+    const trunkTex = createBarkCanvasTexture();
+    const trunkMat = new THREE.MeshStandardMaterial({
+      map: trunkTex || undefined,
+      roughness: 0.92,
+    });
+    const foliageMat = new THREE.MeshStandardMaterial({
+      color: '#183820',
+      roughness: 0.78,
+      flatShading: true,
+    });
+    const rockGeo = new THREE.DodecahedronGeometry(1.7, 1);
+    const rockMat = new THREE.MeshStandardMaterial({
+      color: '#4e5459',
+      roughness: 0.88,
+      flatShading: true,
+    });
+
+    const trunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 4.2, 7);
+    const fTier1Geo = new THREE.ConeGeometry(3.6, 4.4, 7);
+    const fTier2Geo = new THREE.ConeGeometry(2.8, 3.8, 7);
+    const fTier3Geo = new THREE.ConeGeometry(1.9, 3.2, 7);
 
     for (let i = 0; i < 95; i++) {
       const tx = (Math.random() - 0.5) * 240;
@@ -596,33 +1045,49 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
         const treeGroup = new THREE.Group();
         treeGroup.position.set(tx, ty, tz);
+        const tScale = 0.85 + Math.random() * 0.45;
+        treeGroup.scale.set(tScale, tScale, tScale);
+        treeGroup.rotation.y = Math.random() * Math.PI * 2;
 
-        const trunk = new THREE.Mesh(treeTrunkGeo, trunkMat);
-        trunk.position.y = 2;
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 2.1;
         trunk.castShadow = true;
         trunk.receiveShadow = true;
         treeGroup.add(trunk);
 
-        const foliage = new THREE.Mesh(treeFoliageGeo, foliageMat);
-        foliage.position.y = 6.5;
-        foliage.castShadow = true;
-        treeGroup.add(foliage);
+        // Tier 1 bottom foliage
+        const f1 = new THREE.Mesh(fTier1Geo, foliageMat);
+        f1.position.y = 3.8;
+        f1.castShadow = true;
+        treeGroup.add(f1);
+
+        // Tier 2 mid foliage
+        const f2 = new THREE.Mesh(fTier2Geo, foliageMat);
+        f2.position.y = 6.2;
+        f2.castShadow = true;
+        treeGroup.add(f2);
+
+        // Tier 3 top foliage
+        const f3 = new THREE.Mesh(fTier3Geo, foliageMat);
+        f3.position.y = 8.4;
+        f3.castShadow = true;
+        treeGroup.add(f3);
 
         scene.add(treeGroup);
 
         g.obstacles.push(new THREE.Box3().setFromCenterAndSize(
-          new THREE.Vector3(tx, ty + 2, tz),
-          new THREE.Vector3(1.2, 5, 1.2)
+          new THREE.Vector3(tx, ty + 2.5, tz),
+          new THREE.Vector3(1.3 * tScale, 6 * tScale, 1.3 * tScale)
         ));
 
         if (Math.random() < 0.45) {
-          const rx = tx + (Math.random() - 0.5) * 6;
-          const rz = tz + (Math.random() - 0.5) * 6;
+          const rx = tx + (Math.random() - 0.5) * 7;
+          const rz = tz + (Math.random() - 0.5) * 7;
           const ry = getTerrainHeight(rx, rz);
           const rock = new THREE.Mesh(rockGeo, rockMat);
-          const rScale = 0.8 + Math.random() * 1.4;
-          rock.scale.set(rScale, rScale * 0.8, rScale);
-          rock.position.set(rx, ry + rScale * 0.7, rz);
+          const rScale = 0.8 + Math.random() * 1.5;
+          rock.scale.set(rScale, rScale * 0.75, rScale);
+          rock.position.set(rx, ry + rScale * 0.65, rz);
           rock.rotation.set(Math.random(), Math.random(), Math.random());
           rock.castShadow = true;
           rock.receiveShadow = true;
@@ -631,52 +1096,120 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }
       }
     }
+
+    // High Pro Max: 130+ Animated Wild Grass Blade Clumps
+    const grassTex = createGrassTuftTexture();
+    const grassMat = new THREE.MeshStandardMaterial({
+      map: grassTex || undefined,
+      transparent: true,
+      alphaTest: 0.35,
+      roughness: 0.85,
+      side: THREE.DoubleSide,
+    });
+    const grassQuadGeo = new THREE.PlaneGeometry(1.6, 1.3);
+
+    for (let i = 0; i < 130; i++) {
+      const gx = (Math.random() - 0.5) * 230;
+      const gz = (Math.random() - 0.5) * 230;
+      const gDist = Math.sqrt(gx * gx + gz * gz);
+      if (gDist > 14 && gDist < 120) {
+        const gy = getTerrainHeight(gx, gz);
+        const grassCluster = new THREE.Group();
+        grassCluster.position.set(gx, gy + 0.65, gz);
+
+        const p1 = new THREE.Mesh(grassQuadGeo, grassMat);
+        const p2 = new THREE.Mesh(grassQuadGeo, grassMat);
+        p2.rotation.y = Math.PI / 2;
+        grassCluster.add(p1);
+        grassCluster.add(p2);
+        grassCluster.rotation.y = Math.random() * Math.PI;
+
+        scene.add(grassCluster);
+        g.grassMeshes.push(grassCluster);
+      }
+    }
   };
 
   // Terrain height query helper
   const getTerrainHeight = (x: number, z: number): number => {
     const dist = Math.sqrt(x * x + z * z);
     if (dist <= 35) return 0;
-    let h = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8 + Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4;
+    let h = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8.5 + Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4.2;
     if (dist > 115) h += Math.pow((dist - 115) * 0.28, 1.85);
     return Math.max(0, h);
   };
 
   // ==========================================
-  // REALISTIC ASPHALT ROAD WITH HIGHWAY MARKINGS
+  // REALISTIC ASPHALT ROAD WITH HIGHWAY MARKINGS & BARRIERS
   // ==========================================
   const buildAsphaltRoad = (scene: THREE.Scene, g: any) => {
-    const roadMat = new THREE.MeshStandardMaterial({ color: '#16191f', roughness: 0.85 });
-    const lineMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
-    const yellowMat = new THREE.MeshBasicMaterial({ color: '#ffcc00' });
+    const roadTex = createRoadCanvasTexture();
+    const roadMat = new THREE.MeshStandardMaterial({
+      map: roadTex || undefined,
+      roughness: 0.82,
+      metalness: 0.1,
+    });
 
     // Road segment leading from spawn to gate
-    const roadGeo = new THREE.BoxGeometry(9, 0.15, 75);
+    const roadGeo = new THREE.BoxGeometry(9.6, 0.16, 78);
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.position.set(0, 0.08, 38);
     road.receiveShadow = true;
     scene.add(road);
 
-    // Center dashed lines
-    for (let z = 5; z <= 70; z += 6) {
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 2.8), yellowMat);
-      dash.position.set(0, 0.1, z);
-      scene.add(dash);
-    }
+    // Concrete Jersey Safety Barriers flanking the highway
+    const barrierMat = new THREE.MeshStandardMaterial({ color: '#555d66', roughness: 0.75 });
+    const barrierGeo = new THREE.BoxGeometry(0.5, 0.9, 3.5);
+
+    [-5.2, 5.2].forEach((xOffset) => {
+      for (let z = 10; z <= 65; z += 4.5) {
+        const barrier = new THREE.Mesh(barrierGeo, barrierMat);
+        barrier.position.set(xOffset, 0.45, z);
+        barrier.castShadow = true;
+        barrier.receiveShadow = true;
+        scene.add(barrier);
+        g.obstacles.push(new THREE.Box3().setFromObject(barrier));
+      }
+    });
   };
 
   // ==========================================
-  // BUILD ABANDONED MILITARY COMPLEX
+  // BUILD ABANDONED MILITARY COMPLEX (HIGH PRO MAX)
   // ==========================================
   const buildAbandonedFacility = (scene: THREE.Scene, g: any) => {
-    const concreteMat = new THREE.MeshStandardMaterial({ color: '#4f5761', roughness: 0.75 });
-    const rustMetalMat = new THREE.MeshStandardMaterial({ color: '#38251e', roughness: 0.6, metalness: 0.7 });
-    const darkSteelMat = new THREE.MeshStandardMaterial({ color: '#1b2026', roughness: 0.4, metalness: 0.9 });
+    const bunkerTex = createBunkerConcreteTexture();
+    const crateTex = createCrateTexture();
+    const sandbagTex = createSandbagTexture();
+
+    const concreteMat = new THREE.MeshStandardMaterial({
+      map: bunkerTex || undefined,
+      roughness: 0.72,
+      metalness: 0.1,
+    });
+    const rustMetalMat = new THREE.MeshStandardMaterial({
+      color: '#38251e',
+      roughness: 0.58,
+      metalness: 0.75,
+    });
+    const darkSteelMat = new THREE.MeshStandardMaterial({
+      color: '#1a1f26',
+      roughness: 0.35,
+      metalness: 0.9,
+    });
     const hazardMat = new THREE.MeshBasicMaterial({ color: '#ffcc00' });
     const redLightMat = new THREE.MeshBasicMaterial({ color: '#ff0033' });
+    const sandbagMat = new THREE.MeshStandardMaterial({
+      map: sandbagTex || undefined,
+      roughness: 0.88,
+    });
+    const crateMat = new THREE.MeshStandardMaterial({
+      map: crateTex || undefined,
+      roughness: 0.7,
+      metalness: 0.3,
+    });
 
     // 1. Concrete Compound Floor Slab
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(66, 0.4, 66), concreteMat);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(68, 0.45, 68), concreteMat);
     slab.position.set(0, 0.1, -15);
     slab.receiveShadow = true;
     scene.add(slab);
@@ -685,26 +1218,36 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const bunkerGroup = new THREE.Group();
     bunkerGroup.position.set(0, 0, -25);
 
-    const bunker = new THREE.Mesh(new THREE.BoxGeometry(25, 7.5, 19), concreteMat);
-    bunker.position.y = 3.75;
+    const bunker = new THREE.Mesh(new THREE.BoxGeometry(26, 7.8, 20), concreteMat);
+    bunker.position.y = 3.9;
     bunker.castShadow = true;
     bunker.receiveShadow = true;
     bunkerGroup.add(bunker);
 
     // Hazard warning stripe above bunker entrance
-    const hazardStripe = new THREE.Mesh(new THREE.BoxGeometry(12, 0.8, 0.2), hazardMat);
-    hazardStripe.position.set(0, 6.2, 9.6);
+    const hazardStripe = new THREE.Mesh(new THREE.BoxGeometry(13, 0.85, 0.2), hazardMat);
+    hazardStripe.position.set(0, 6.3, 10.1);
     bunkerGroup.add(hazardStripe);
 
-    // Satellite Dish on Roof
-    const dishMast = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3), darkSteelMat);
-    dishMast.position.set(0, 9, 0);
+    // Rotating Satellite Radar Dish on Roof
+    const dishMast = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 3.5), darkSteelMat);
+    dishMast.position.set(0, 9.5, 0);
     bunkerGroup.add(dishMast);
 
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(2.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), darkSteelMat);
-    dish.position.set(0, 10.5, 0);
+    const dishGroup = new THREE.Group();
+    dishGroup.position.set(0, 11.2, 0);
+
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45), darkSteelMat);
     dish.rotation.x = 0.55;
-    bunkerGroup.add(dish);
+    dishGroup.add(dish);
+
+    // Blinking red aviation warning light on mast
+    const mastLight = new THREE.PointLight('#ff0033', 2.0, 15);
+    mastLight.position.set(0, 1.8, 0);
+    dishGroup.add(mastLight);
+
+    bunkerGroup.add(dishGroup);
+    g.radarDish = dishGroup;
 
     scene.add(bunkerGroup);
     g.obstacles.push(new THREE.Box3().setFromObject(bunker));
@@ -713,84 +1256,144 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const gateGroup = new THREE.Group();
     gateGroup.position.set(0, 0, 5);
 
-    const pillarGeo = new THREE.BoxGeometry(2.2, 6.5, 2.2);
+    const pillarGeo = new THREE.BoxGeometry(2.4, 6.8, 2.4);
     const pillarL = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarL.position.set(-6, 3.2, 0);
+    pillarL.position.set(-6, 3.4, 0);
     pillarL.castShadow = true;
     gateGroup.add(pillarL);
 
     const pillarR = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarR.position.set(6, 3.2, 0);
+    pillarR.position.set(6, 3.4, 0);
     pillarR.castShadow = true;
     gateGroup.add(pillarR);
 
-    // Sliding Door Gate
-    const gateDoor = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 0.4), rustMetalMat);
-    gateDoor.position.set(0, 2.5, 0);
+    // Sliding Door Gate with Heavy Reinforcement
+    const gateDoor = new THREE.Mesh(new THREE.BoxGeometry(10, 5.2, 0.45), rustMetalMat);
+    gateDoor.position.set(0, 2.6, 0);
     gateDoor.castShadow = true;
     gateGroup.add(gateDoor);
 
     // Red Security Warning Beacon
-    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5), redLightMat);
-    beacon.position.set(-6, 6.6, 0);
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.5), redLightMat);
+    beacon.position.set(-6, 6.9, 0);
     gateGroup.add(beacon);
 
     scene.add(gateGroup);
     g.gateMesh = gateGroup;
     g.obstacles.push(new THREE.Box3().setFromObject(gateDoor));
 
-    // 4. Guard Watchtowers with Real Searchlights
-    [-22, 22].forEach((xPos) => {
+    // Sandbag Defensive Berms Flanking Checkpoint Gate
+    const sandbagGeo = new THREE.BoxGeometry(1.6, 0.5, 0.8);
+    for (let row = 0; row < 3; row++) {
+      for (let x = -11; x <= -7; x += 1.4) {
+        const bag = new THREE.Mesh(sandbagGeo, sandbagMat);
+        bag.position.set(x, 0.25 + row * 0.45, 4.2 + (row % 2) * 0.2);
+        bag.castShadow = true;
+        bag.receiveShadow = true;
+        scene.add(bag);
+      }
+      for (let x = 7; x <= 11; x += 1.4) {
+        const bag = new THREE.Mesh(sandbagGeo, sandbagMat);
+        bag.position.set(x, 0.25 + row * 0.45, 4.2 + (row % 2) * 0.2);
+        bag.castShadow = true;
+        bag.receiveShadow = true;
+        scene.add(bag);
+      }
+    }
+
+    // 4. Guard Watchtowers with Volumetric Searchlights
+    [-23, 23].forEach((xPos, idx) => {
       const tower = new THREE.Group();
       tower.position.set(xPos, 0, -2);
 
-      for (let lx = -1.8; lx <= 1.8; lx += 3.6) {
-        for (let lz = -1.8; lz <= 1.8; lz += 3.6) {
-          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 12), darkSteelMat);
-          leg.position.set(lx, 6, lz);
+      // Lattice Truss Legs
+      for (let lx = -2.0; lx <= 2.0; lx += 4.0) {
+        for (let lz = -2.0; lz <= 2.0; lz += 4.0) {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 13), darkSteelMat);
+          leg.position.set(lx, 6.5, lz);
           leg.castShadow = true;
           tower.add(leg);
         }
       }
 
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(4.8, 3, 4.8), concreteMat);
-      cabin.position.set(0, 13, 0);
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.2, 5.2), concreteMat);
+      cabin.position.set(0, 14, 0);
       cabin.castShadow = true;
       tower.add(cabin);
 
       // Searchlight Spotlight
-      const spotlight = new THREE.SpotLight('#ffffcc', 3.0, 50, Math.PI * 0.24, 0.35);
-      spotlight.position.set(0, 11.5, 0);
+      const spotlight = new THREE.SpotLight('#ffffcc', 3.5, 60, Math.PI * 0.24, 0.35);
+      spotlight.position.set(0, 12.5, 0);
       spotlight.target.position.set(xPos * 0.4, 0, 14);
+      spotlight.castShadow = true;
       scene.add(spotlight.target);
       tower.add(spotlight);
       g.searchlights.push(spotlight);
 
+      // Volumetric Light Cone Mesh
+      const coneGeo = new THREE.CylinderGeometry(0.3, 5.5, 30, 16, 1, true);
+      coneGeo.rotateX(-Math.PI / 2);
+      coneGeo.translate(0, 0, 15);
+      const coneMat = new THREE.MeshBasicMaterial({
+        color: '#ffffe0',
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const volCone = new THREE.Mesh(coneGeo, coneMat);
+      volCone.position.set(0, 12.5, 0);
+      volCone.lookAt(spotlight.target.position);
+      tower.add(volCone);
+      g.volumetricCones.push(volCone);
+
       scene.add(tower);
       g.obstacles.push(new THREE.Box3().setFromCenterAndSize(
-        new THREE.Vector3(xPos, 6, -2),
-        new THREE.Vector3(4.2, 14, 4.2)
+        new THREE.Vector3(xPos, 6.5, -2),
+        new THREE.Vector3(4.5, 15, 4.5)
       ));
     });
 
     // 5. Military Storage Warehouse & Cargo Crates
-    const hangar = new THREE.Mesh(new THREE.BoxGeometry(16, 6.5, 14), rustMetalMat);
-    hangar.position.set(-20, 3.25, -30);
+    const hangar = new THREE.Mesh(new THREE.BoxGeometry(17, 7.0, 15), rustMetalMat);
+    hangar.position.set(-21, 3.5, -30);
     hangar.castShadow = true;
     hangar.receiveShadow = true;
     scene.add(hangar);
     g.obstacles.push(new THREE.Box3().setFromObject(hangar));
 
+    // Stenciled Ammunition Crates
+    const crateGeo = new THREE.BoxGeometry(1.8, 1.4, 1.8);
+    const cratePositions = [
+      new THREE.Vector3(12, 0.7, -5),
+      new THREE.Vector3(14, 0.7, -5.2),
+      new THREE.Vector3(13, 2.1, -5.1),
+      new THREE.Vector3(-14, 0.7, -12),
+      new THREE.Vector3(-14, 0.7, -10),
+    ];
+    cratePositions.forEach((pos) => {
+      const cr = new THREE.Mesh(crateGeo, crateMat);
+      cr.position.copy(pos);
+      cr.castShadow = true;
+      cr.receiveShadow = true;
+      scene.add(cr);
+      g.obstacles.push(new THREE.Box3().setFromObject(cr));
+    });
+
     // Scatter Explosive Fuel Barrels
-    const barrelGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 12);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: '#e63946', roughness: 0.35, metalness: 0.6 });
+    const barrelGeo = new THREE.CylinderGeometry(0.72, 0.72, 1.85, 14);
+    const barrelMat = new THREE.MeshStandardMaterial({
+      color: '#e62e3d',
+      roughness: 0.35,
+      metalness: 0.65,
+    });
 
     const barrelPositions = [
-      new THREE.Vector3(-7, 0.9, 2),
-      new THREE.Vector3(8, 0.9, 1),
-      new THREE.Vector3(-10, 0.9, -18),
-      new THREE.Vector3(12, 0.9, -15),
-      new THREE.Vector3(-5, 0.9, -35),
+      new THREE.Vector3(-7, 0.95, 2),
+      new THREE.Vector3(8, 0.95, 1),
+      new THREE.Vector3(-10, 0.95, -18),
+      new THREE.Vector3(12, 0.95, -15),
+      new THREE.Vector3(-5, 0.95, -35),
     ];
 
     barrelPositions.forEach((bPos) => {
@@ -806,103 +1409,249 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const helipadGroup = new THREE.Group();
     helipadGroup.position.set(50, getTerrainHeight(50, -70), -70);
 
-    const padSlab = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 0.8, 24), concreteMat);
+    const padSlab = new THREE.Mesh(new THREE.CylinderGeometry(10.5, 10.5, 0.85, 28), concreteMat);
     padSlab.receiveShadow = true;
     helipadGroup.add(padSlab);
 
     // Glowing Yellow "H" Marking
-    const hBar1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 5), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
-    hBar1.position.set(-1.8, 0.45, 0);
+    const hBar1 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.1, 5.2), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
+    hBar1.position.set(-2.0, 0.48, 0);
     helipadGroup.add(hBar1);
 
-    const hBar2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 5), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
-    hBar2.position.set(1.8, 0.45, 0);
+    const hBar2 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.1, 5.2), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
+    hBar2.position.set(2.0, 0.48, 0);
     helipadGroup.add(hBar2);
 
-    const hBarCross = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
-    hBarCross.position.set(0, 0.45, 0);
+    const hBarCross = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.1, 0.85), new THREE.MeshBasicMaterial({ color: '#ffea00' }));
+    hBarCross.position.set(0, 0.48, 0);
     helipadGroup.add(hBarCross);
 
-    // Pulsing Green Extraction Beacon Light
-    const beaconLight = new THREE.PointLight('#00ff66', 4.0, 35);
-    beaconLight.position.set(0, 4, 0);
+    // Pulsing Green Extraction Guidance Strobe
+    const beaconLight = new THREE.PointLight('#00ff66', 4.5, 40);
+    beaconLight.position.set(0, 4.5, 0);
     helipadGroup.add(beaconLight);
+    g.beaconLight = beaconLight;
 
     scene.add(helipadGroup);
     g.extractionMesh = helipadGroup;
   };
 
   // ==========================================
-  // THIRD-PERSON PLAYER CHARACTER RIG
+  // THIRD-PERSON ELITE OPERATIVE CHARACTER RIG (HIGH PRO MAX)
   // ==========================================
   const buildPlayerCharacter = (scene: THREE.Scene, g: any) => {
     const playerGroup = new THREE.Group();
     playerGroup.position.copy(g.player.position);
 
-    const armorMat = new THREE.MeshStandardMaterial({ color: '#1a222c', roughness: 0.55 });
-    const visorMat = new THREE.MeshStandardMaterial({ color: '#00f0ff', emissive: '#00b4d8', roughness: 0.2 });
-    const weaponMat = new THREE.MeshStandardMaterial({ color: '#090c0f', roughness: 0.3, metalness: 0.85 });
+    const camoTex = createCamoCanvasTexture();
+    const camoMat = new THREE.MeshStandardMaterial({
+      map: camoTex || undefined,
+      roughness: 0.75,
+      metalness: 0.05,
+    });
+    const vestMat = new THREE.MeshStandardMaterial({
+      color: '#1a222a',
+      roughness: 0.55,
+      metalness: 0.15,
+    });
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: '#00f0ff',
+      emissive: '#00b4d8',
+      roughness: 0.15,
+      metalness: 0.8,
+    });
+    const darkPolyMat = new THREE.MeshStandardMaterial({
+      color: '#101418',
+      roughness: 0.6,
+      metalness: 0.2,
+    });
+    const gunMat = new THREE.MeshStandardMaterial({
+      color: '#0c0f12',
+      roughness: 0.32,
+      metalness: 0.88,
+    });
 
-    // Torso (Armor Vest)
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.6), armorMat);
-    torso.position.y = 1.35;
-    torso.castShadow = true;
-    playerGroup.add(torso);
-    g.player.bodyMesh = torso;
+    // 1. Torso Group (Breathing & Lean)
+    const torsoGroup = new THREE.Group();
+    torsoGroup.position.y = 1.35;
+    playerGroup.add(torsoGroup);
+    g.player.torsoGroup = torsoGroup;
 
-    // Tactical Backpack
-    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.8, 0.35), new THREE.MeshStandardMaterial({ color: '#2d3748' }));
-    pack.position.set(0, 1.4, -0.4);
-    playerGroup.add(pack);
+    // Combat Uniform Base
+    const combatShirt = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.95, 0.52), camoMat);
+    combatShirt.castShadow = true;
+    torsoGroup.add(combatShirt);
+    g.player.bodyMesh = combatShirt;
 
-    // Head with Tactical Helmet & Double Visor
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), armorMat);
-    head.position.y = 2.15;
+    // Tactical Modular Plate Carrier Armor Vest
+    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.85, 0.58), vestMat);
+    vest.position.y = 0.02;
+    vest.castShadow = true;
+    torsoGroup.add(vest);
+
+    // Front Triple STANAG Rifle Mag Pouches
+    [-0.24, 0, 0.24].forEach((px) => {
+      const magPouch = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.34, 0.14), darkPolyMat);
+      magPouch.position.set(px, -0.1, 0.34);
+      torsoGroup.add(magPouch);
+    });
+
+    // Shoulder Comms Radio & Antenna
+    const radio = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.26, 0.14), darkPolyMat);
+    radio.position.set(-0.35, 0.35, 0.15);
+    torsoGroup.add(radio);
+
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5), darkPolyMat);
+    antenna.position.set(-0.35, 0.65, 0.15);
+    torsoGroup.add(antenna);
+
+    // Tactical Assault Backpack
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.82, 0.38), darkPolyMat);
+    pack.position.set(0, 0.05, -0.42);
+    torsoGroup.add(pack);
+
+    // Bedroll on top of backpack
+    const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 8), camoMat);
+    bedroll.rotation.z = Math.PI / 2;
+    bedroll.position.set(0, 0.52, -0.42);
+    torsoGroup.add(bedroll);
+
+    // 2. Head & High-Cut FAST Ballistic Helmet
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 0.8, 0);
+    torsoGroup.add(headGroup);
+
+    // Balaclava Face Mask
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.52, 0.5), darkPolyMat);
+    head.position.y = 0.05;
     head.castShadow = true;
-    playerGroup.add(head);
+    headGroup.add(head);
 
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.18, 0.2), visorMat);
-    visor.position.set(0, 2.18, 0.25);
-    playerGroup.add(visor);
+    // High-Cut Helmet Shell
+    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.36, 0.62), camoMat);
+    helmet.position.set(0, 0.2, 0.02);
+    helmet.castShadow = true;
+    headGroup.add(helmet);
 
-    // Legs
-    const legGeo = new THREE.BoxGeometry(0.35, 1.0, 0.35);
-    const legL = new THREE.Mesh(legGeo, armorMat);
-    legL.position.set(-0.25, 0.5, 0);
+    // NVG Shroud & Tactical Goggles
+    const nvgMount = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.1), darkPolyMat);
+    nvgMount.position.set(0, 0.22, 0.34);
+    headGroup.add(nvgMount);
+
+    const goggles = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.16, 0.18), visorMat);
+    goggles.position.set(0, 0.08, 0.26);
+    headGroup.add(goggles);
+
+    // Tactical Headset with boom mic
+    const earCupL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.16), darkPolyMat);
+    earCupL.position.set(-0.3, 0.08, 0);
+    headGroup.add(earCupL);
+
+    const earCupR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.16), darkPolyMat);
+    earCupR.position.set(0.3, 0.08, 0);
+    headGroup.add(earCupR);
+
+    // 3. Articulated Legs (Locomotion Kinematics)
+    const legGeo = new THREE.BoxGeometry(0.32, 0.95, 0.32);
+    const bootGeo = new THREE.BoxGeometry(0.34, 0.24, 0.46);
+    const kneePadGeo = new THREE.BoxGeometry(0.28, 0.24, 0.12);
+
+    // Left Leg Group
+    const legLGroup = new THREE.Group();
+    legLGroup.position.set(-0.24, 0.95, 0);
+    const legL = new THREE.Mesh(legGeo, camoMat);
+    legL.position.y = -0.45;
     legL.castShadow = true;
-    playerGroup.add(legL);
+    legLGroup.add(legL);
 
-    const legR = new THREE.Mesh(legGeo, armorMat);
-    legR.position.set(0.25, 0.5, 0);
+    const kneeL = new THREE.Mesh(kneePadGeo, darkPolyMat);
+    kneeL.position.set(0, -0.42, 0.18);
+    legLGroup.add(kneeL);
+
+    const bootL = new THREE.Mesh(bootGeo, darkPolyMat);
+    bootL.position.set(0, -0.85, 0.06);
+    bootL.castShadow = true;
+    legLGroup.add(bootL);
+    playerGroup.add(legLGroup);
+    g.player.legL = legLGroup;
+
+    // Right Leg Group with Holstered Sidearm Pistol
+    const legRGroup = new THREE.Group();
+    legRGroup.position.set(0.24, 0.95, 0);
+    const legR = new THREE.Mesh(legGeo, camoMat);
+    legR.position.y = -0.45;
     legR.castShadow = true;
-    playerGroup.add(legR);
+    legRGroup.add(legR);
 
-    // Tactical Assault Rifle
+    const kneeR = new THREE.Mesh(kneePadGeo, darkPolyMat);
+    kneeR.position.set(0, -0.42, 0.18);
+    legRGroup.add(kneeR);
+
+    const bootR = new THREE.Mesh(bootGeo, darkPolyMat);
+    bootR.position.set(0, -0.85, 0.06);
+    bootR.castShadow = true;
+    legRGroup.add(bootR);
+
+    // Holstered Sidearm on Right Thigh
+    const holster = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.38, 0.22), darkPolyMat);
+    holster.position.set(0.2, -0.35, 0.02);
+    legRGroup.add(holster);
+    playerGroup.add(legRGroup);
+    g.player.legR = legRGroup;
+
+    // 4. Tactical MK-18 Carbine with Quad Rail, EOTech Sight & Muzzle Flash
     const gunGroup = new THREE.Group();
-    gunGroup.position.set(0.45, 1.25, 0.4);
+    gunGroup.position.set(0.42, 1.25, 0.4);
 
-    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.9), weaponMat);
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.24, 0.92), gunMat);
+    receiver.castShadow = true;
     gunGroup.add(receiver);
 
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6), weaponMat);
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.65), gunMat);
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.05, 0.6);
+    barrel.position.set(0, 0.05, 0.65);
     gunGroup.add(barrel);
 
-    const optic = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.25), darkSteelMat());
-    optic.position.set(0, 0.15, 0);
+    // Angled Foregrip
+    const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.15), darkPolyMat);
+    foregrip.position.set(0, -0.15, 0.45);
+    gunGroup.add(foregrip);
+
+    // EOTech Holographic Optic Sight
+    const optic = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.26), darkPolyMat);
+    optic.position.set(0, 0.17, 0.05);
     gunGroup.add(optic);
 
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.18), darkSteelMat());
-    mag.position.set(0, -0.2, 0.1);
+    const opticReticle = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.02), visorMat);
+    opticReticle.position.set(0, 0.17, 0.18);
+    gunGroup.add(opticReticle);
+
+    // Curved 30-round STANAG Magazine
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 0.18), gunMat);
+    mag.position.set(0, -0.22, 0.1);
     gunGroup.add(mag);
 
-    // Muzzle Flash Point Light
-    const muzzleLight = new THREE.PointLight('#ffe066', 0, 8);
-    muzzleLight.position.set(0, 0.05, 0.95);
+    // PEQ-15 Laser Sight Top Module
+    const peq = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.2), darkPolyMat);
+    peq.position.set(0, 0.15, 0.52);
+    gunGroup.add(peq);
+
+    // Multi-Point Starburst Muzzle Flash Mesh (normally hidden)
+    const flashMat = new THREE.MeshBasicMaterial({ color: '#fff066', transparent: true, opacity: 0.95 });
+    const flashMesh = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), flashMat);
+    flashMesh.scale.set(1.0, 1.0, 2.5);
+    flashMesh.position.set(0, 0.05, 1.05);
+    flashMesh.visible = false;
+    gunGroup.add(flashMesh);
+    g.player.muzzleFlashMesh = flashMesh;
+
+    // Muzzle Flash Dynamic Light
+    const muzzleLight = new THREE.PointLight('#ffe066', 0, 10);
+    muzzleLight.position.set(0, 0.05, 1.05);
     gunGroup.add(muzzleLight);
 
     playerGroup.add(gunGroup);
+    g.player.gunGroup = gunGroup;
     g.player.gunMesh = receiver;
     g.player.muzzleLight = muzzleLight;
 
@@ -1280,25 +2029,43 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
 
     if (isMoving && p.onGround) {
-      p.walkCycle += dt * (g.keys.shift ? 14 : 9);
+      p.walkCycle += dt * (g.keys.shift ? 15 : 9.5);
+      const stride = Math.sin(p.walkCycle) * (g.keys.shift ? 0.75 : 0.52);
+
+      if (p.legL) p.legL.rotation.x = stride;
+      if (p.legR) p.legR.rotation.x = -stride;
+
+      if (p.torsoGroup) {
+        p.torsoGroup.rotation.x = g.keys.shift ? 0.16 : 0.04;
+        p.torsoGroup.position.y = 1.35 + Math.abs(Math.sin(p.walkCycle)) * 0.08;
+      }
+
       if (Math.sin(p.walkCycle) > 0.95 && g.lastStepTime + 0.28 < g.elapsedTime) {
         gameSounds.playFootstep();
         g.lastStepTime = g.elapsedTime;
       }
-      if (p.bodyMesh) {
-        p.bodyMesh.position.y = 1.35 + Math.sin(p.walkCycle * 2) * 0.06;
+    } else {
+      if (p.legL) p.legL.rotation.x *= 0.85;
+      if (p.legR) p.legR.rotation.x *= 0.85;
+      if (p.torsoGroup) {
+        p.torsoGroup.rotation.x *= 0.85;
+        p.torsoGroup.position.y = 1.35 + Math.sin(g.elapsedTime * 2.2) * 0.015;
       }
     }
 
-    const camDist = g.mouseLook.isAiming ? 1.8 : 3.8;
-    const camHeight = g.mouseLook.isAiming ? 1.6 : 2.1;
+    const camDist = g.mouseLook.isAiming ? 1.9 : 3.8;
+    const camHeight = g.mouseLook.isAiming ? 1.6 : 2.2;
     const shoulderOffset = g.mouseLook.isAiming ? 0.65 : 0.85;
 
     const camX = p.position.x + Math.sin(g.mouseLook.yaw) * camDist + Math.cos(g.mouseLook.yaw) * shoulderOffset;
     const camZ = p.position.z + Math.cos(g.mouseLook.yaw) * camDist - Math.sin(g.mouseLook.yaw) * shoulderOffset;
-    const camY = p.position.y + camHeight + Math.sin(g.mouseLook.pitch) * 2.5;
+    let camY = p.position.y + camHeight + Math.sin(g.mouseLook.pitch) * 2.5;
 
-    g.currentCamPos.lerp(new THREE.Vector3(camX, camY, camZ), 0.2);
+    // Camera terrain collision safety clamp
+    const camGroundH = getTerrainHeight(camX, camZ);
+    camY = Math.max(camGroundH + 0.6, camY);
+
+    g.currentCamPos.lerp(new THREE.Vector3(camX, camY, camZ), 0.22);
     if (g.camera) {
       g.camera.position.copy(g.currentCamPos);
 
@@ -1312,7 +2079,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // ==========================================
-  // COMBAT & WEAPON FIRING SYSTEM
+  // COMBAT & WEAPON FIRING SYSTEM (HIGH PRO MAX)
   // ==========================================
   const firePlayerWeapon = (g: any) => {
     const p = g.player;
@@ -1325,19 +2092,35 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setAmmoClip(p.clip);
     gameSounds.playGunshot(false);
 
-    // Muzzle Flash
+    // Muzzle Flash Starburst Mesh & Dynamic Point Light
+    if (p.muzzleFlashMesh) {
+      p.muzzleFlashMesh.visible = true;
+      p.muzzleFlashMesh.rotation.z = Math.random() * Math.PI * 2;
+      setTimeout(() => {
+        if (p.muzzleFlashMesh) p.muzzleFlashMesh.visible = false;
+      }, 45);
+    }
+
     if (p.muzzleLight) {
-      p.muzzleLight.intensity = 5.0;
+      p.muzzleLight.intensity = 5.5;
       setTimeout(() => {
         if (p.muzzleLight) p.muzzleLight.intensity = 0;
-      }, 50);
+      }, 45);
+    }
+
+    // Weapon Physical Recoil Kick
+    if (p.gunGroup) {
+      p.gunGroup.position.z -= 0.08;
+      setTimeout(() => {
+        if (p.gunGroup) p.gunGroup.position.z = 0.4;
+      }, 75);
     }
 
     // Ejecting golden brass casing particle
     spawnBulletCasing(p.position.clone().add(new THREE.Vector3(0, 1.3, 0)), g);
 
-    // Weapon Recoil Kick
-    g.mouseLook.pitch += 0.02;
+    // Camera Recoil Pitch Kick
+    g.mouseLook.pitch += 0.024;
 
     // Raycast Bullet into Scene
     if (!g.camera || !g.scene) return;
@@ -1795,6 +2578,40 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // ==========================================
+  // GRAPHICS QUALITY PRESETS (LOW / MEDIUM / HIGH)
+  // ==========================================
+  const changeGraphicsQuality = (preset: 'LOW' | 'MEDIUM' | 'HIGH') => {
+    setGraphicsQuality(preset);
+    const g = gameRef.current;
+    if (!g.renderer) return;
+
+    if (preset === 'HIGH') {
+      g.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      g.renderer.shadowMap.enabled = true;
+      if (g.dirSun) {
+        g.dirSun.castShadow = true;
+        g.dirSun.shadow.mapSize.width = 2048;
+        g.dirSun.shadow.mapSize.height = 2048;
+      }
+    } else if (preset === 'MEDIUM') {
+      g.renderer.setPixelRatio(1.25);
+      g.renderer.shadowMap.enabled = true;
+      if (g.dirSun) {
+        g.dirSun.castShadow = true;
+        g.dirSun.shadow.mapSize.width = 1024;
+        g.dirSun.shadow.mapSize.height = 1024;
+      }
+    } else {
+      // LOW
+      g.renderer.setPixelRatio(1.0);
+      g.renderer.shadowMap.enabled = false;
+      if (g.dirSun) {
+        g.dirSun.castShadow = false;
+      }
+    }
+  };
+
+  // ==========================================
   // GAME STATE MANAGEMENT (START / PAUSE / RESTART)
   // ==========================================
   const startGame = () => {
@@ -2116,7 +2933,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   style={styles.secondaryMenuBtn}
                   onPress={() => {
                     const next = graphicsQuality === 'HIGH' ? 'MEDIUM' : graphicsQuality === 'MEDIUM' ? 'LOW' : 'HIGH';
-                    setGraphicsQuality(next);
+                    changeGraphicsQuality(next);
                   }}
                 >
                   <Text style={styles.secondaryMenuBtnText}>GRAPHICS QUALITY: {graphicsQuality} (PRO MAX)</Text>
