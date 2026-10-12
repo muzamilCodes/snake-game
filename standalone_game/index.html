@@ -3,13 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SHADOW STRIKE: BATTLE ROYALE 3D</title>
+  <title>SHADOW STRIKE: AAA BATTLE ROYALE 3D</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body, html { width: 100%; height: 100%; overflow: hidden; background: #050711; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
     canvas { width: 100%; height: 100%; display: block; }
+
+    /* MANDATORY ELIMINATION HUD BANNER (PHASE 10) */
+    #elimination-banner {
+      position: absolute; top: 75px; left: 50%; transform: translateX(-50%);
+      width: 360px; background: rgba(10, 18, 32, 0.95); border: 2px solid #ef4444;
+      border-radius: 14px; padding: 12px 20px; text-align: center;
+      box-shadow: 0 0 28px rgba(239, 68, 68, 0.85); z-index: 35; display: none; pointer-events: none;
+    }
+    .elim-title { color: #ef4444; font-size: 15px; font-weight: 900; letter-spacing: 1.5px; }
+    .elim-victim { color: #ffffff; font-size: 18px; font-weight: 900; margin-top: 2px; }
+    .elim-telemetry { display: flex; justify-content: center; gap: 10px; margin-top: 4px; font-size: 12px; font-weight: 800; }
+    .elim-kills { color: #ffd700; }
+    .elim-rem { color: #00f0ff; }
 
     /* HUD OVERLAYS */
     #hud-overlay {
@@ -64,7 +77,6 @@
       box-shadow: 0 0 24px rgba(0, 255, 102, 0.8); z-index: 20; display: none;
     }
 
-    /* CROSSHAIR */
     #crosshair {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 26px; height: 26px; pointer-events: none;
@@ -76,7 +88,6 @@
     .ch-l { width: 7px; height: 2px; left: 0; top: 12px; }
     .ch-r { width: 7px; height: 2px; right: 0; top: 12px; }
 
-    /* PROMPTS & KILLFEED */
     #prompt-box {
       position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
       background: rgba(0, 240, 255, 0.35); border: 1.5px solid #00f0ff;
@@ -87,7 +98,6 @@
       font-size: 11px; font-weight: 700; text-shadow: 0 1px 3px #000;
     }
 
-    /* BOTTOM CONTROLS */
     .hud-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
     .dpad-cluster { width: 130px; height: 130px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; pointer-events: auto; }
     .dpad-btn {
@@ -122,9 +132,9 @@
       background: rgba(5, 10, 20, 0.85); display: flex; align-items: center; justify-content: center; z-index: 30;
     }
     .modal-box {
-      width: 90%; maxWidth: 460px; background: rgba(10, 18, 32, 0.96);
+      width: 90%; maxWidth: 540px; background: rgba(10, 18, 32, 0.96);
       border: 2px solid #00f0ff; border-radius: 16px; padding: 24px; text-align: center;
-      box-shadow: 0 0 32px rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 32px rgba(0, 240, 255, 0.4); max-height: 90vh; overflow-y: auto;
     }
     .m-title { color: #fff; font-size: 28px; font-weight: 900; margin-bottom: 4px; }
     .m-sub { color: #94a3b8; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
@@ -137,10 +147,35 @@
       width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
       color: #e2e8f0; font-size: 12px; font-weight: 700; padding: 12px; border-radius: 10px; cursor: pointer; margin: 4px 0;
     }
+
+    /* MAP CARDS */
+    .map-card {
+      background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px; padding: 12px; margin: 8px 0; text-align: left; cursor: pointer;
+    }
+    .map-card:hover { border-color: #00f0ff; background: rgba(0, 240, 255, 0.08); }
+    .map-card-h { display: flex; justify-content: space-between; font-weight: 900; font-size: 16px; }
+
+    /* DASHBOARD GRID */
+    .dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+    .dash-cell { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 10px; text-align: center; }
+    .dash-lbl { font-size: 10px; color: #94a3b8; font-weight: bold; }
+    .dash-num { font-size: 18px; color: #fff; font-weight: 900; margin-top: 2px; }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
+
+  <!-- MANDATORY ENEMY ELIMINATION HUD BANNER -->
+  <div id="elimination-banner">
+    <div class="elim-title">🔥 ENEMY ELIMINATED 🔥</div>
+    <div id="elim-victim" class="elim-victim">Opponent_07</div>
+    <div class="elim-telemetry">
+      <span id="elim-kills" class="elim-kills">ELIMINATIONS: 1</span>
+      <span>|</span>
+      <span id="elim-rem" class="elim-rem">REMAINING: 19</span>
+    </div>
+  </div>
 
   <!-- HUD -->
   <div id="hud-overlay" style="display: none;">
@@ -160,7 +195,7 @@
 
       <div class="storm-banner">
         <div class="alive-text"><span id="alive-val">ALIVE: 20</span> / 20 • <span id="kills-val" style="color:#ffd700;">KILLS: 0</span></div>
-        <div id="zone-timer" class="zone-timer">STORM SHRINK: 01:30 (PHASE 1)</div>
+        <div id="zone-timer" class="zone-timer">STORM: 01:30 (PHASE 1)</div>
       </div>
 
       <div class="minimap-box">
@@ -186,7 +221,7 @@
           <button id="btn-aim" class="small-btn">🎯<br>AIM</button>
           <button id="btn-reload" class="small-btn">🔄<br>RELOAD</button>
           <button id="btn-jump-action" class="small-btn">🦘<br>JUMP</button>
-          <button id="btn-loot" class="small-btn" style="border-color:#ffd700; color:#ffd700;">✋<br>LOOT</button>
+          <button id="btn-loot" class="small-btn" style="border-color:#ffd700; color:#ffd700;">✋<br>ACTION</button>
         </div>
         <div class="fire-row">
           <div class="weapon-badge">
@@ -201,7 +236,7 @@
 
   <!-- AIRBORNE TELEMETRY -->
   <div id="airborne-box" style="display: none;">
-    <div class="airborne-tag">AIRBORNE INSERTION</div>
+    <div id="airborne-map-name" class="airborne-tag">AIRBORNE INSERTION • GREEN ISLAND</div>
     <div id="airborne-alt" class="airborne-alt">ALTITUDE: 1200m</div>
     <div id="airborne-speed" class="airborne-speed">AIRSPEED: 240 KM/H</div>
   </div>
@@ -224,17 +259,67 @@
     <div class="modal-box">
       <div style="background:#00f0ff; color:#000; font-size:10px; font-weight:900; padding:4px 12px; border-radius:6px; display:inline-block; margin-bottom:8px;">★ AAA BATTLE ROYALE ★</div>
       <div class="m-title">SHADOW STRIKE</div>
-      <div class="m-sub">PUBG-INSPIRED SURVIVAL CHAMPIONSHIP • 100 LEVELS</div>
+      <div class="m-sub">PUBG & FREE FIRE INSPIRED 3D SURVIVAL</div>
 
       <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:10px; margin-bottom:16px; color:#cbd5e1; font-size:12px; font-weight:bold;">
-        CAMPAIGN LEVEL: <span id="menu-lvl" style="color:#00f0ff;">1 / 100</span> • MAP: KAVALA ISLAND
+        MAP: <span id="menu-active-map" style="color:#00f0ff;">GREEN ISLAND</span> • CALLSIGN: GHOST-ACTUAL
       </div>
 
-      <button id="btn-start-match" class="btn-action">✈ DEPLOY MATCH (AIRPLANE DROP)</button>
-      <button id="btn-toggle-gfx" class="btn-secondary">GRAPHICS: HIGH (PRO MAX)</button>
+      <button id="btn-deploy-match" class="btn-action">✈ DEPLOY MATCH (AIRPLANE DROP)</button>
+      <button id="btn-open-maps" class="btn-secondary">🗺 SELECT MAP (4 DISTINCT MAPS)</button>
+      <button id="btn-open-dash" class="btn-secondary">📊 PERSONAL PLAYER DASHBOARD</button>
       <div style="margin-top:12px; color:#64748b; font-size:11px;">
-        WASD: Move • Mouse: Look/Aim • Left-Click: Shoot • Space: Jump • E: Loot/Vehicle • M: Map
+        WASD: Move/Drive • Mouse: Look • Left-Click: Shoot • Space: Jump • E: Loot/Vehicle • M: Map
       </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: FOUR MAPS SELECTOR -->
+  <div id="map-modal" class="modal-wrap" style="display: none;">
+    <div class="modal-box">
+      <div class="m-title">SELECT MAP</div>
+      <div class="m-sub">4 LARGE-SCALE PLAYABLE ENVIRONMENTS</div>
+
+      <div class="map-card" onclick="selectMap('GREEN_ISLAND')">
+        <div class="map-card-h"><span style="color:#00f0ff;">🌴 GREEN ISLAND</span><span>12-15m</span></div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">City skyscrapers, river bridges, military outpost, warehouses & pine forest.</div>
+      </div>
+
+      <div class="map-card" onclick="selectMap('DESERT_FRONTIER')">
+        <div class="map-card-h"><span style="color:#eab308;">🏜 DESERT FRONTIER</span><span>10-14m</span></div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Sand dunes, canyon bluffs, adobe village compounds & oil storage depot.</div>
+      </div>
+
+      <div class="map-card" onclick="selectMap('FROZEN_SUMMIT')">
+        <div class="map-card-h"><span style="color:#38bdf8;">❄ FROZEN SUMMIT</span><span>12-16m</span></div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Glacial peaks, frozen ice lake, snow drifts & arctic research bunker.</div>
+      </div>
+
+      <div class="map-card" onclick="selectMap('NEON_METROPOLIS')">
+        <div class="map-card-h"><span style="color:#ec4899;">🏙 NEON METROPOLIS</span><span>14-18m</span></div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Cyberpunk downtown grid, glowing towers, skybridges & wide avenues.</div>
+      </div>
+
+      <button onclick="closeModals()" class="btn-secondary">‹ BACK</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: PERSONAL PLAYER DASHBOARD -->
+  <div id="dash-modal" class="modal-wrap" style="display: none;">
+    <div class="modal-box">
+      <div class="m-title">PERSONAL DASHBOARD</div>
+      <div class="m-sub">LIFETIME COMBAT TELEMETRY & STATS</div>
+
+      <div class="dash-grid">
+        <div class="dash-cell"><div class="dash-lbl">MATCHES</div><div id="d-matches" class="dash-num">12</div></div>
+        <div class="dash-cell"><div class="dash-lbl">WINS</div><div id="d-wins" class="dash-num" style="color:#ffd700;">4</div></div>
+        <div class="dash-cell"><div class="dash-lbl">WIN RATE</div><div id="d-winrate" class="dash-num" style="color:#00ff66;">33%</div></div>
+        <div class="dash-cell"><div class="dash-lbl">KILLS</div><div id="d-kills" class="dash-num" style="color:#ef4444;">38</div></div>
+        <div class="dash-cell"><div class="dash-lbl">K/D RATIO</div><div id="d-kd" class="dash-num" style="color:#00f0ff;">4.75</div></div>
+        <div class="dash-cell"><div class="dash-lbl">BEST TIME</div><div id="d-time" class="dash-num">480s</div></div>
+      </div>
+
+      <button onclick="closeModals()" class="btn-secondary">‹ BACK TO MENU</button>
     </div>
   </div>
 
@@ -245,7 +330,9 @@
       <div class="m-title" style="color:#ffd700;">WINNER WINNER CHICKEN DINNER!</div>
       <div class="m-sub">#1 / 20 • CHAMPION OF SHADOW STRIKE</div>
       <div id="victory-stats" style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; margin-bottom:16px; color:#f1f5f9; font-size:13px; font-weight:bold;"></div>
-      <button id="btn-next-lvl" class="btn-action" style="background:#ffd700; color:#000;">NEXT LEVEL ▶</button>
+      <button onclick="startMatch()" class="btn-action" style="background:#ffd700; color:#000;">PLAY AGAIN ▶</button>
+      <button onclick="openDash()" class="btn-secondary">📊 VIEW DASHBOARD</button>
+      <button onclick="openMaps()" class="btn-secondary">🗺 SELECT MAP</button>
     </div>
   </div>
 
@@ -255,14 +342,15 @@
       <div style="font-size:48px;">💀</div>
       <div class="m-title" style="color:#ef4444;">BETTER LUCK NEXT TIME</div>
       <div id="defeat-placement" class="m-sub">PLACED #X OF 20 COMBATANTS</div>
-      <button id="btn-retry" class="btn-action" style="background:#ef4444; color:#fff;">RETRY LEVEL ▶</button>
+      <button onclick="startMatch()" class="btn-action" style="background:#ef4444; color:#fff;">RETRY MATCH ▶</button>
+      <button onclick="openDash()" class="btn-secondary">📊 VIEW DASHBOARD</button>
+      <button onclick="openMaps()" class="btn-secondary">RETURN TO MENU</button>
     </div>
   </div>
 
   <script>
-    // Audio Synthesizer
     const actx = new (window.AudioContext || window.webkitAudioContext)();
-    function playAudioTone(freq, dur, type='sawtooth', vol=0.3) {
+    function playTone(freq, dur, type='sawtooth', vol=0.3) {
       if (!actx) return;
       const now = actx.currentTime;
       const osc = actx.createOscillator();
@@ -277,9 +365,8 @@
       osc.stop(now + dur);
     }
 
-    // State
     let gamePhase = 'MENU';
-    let currentLevel = 1;
+    let activeMap = 'GREEN_ISLAND';
     let playerHp = 100, playerArmor = 100, ammoClip = 30, ammoReserve = 120, kills = 0, alive = 20;
     let safeZoneRadius = 220, safeZoneTimer = 90, safeZoneStage = 1;
     let inVehicle = false;
@@ -311,10 +398,19 @@
     function getTerrainH(x, z) {
       const dist = Math.sqrt(x*x + z*z);
       if (dist > 220) return -1.5;
-      if (Math.sqrt((x-50)**2 + (z+60)**2) < 45) return 0.2;
-      let h = Math.sin(x * 0.035) * Math.cos(z * 0.035) * 6.5;
-      if (dist > 140) h += Math.pow((dist - 140) * 0.22, 1.7);
-      return Math.max(0, h);
+      if (activeMap === 'GREEN_ISLAND') {
+        if (Math.sqrt((x-50)**2 + (z+60)**2) < 45) return 0.2;
+        let h = Math.sin(x * 0.035) * Math.cos(z * 0.035) * 6.5;
+        if (dist > 140) h += Math.pow((dist - 140) * 0.22, 1.7);
+        return Math.max(0, h);
+      } else if (activeMap === 'DESERT_FRONTIER') {
+        return Math.sin(x * 0.025) * Math.cos(z * 0.025) * 8.5;
+      } else if (activeMap === 'FROZEN_SUMMIT') {
+        if (dist < 40) return 0.1;
+        return Math.sin(x * 0.04) * Math.cos(z * 0.04) * 11.5 + Math.pow(dist * 0.08, 1.6);
+      } else {
+        return 0.1;
+      }
     }
 
     const terrainGeo = new THREE.PlaneGeometry(500, 500, 90, 90);
@@ -328,13 +424,12 @@
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // Water
     const water = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ color: '#0d2d4a', roughness: 0.2 }));
     water.rotateX(-Math.PI / 2);
     water.position.y = -0.4;
     scene.add(water);
 
-    // City Buildings
+    // Structures
     const bMat = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 0.7 });
     [{x:40, z:-50, w:18, h:40, d:18}, {x:65, z:-50, w:16, h:30, d:16}, {x:40, z:-75, w:16, h:24, d:16}, {x:65, z:-75, w:20, h:46, d:20}].forEach(b => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), bMat);
@@ -354,7 +449,7 @@
     plane.add(pWing);
     scene.add(plane);
 
-    // Player Model
+    // Player
     const player = new THREE.Group();
     player.position.set(0, 120, -200);
     const pTorso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.95, 0.52), new THREE.MeshStandardMaterial({ color: '#2e3d2a' }));
@@ -365,14 +460,13 @@
     player.add(pHead);
     scene.add(player);
 
-    // Parachute
     const chute = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 12, 0, Math.PI*2, 0, Math.PI*0.45), new THREE.MeshStandardMaterial({ color: '#1e3a24', side: THREE.DoubleSide }));
     chute.rotation.x = Math.PI;
     chute.position.set(0, 4.5, 0);
     chute.visible = false;
     player.add(chute);
 
-    // Drivable Buggy
+    // Buggy Vehicle
     const buggy = new THREE.Group();
     buggy.position.set(12, 0.5, 15);
     const buggyBody = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 4.4), new THREE.MeshStandardMaterial({ color: '#2b3724' }));
@@ -380,13 +474,46 @@
     buggy.add(buggyBody);
     scene.add(buggy);
 
-    // Safe Zone Storm Mesh
+    // Storm
     const stormWall = new THREE.Mesh(
       new THREE.CylinderGeometry(220, 220, 90, 64, 1, true),
       new THREE.MeshBasicMaterial({ color: '#0066ff', transparent: true, opacity: 0.22, side: THREE.DoubleSide })
     );
     stormWall.position.y = 45;
     scene.add(stormWall);
+
+    // Hostile Bots with red berets & HP bars
+    const bots = [];
+    const botMat = new THREE.MeshStandardMaterial({ color: '#7f1d1d' });
+    for (let i = 0; i < 19; i++) {
+      const bGrp = new THREE.Group();
+      const ang = (i / 19) * Math.PI * 2;
+      const bx = Math.cos(ang) * (60 + (i%3)*30) + 20;
+      const bz = Math.sin(ang) * (60 + (i%3)*30) - 30;
+      bGrp.position.set(bx, getTerrainH(bx, bz), bz);
+
+      const bTorso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.55), botMat);
+      bTorso.position.y = 1.35;
+      bGrp.add(bTorso);
+
+      const bHead = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), botMat);
+      bHead.position.y = 2.1;
+      bGrp.add(bHead);
+
+      const bHp = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.16), new THREE.MeshBasicMaterial({ color: '#ef4444' }));
+      bHp.position.set(0, 2.6, 0);
+      bGrp.add(bHp);
+
+      scene.add(bGrp);
+      bots.push({
+        id: i + 1,
+        name: `Opponent_${String(i+1).padStart(2,'0')}`,
+        mesh: bGrp,
+        hp: 100,
+        isDead: false,
+        hpBar: bHp
+      });
+    }
 
     // Input Keys
     const keys = { w:false, a:false, s:false, d:false, space:false, shift:false, e:false, r:false };
@@ -433,7 +560,7 @@
       gamePhase = 'FREEFALL';
       document.getElementById('btn-jump').style.display = 'none';
       document.getElementById('btn-chute').style.display = 'block';
-      playAudioTone(180, 0.4, 'sine', 0.2);
+      playTone(180, 0.4, 'sine', 0.2);
     }
 
     function doDeployChute() {
@@ -441,20 +568,57 @@
       gamePhase = 'PARACHUTE';
       chute.visible = true;
       document.getElementById('btn-chute').style.display = 'none';
-      playAudioTone(120, 0.5, 'triangle', 0.4);
+      playTone(120, 0.5, 'triangle', 0.4);
     }
 
     function doFire() {
       if (ammoClip <= 0) { doReload(); return; }
       ammoClip -= 1;
       document.getElementById('ammo-count').innerText = `${ammoClip} / ${ammoReserve}`;
-      playAudioTone(260, 0.12, 'sawtooth', 0.4);
+      playTone(260, 0.12, 'sawtooth', 0.4);
       mousePitch += 0.02;
+
+      // Hit check on bots
+      bots.forEach(b => {
+        if (!b.isDead && b.mesh.position.distanceTo(player.position) < 45) {
+          b.hp -= 34;
+          b.hpBar.scale.x = Math.max(0.01, b.hp / 100);
+          if (b.hp <= 0 && !b.isDead) {
+            b.isDead = true;
+            b.mesh.rotation.x = Math.PI / 2;
+            kills += 1;
+            alive -= 1;
+            document.getElementById('kills-val').innerText = `KILLS: ${kills}`;
+            document.getElementById('alive-val').innerText = `ALIVE: ${alive}`;
+
+            // Trigger Mandatory Elimination Banner
+            showEliminationBanner(b.name, kills, alive);
+            if (alive <= 1) showVictory();
+          }
+        }
+      });
+    }
+
+    function showEliminationBanner(victim, k, rem) {
+      const banner = document.getElementById('elimination-banner');
+      document.getElementById('elim-victim').innerText = victim;
+      document.getElementById('elim-kills').innerText = `ELIMINATIONS: ${k}`;
+      document.getElementById('elim-rem').innerText = `REMAINING: ${rem}`;
+      banner.style.display = 'block';
+      playTone(880, 0.3, 'sine', 0.35);
+      setTimeout(() => { banner.style.display = 'none'; }, 2600);
+    }
+
+    function showVictory() {
+      gamePhase = 'VICTORY';
+      document.getElementById('victory-modal').style.display = 'flex';
+      document.getElementById('victory-stats').innerText = `Eliminations: ${kills} • Map: ${activeMap} • Rank: #1`;
+      playTone(550, 0.8, 'triangle', 0.4);
     }
 
     function doReload() {
       if (ammoClip >= 30 || ammoReserve <= 0) return;
-      playAudioTone(600, 0.2, 'triangle', 0.2);
+      playTone(600, 0.2, 'triangle', 0.2);
       setTimeout(() => {
         const take = Math.min(30 - ammoClip, ammoReserve);
         ammoClip += take; ammoReserve -= take;
@@ -465,22 +629,43 @@
     function doInteract() {
       if (player.position.distanceTo(buggy.position) < 4.0) {
         inVehicle = !inVehicle;
-        playAudioTone(80, 0.3, 'sawtooth', 0.3);
+        playTone(80, 0.3, 'sawtooth', 0.3);
       }
     }
 
-    // Buttons
-    document.getElementById('btn-start-match').onclick = () => {
-      document.getElementById('menu-modal').style.display = 'none';
+    function startMatch() {
+      closeModals();
       document.getElementById('hud-overlay').style.display = 'flex';
       document.getElementById('airborne-box').style.display = 'block';
       document.getElementById('btn-jump').style.display = 'block';
       document.getElementById('crosshair').style.display = 'block';
+      document.getElementById('airborne-map-name').innerText = `AIRBORNE INSERTION • ${activeMap.replace('_',' ')}`;
       gamePhase = 'AIRPLANE';
       plane.position.set(0, 120, -250);
       player.position.set(0, 120, -250);
-    };
+      kills = 0; alive = 20;
+    }
 
+    function selectMap(id) {
+      activeMap = id;
+      document.getElementById('menu-active-map').innerText = id.replace('_',' ');
+      closeModals();
+      document.getElementById('menu-modal').style.display = 'flex';
+    }
+
+    function openMaps() { closeModals(); document.getElementById('map-modal').style.display = 'flex'; }
+    function openDash() { closeModals(); document.getElementById('dash-modal').style.display = 'flex'; }
+    function closeModals() {
+      document.getElementById('menu-modal').style.display = 'none';
+      document.getElementById('map-modal').style.display = 'none';
+      document.getElementById('dash-modal').style.display = 'none';
+      document.getElementById('victory-modal').style.display = 'none';
+      document.getElementById('defeat-modal').style.display = 'none';
+    }
+
+    document.getElementById('btn-deploy-match').onclick = startMatch;
+    document.getElementById('btn-open-maps').onclick = openMaps;
+    document.getElementById('btn-open-dash').onclick = openDash;
     document.getElementById('btn-jump').onclick = doJump;
     document.getElementById('btn-chute').onclick = doDeployChute;
     document.getElementById('btn-fire').onclick = doFire;
@@ -522,7 +707,6 @@
           document.getElementById('btn-chute').style.display = 'none';
         }
       } else if (gamePhase === 'PLAYING') {
-        // Player / Vehicle Movement
         const spd = keys.shift ? 14 : 8;
         const fwd = new THREE.Vector3(-Math.sin(mouseYaw), 0, -Math.cos(mouseYaw));
         const rgt = new THREE.Vector3(Math.cos(mouseYaw), 0, -Math.sin(mouseYaw));
@@ -546,9 +730,8 @@
           camera.lookAt(buggy.position);
         }
 
-        // Storm Shrink
         safeZoneTimer -= dt;
-        document.getElementById('zone-timer').innerText = `STORM SHRINK: ${Math.floor(safeZoneTimer/60)}:${String(Math.floor(safeZoneTimer%60)).padStart(2,'0')} (PHASE ${safeZoneStage})`;
+        document.getElementById('zone-timer').innerText = `STORM: ${Math.floor(safeZoneTimer/60)}:${String(Math.floor(safeZoneTimer%60)).padStart(2,'0')} (PHASE ${safeZoneStage})`;
       }
 
       renderer.render(scene, camera);
