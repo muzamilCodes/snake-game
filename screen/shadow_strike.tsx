@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -53,13 +53,19 @@ export interface ParticleItem {
   fade: boolean;
 }
 
+export interface ExplosiveBarrel {
+  mesh: THREE.Mesh;
+  position: THREE.Vector3;
+  detonated: boolean;
+}
+
 // ==========================================
 // SYNTHESIZED WEB AUDIO ENGINE
 // ==========================================
 class ShadowSoundSystem {
   private ctx: AudioContext | null = null;
   public enabled: boolean = true;
-  public volume: number = 0.8;
+  public volume: number = 0.85;
 
   constructor() {
     this.init();
@@ -96,9 +102,9 @@ class ShadowSoundSystem {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(isSilenced ? 120 : 260, now);
+      osc.frequency.setValueAtTime(isSilenced ? 120 : 280, now);
       osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
-      gain.gain.setValueAtTime(0.35 * this.volume, now);
+      gain.gain.setValueAtTime(0.4 * this.volume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -118,12 +124,33 @@ class ShadowSoundSystem {
       noiseFilter.type = 'bandpass';
       noiseFilter.frequency.setValueAtTime(1600, now);
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.4 * this.volume, now);
+      noiseGain.gain.setValueAtTime(0.45 * this.volume, now);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
       noiseGain.connect(ctx.destination);
       noise.start(now);
+    } catch (_) {}
+  }
+
+  // Explosion sound for red barrels
+  playExplosion() {
+    if (!this.enabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(25, now + 0.4);
+      gain.gain.setValueAtTime(0.55 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.45);
     } catch (_) {}
   }
 
@@ -139,7 +166,7 @@ class ShadowSoundSystem {
       osc.type = 'square';
       osc.frequency.setValueAtTime(180, now);
       osc.frequency.exponentialRampToValueAtTime(45, now + 0.1);
-      gain.gain.setValueAtTime(0.18 * this.volume, now);
+      gain.gain.setValueAtTime(0.2 * this.volume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -160,7 +187,7 @@ class ShadowSoundSystem {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(1400, now);
       osc.frequency.setValueAtTime(2200, now + 0.03);
-      gain.gain.setValueAtTime(0.2 * this.volume, now);
+      gain.gain.setValueAtTime(0.25 * this.volume, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -273,6 +300,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [ammoClip, setAmmoClip] = useState<number>(30);
   const [ammoReserve, setAmmoReserve] = useState<number>(120);
   const [isReloading, setIsReloading] = useState<boolean>(false);
+  const [isAiming, setIsAiming] = useState<boolean>(false);
+  const [isSprinting, setIsSprinting] = useState<boolean>(false);
   const [currentObjective, setCurrentObjective] = useState<string>('EXPLORE THE STARTING PERIMETER');
   const [objectiveDist, setObjectiveDist] = useState<number>(45);
   const [interactPrompt, setInteractPrompt] = useState<string | null>(null);
@@ -315,7 +344,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       isShooting: false,
       isPointerLocked: false,
     },
-    touchOrigin: null as { x: number; y: number } | null,
 
     // Player Physics
     player: {
@@ -336,6 +364,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       walkCycle: 0,
     },
 
+    // Tactical Laser Sight
+    laserLine: null as THREE.Line | null,
+    laserDot: null as THREE.Mesh | null,
+
     // Camera follow offsets
     camTarget: new THREE.Vector3(),
     currentCamPos: new THREE.Vector3(0, 3, 50),
@@ -346,11 +378,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     enemies: [] as EnemyEntity[],
     particles: [] as ParticleItem[],
     bulletTracers: [] as { line: THREE.Line; life: number }[],
+    explosiveBarrels: [] as ExplosiveBarrel[],
+    searchlights: [] as THREE.SpotLight[],
 
     // Key Mission Items
-    keycardMesh: null as THREE.Mesh | null,
-    intelMesh: null as THREE.Mesh | null,
-    extractionMesh: null as THREE.Mesh | null,
+    keycardMesh: null as THREE.Group | null,
+    intelMesh: null as THREE.Group | null,
+    extractionMesh: null as THREE.Group | null,
     gateMesh: null as THREE.Group | null,
     gateOpen: false,
 
@@ -360,7 +394,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   });
 
   // ==========================================
-  // INITIALIZE 3D ENGINE & SCENE
+  // INITIALIZE 3D ENGINE & SCENE (HIGH PRO MAX)
   // ==========================================
   useEffect(() => {
     if (Platform.OS !== 'web' || !mountRef.current) return;
@@ -369,18 +403,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const width = mountRef.current.clientWidth || winWidth;
     const height = mountRef.current.clientHeight || winHeight;
 
-    // 1. Scene
+    // 1. Scene with Rich Atmospheric Sky
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#101726');
-    scene.fog = new THREE.FogExp2('#141e2e', 0.008);
+    scene.background = new THREE.Color('#0b1324');
+    scene.fog = new THREE.FogExp2('#0e182c', 0.0075);
     g.scene = scene;
 
     // 2. Camera
-    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 800);
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 900);
     camera.position.set(0, 3, 50);
     g.camera = camera;
 
-    // 3. Renderer with High-Performance Settings
+    // 3. Renderer with HIGH PRO MAX Filmic Tone Mapping & Shadows
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: 'high-performance',
@@ -390,6 +424,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; // Photorealistic console tone mapping
+    renderer.toneMappingExposure = 1.35;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     g.renderer = renderer;
 
@@ -397,29 +433,39 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
 
-    // 4. Lighting Rig
-    const ambientLight = new THREE.HemisphereLight('#87b5ff', '#33271d', 0.65);
+    // 4. Photorealistic Cinematic Lighting Rig
+    const ambientLight = new THREE.HemisphereLight('#87b5ff', '#33271d', 0.85);
     scene.add(ambientLight);
 
-    const dirSun = new THREE.DirectionalLight('#ffe8d6', 1.8);
-    dirSun.position.set(80, 120, 60);
+    const dirSun = new THREE.DirectionalLight('#ffe8d6', 2.2);
+    dirSun.position.set(80, 130, 60);
     dirSun.castShadow = true;
     dirSun.shadow.mapSize.width = 2048;
     dirSun.shadow.mapSize.height = 2048;
     dirSun.shadow.camera.near = 10;
-    dirSun.shadow.camera.far = 350;
-    const d = 110;
+    dirSun.shadow.camera.far = 380;
+    const d = 120;
     dirSun.shadow.camera.left = -d;
     dirSun.shadow.camera.right = d;
     dirSun.shadow.camera.top = d;
     dirSun.shadow.camera.bottom = -d;
-    dirSun.shadow.bias = -0.0005;
+    dirSun.shadow.bias = -0.0004;
     scene.add(dirSun);
 
-    // 5. Build Environment, Player, AI & Mission Items
+    // Sun flare glow
+    const sunOrb = new THREE.Mesh(
+      new THREE.SphereGeometry(14, 16, 16),
+      new THREE.MeshBasicMaterial({ color: '#ffea9f' })
+    );
+    sunOrb.position.set(240, 390, 180);
+    scene.add(sunOrb);
+
+    // 5. Build Environment, Highway, Player, Tactical Laser, AI & Mission Items
     buildOpenWorldTerrain(scene, g);
+    buildAsphaltRoad(scene, g);
     buildAbandonedFacility(scene, g);
     buildPlayerCharacter(scene, g);
+    buildTacticalLaserSight(scene, g);
     spawnEnemyPatrols(scene, g);
     setupMissionSystem(scene, g);
 
@@ -449,9 +495,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         updateEnemyAI(dt, g);
         updateMissionProgress(g);
         updateParticles(dt, g);
+        updateTacticalLaser(g);
+
+        // Animate searchlights swinging
+        const t = g.clock.getElapsedTime();
+        g.searchlights.forEach((sl: any, idx: number) => {
+          sl.target.position.x = Math.sin(t * 0.8 + idx * 2) * 25;
+        });
       } else if (g.state === 'MENU') {
-        // Orbit camera around mountain base in menu
-        g.elapsedTime += dt * 0.3;
+        // Cinematic camera orbit around mountain facility
+        g.elapsedTime += dt * 0.35;
         if (g.camera) {
           g.camera.position.x = Math.sin(g.elapsedTime) * 65;
           g.camera.position.z = Math.cos(g.elapsedTime) * 65 + 10;
@@ -484,7 +537,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   // PROCEDURAL OPEN-WORLD TERRAIN GENERATION
   // ==========================================
   const buildOpenWorldTerrain = (scene: THREE.Scene, g: any) => {
-    const size = 320;
+    const size = 340;
     const segments = 90;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     geo.rotateX(-Math.PI / 2);
@@ -497,31 +550,27 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       // Distance from center facility
       const distFromCenter = Math.sqrt(x * x + z * z);
 
-      // Flat central area for the facility
       let height = 0;
       if (distFromCenter > 35) {
-        // Natural mountain noise
         height =
           Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8 +
           Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4;
 
-        // Perimeter mountain boundary wall
-        if (distFromCenter > 110) {
-          height += Math.pow((distFromCenter - 110) * 0.28, 1.8);
+        if (distFromCenter > 115) {
+          height += Math.pow((distFromCenter - 115) * 0.28, 1.85);
         }
       } else {
-        height = Math.sin(x * 0.02) * 0.5; // subtle gravel undulation
+        height = Math.sin(x * 0.02) * 0.4;
       }
 
       pos.setY(i, height);
     }
     geo.computeVertexNormals();
 
-    // Material with earthy terrain coloring
     const terrainMat = new THREE.MeshStandardMaterial({
-      color: '#2a3b25',
-      roughness: 0.88,
-      metalness: 0.08,
+      color: '#283823',
+      roughness: 0.85,
+      metalness: 0.05,
       flatShading: true,
     });
     const terrain = new THREE.Mesh(geo, terrainMat);
@@ -529,7 +578,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(terrain);
     g.terrainMesh = terrain;
 
-    // Scatter Pine Trees and Granite Boulders
+    // Pine Trees & Boulders
     const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.55, 4, 6);
     const treeFoliageGeo = new THREE.ConeGeometry(3.2, 7.5, 7);
     const trunkMat = new THREE.MeshStandardMaterial({ color: '#3d2b1f', roughness: 0.9 });
@@ -542,11 +591,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const tz = (Math.random() - 0.5) * 240;
       const dCenter = Math.sqrt(tx * tx + tz * tz);
 
-      // Keep military compound clear
       if (dCenter > 38 && dCenter < 125) {
         const ty = getTerrainHeight(tx, tz);
 
-        // Tree
         const treeGroup = new THREE.Group();
         treeGroup.position.set(tx, ty, tz);
 
@@ -563,13 +610,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
         scene.add(treeGroup);
 
-        // Add tree trunk obstacle
         g.obstacles.push(new THREE.Box3().setFromCenterAndSize(
           new THREE.Vector3(tx, ty + 2, tz),
           new THREE.Vector3(1.2, 5, 1.2)
         ));
 
-        // Rocks
         if (Math.random() < 0.45) {
           const rx = tx + (Math.random() - 0.5) * 6;
           const rz = tz + (Math.random() - 0.5) * 6;
@@ -593,22 +638,45 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const dist = Math.sqrt(x * x + z * z);
     if (dist <= 35) return 0;
     let h = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 8 + Math.sin(x * 0.08 + 1.2) * Math.cos(z * 0.08) * 4;
-    if (dist > 110) h += Math.pow((dist - 110) * 0.28, 1.8);
+    if (dist > 115) h += Math.pow((dist - 115) * 0.28, 1.85);
     return Math.max(0, h);
+  };
+
+  // ==========================================
+  // REALISTIC ASPHALT ROAD WITH HIGHWAY MARKINGS
+  // ==========================================
+  const buildAsphaltRoad = (scene: THREE.Scene, g: any) => {
+    const roadMat = new THREE.MeshStandardMaterial({ color: '#16191f', roughness: 0.85 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+    const yellowMat = new THREE.MeshBasicMaterial({ color: '#ffcc00' });
+
+    // Road segment leading from spawn to gate
+    const roadGeo = new THREE.BoxGeometry(9, 0.15, 75);
+    const road = new THREE.Mesh(roadGeo, roadMat);
+    road.position.set(0, 0.08, 38);
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // Center dashed lines
+    for (let z = 5; z <= 70; z += 6) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.16, 2.8), yellowMat);
+      dash.position.set(0, 0.1, z);
+      scene.add(dash);
+    }
   };
 
   // ==========================================
   // BUILD ABANDONED MILITARY COMPLEX
   // ==========================================
   const buildAbandonedFacility = (scene: THREE.Scene, g: any) => {
-    const concreteMat = new THREE.MeshStandardMaterial({ color: '#555d66', roughness: 0.8 });
-    const rustMetalMat = new THREE.MeshStandardMaterial({ color: '#3a2720', roughness: 0.6, metalness: 0.7 });
-    const darkSteelMat = new THREE.MeshStandardMaterial({ color: '#1f2429', roughness: 0.4, metalness: 0.9 });
-    const redLightMat = new THREE.MeshBasicMaterial({ color: '#ff2200' });
+    const concreteMat = new THREE.MeshStandardMaterial({ color: '#4f5761', roughness: 0.75 });
+    const rustMetalMat = new THREE.MeshStandardMaterial({ color: '#38251e', roughness: 0.6, metalness: 0.7 });
+    const darkSteelMat = new THREE.MeshStandardMaterial({ color: '#1b2026', roughness: 0.4, metalness: 0.9 });
+    const hazardMat = new THREE.MeshBasicMaterial({ color: '#ffcc00' });
+    const redLightMat = new THREE.MeshBasicMaterial({ color: '#ff0033' });
 
     // 1. Concrete Compound Floor Slab
-    const slabGeo = new THREE.BoxGeometry(64, 0.4, 64);
-    const slab = new THREE.Mesh(slabGeo, concreteMat);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(66, 0.4, 66), concreteMat);
     slab.position.set(0, 0.1, -15);
     slab.receiveShadow = true;
     scene.add(slab);
@@ -617,22 +685,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const bunkerGroup = new THREE.Group();
     bunkerGroup.position.set(0, 0, -25);
 
-    // Outer Walls
-    const wallGeo = new THREE.BoxGeometry(24, 7, 18);
-    const bunker = new THREE.Mesh(wallGeo, concreteMat);
-    bunker.position.y = 3.5;
+    const bunker = new THREE.Mesh(new THREE.BoxGeometry(25, 7.5, 19), concreteMat);
+    bunker.position.y = 3.75;
     bunker.castShadow = true;
     bunker.receiveShadow = true;
     bunkerGroup.add(bunker);
 
+    // Hazard warning stripe above bunker entrance
+    const hazardStripe = new THREE.Mesh(new THREE.BoxGeometry(12, 0.8, 0.2), hazardMat);
+    hazardStripe.position.set(0, 6.2, 9.6);
+    bunkerGroup.add(hazardStripe);
+
     // Satellite Dish on Roof
     const dishMast = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3), darkSteelMat);
-    dishMast.position.set(0, 8.5, 0);
+    dishMast.position.set(0, 9, 0);
     bunkerGroup.add(dishMast);
 
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(2.4, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), darkSteelMat);
-    dish.position.set(0, 10, 0);
-    dish.rotation.x = 0.5;
+    const dish = new THREE.Mesh(new THREE.SphereGeometry(2.5, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.45), darkSteelMat);
+    dish.position.set(0, 10.5, 0);
+    dish.rotation.x = 0.55;
     bunkerGroup.add(dish);
 
     scene.add(bunkerGroup);
@@ -642,39 +713,37 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const gateGroup = new THREE.Group();
     gateGroup.position.set(0, 0, 5);
 
-    const pillarGeo = new THREE.BoxGeometry(2, 6, 2);
+    const pillarGeo = new THREE.BoxGeometry(2.2, 6.5, 2.2);
     const pillarL = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarL.position.set(-6, 3, 0);
+    pillarL.position.set(-6, 3.2, 0);
     pillarL.castShadow = true;
     gateGroup.add(pillarL);
 
     const pillarR = new THREE.Mesh(pillarGeo, concreteMat);
-    pillarR.position.set(6, 3, 0);
+    pillarR.position.set(6, 3.2, 0);
     pillarR.castShadow = true;
     gateGroup.add(pillarR);
 
     // Sliding Door Gate
-    const doorGeo = new THREE.BoxGeometry(10, 5, 0.4);
-    const gateDoor = new THREE.Mesh(doorGeo, rustMetalMat);
+    const gateDoor = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 0.4), rustMetalMat);
     gateDoor.position.set(0, 2.5, 0);
     gateDoor.castShadow = true;
     gateGroup.add(gateDoor);
 
     // Red Security Warning Beacon
     const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5), redLightMat);
-    beacon.position.set(-6, 6.2, 0);
+    beacon.position.set(-6, 6.6, 0);
     gateGroup.add(beacon);
 
     scene.add(gateGroup);
     g.gateMesh = gateGroup;
     g.obstacles.push(new THREE.Box3().setFromObject(gateDoor));
 
-    // 4. Guard Watchtowers
+    // 4. Guard Watchtowers with Real Searchlights
     [-22, 22].forEach((xPos) => {
       const tower = new THREE.Group();
       tower.position.set(xPos, 0, -2);
 
-      // 4 Legs
       for (let lx = -1.8; lx <= 1.8; lx += 3.6) {
         for (let lz = -1.8; lz <= 1.8; lz += 3.6) {
           const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 12), darkSteelMat);
@@ -684,18 +753,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }
       }
 
-      // Observation cabin
       const cabin = new THREE.Mesh(new THREE.BoxGeometry(4.8, 3, 4.8), concreteMat);
       cabin.position.set(0, 13, 0);
       cabin.castShadow = true;
       tower.add(cabin);
 
-      // Searchlight
-      const spotlight = new THREE.SpotLight('#ffffcc', 2.5, 45, Math.PI * 0.22, 0.4);
+      // Searchlight Spotlight
+      const spotlight = new THREE.SpotLight('#ffffcc', 3.0, 50, Math.PI * 0.24, 0.35);
       spotlight.position.set(0, 11.5, 0);
-      spotlight.target.position.set(xPos * 0.4, 0, 12);
+      spotlight.target.position.set(xPos * 0.4, 0, 14);
       scene.add(spotlight.target);
       tower.add(spotlight);
+      g.searchlights.push(spotlight);
 
       scene.add(tower);
       g.obstacles.push(new THREE.Box3().setFromCenterAndSize(
@@ -705,51 +774,39 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     });
 
     // 5. Military Storage Warehouse & Cargo Crates
-    const hangarGeo = new THREE.BoxGeometry(16, 6, 14);
-    const hangar = new THREE.Mesh(hangarGeo, rustMetalMat);
-    hangar.position.set(-20, 3, -30);
+    const hangar = new THREE.Mesh(new THREE.BoxGeometry(16, 6.5, 14), rustMetalMat);
+    hangar.position.set(-20, 3.25, -30);
     hangar.castShadow = true;
     hangar.receiveShadow = true;
     scene.add(hangar);
     g.obstacles.push(new THREE.Box3().setFromObject(hangar));
 
-    // Scatter Explosive Fuel Barrels & Metal Crates
+    // Scatter Explosive Fuel Barrels
     const barrelGeo = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 12);
-    const barrelMat = new THREE.MeshStandardMaterial({ color: '#d62828', roughness: 0.4, metalness: 0.5 });
-    const crateGeo = new THREE.BoxGeometry(1.8, 1.8, 1.8);
-    const crateMat = new THREE.MeshStandardMaterial({ color: '#8a6240', roughness: 0.8 });
+    const barrelMat = new THREE.MeshStandardMaterial({ color: '#e63946', roughness: 0.35, metalness: 0.6 });
 
-    const propPositions = [
-      { x: -7, z: 2 },
-      { x: 8, z: 1 },
-      { x: -10, z: -18 },
-      { x: 12, z: -15 },
-      { x: -5, z: -35 },
+    const barrelPositions = [
+      new THREE.Vector3(-7, 0.9, 2),
+      new THREE.Vector3(8, 0.9, 1),
+      new THREE.Vector3(-10, 0.9, -18),
+      new THREE.Vector3(12, 0.9, -15),
+      new THREE.Vector3(-5, 0.9, -35),
     ];
 
-    propPositions.forEach((pos, idx) => {
-      if (idx % 2 === 0) {
-        // Red Explosive Barrel
-        const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-        barrel.position.set(pos.x, 0.9, pos.z);
-        barrel.castShadow = true;
-        scene.add(barrel);
-        g.obstacles.push(new THREE.Box3().setFromObject(barrel));
-      } else {
-        // Cargo Crate
-        const crate = new THREE.Mesh(crateGeo, crateMat);
-        crate.position.set(pos.x, 0.9, pos.z);
-        crate.castShadow = true;
-        scene.add(crate);
-        g.obstacles.push(new THREE.Box3().setFromObject(crate));
-      }
+    barrelPositions.forEach((bPos) => {
+      const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+      barrel.position.copy(bPos);
+      barrel.castShadow = true;
+      scene.add(barrel);
+      g.explosiveBarrels.push({ mesh: barrel, position: bPos.clone(), detonated: false });
+      g.obstacles.push(new THREE.Box3().setFromObject(barrel));
     });
 
     // 6. Mountain Extraction Helipad
     const helipadGroup = new THREE.Group();
     helipadGroup.position.set(50, getTerrainHeight(50, -70), -70);
 
-    const padSlab = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.8, 24), concreteMat);
+    const padSlab = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 0.8, 24), concreteMat);
     padSlab.receiveShadow = true;
     helipadGroup.add(padSlab);
 
@@ -767,7 +824,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     helipadGroup.add(hBarCross);
 
     // Pulsing Green Extraction Beacon Light
-    const beaconLight = new THREE.PointLight('#00ff66', 3.5, 30);
+    const beaconLight = new THREE.PointLight('#00ff66', 4.0, 35);
     beaconLight.position.set(0, 4, 0);
     helipadGroup.add(beaconLight);
 
@@ -782,15 +839,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const playerGroup = new THREE.Group();
     playerGroup.position.copy(g.player.position);
 
-    // Tactical Operative Materials
-    const armorMat = new THREE.MeshStandardMaterial({ color: '#1e242b', roughness: 0.6 });
-    const visorMat = new THREE.MeshStandardMaterial({ color: '#00f0ff', emissive: '#0088cc', roughness: 0.2 });
-    const skinMat = new THREE.MeshStandardMaterial({ color: '#c49a79', roughness: 0.8 });
-    const weaponMat = new THREE.MeshStandardMaterial({ color: '#0c0f12', roughness: 0.3, metalness: 0.8 });
+    const armorMat = new THREE.MeshStandardMaterial({ color: '#1a222c', roughness: 0.55 });
+    const visorMat = new THREE.MeshStandardMaterial({ color: '#00f0ff', emissive: '#00b4d8', roughness: 0.2 });
+    const weaponMat = new THREE.MeshStandardMaterial({ color: '#090c0f', roughness: 0.3, metalness: 0.85 });
 
     // Torso (Armor Vest)
-    const torsoGeo = new THREE.BoxGeometry(0.9, 1.1, 0.6);
-    const torso = new THREE.Mesh(torsoGeo, armorMat);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.6), armorMat);
     torso.position.y = 1.35;
     torso.castShadow = true;
     playerGroup.add(torso);
@@ -801,7 +855,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     pack.position.set(0, 1.4, -0.4);
     playerGroup.add(pack);
 
-    // Head with Tactical Helmet & Visor
+    // Head with Tactical Helmet & Double Visor
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), armorMat);
     head.position.y = 2.15;
     head.castShadow = true;
@@ -835,15 +889,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     barrel.position.set(0, 0.05, 0.6);
     gunGroup.add(barrel);
 
-    const optic = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.25), darkSteelMaterial());
+    const optic = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.25), darkSteelMat());
     optic.position.set(0, 0.15, 0);
     gunGroup.add(optic);
 
-    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.18), darkSteelMaterial());
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.35, 0.18), darkSteelMat());
     mag.position.set(0, -0.2, 0.1);
     gunGroup.add(mag);
 
-    // Gun Muzzle Point Light (Flashes on shoot)
+    // Muzzle Flash Point Light
     const muzzleLight = new THREE.PointLight('#ffe066', 0, 8);
     muzzleLight.position.set(0, 0.05, 0.95);
     gunGroup.add(muzzleLight);
@@ -856,7 +910,56 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     g.player.mesh = playerGroup;
   };
 
-  const darkSteelMaterial = () => new THREE.MeshStandardMaterial({ color: '#16191d', roughness: 0.4, metalness: 0.9 });
+  const darkSteelMat = () => new THREE.MeshStandardMaterial({ color: '#16191d', roughness: 0.4, metalness: 0.9 });
+
+  // ==========================================
+  // TACTICAL RED LASER SIGHT SYSTEM (HIGH PRO MAX)
+  // ==========================================
+  const buildTacticalLaserSight = (scene: THREE.Scene, g: any) => {
+    // Laser beam line
+    const laserGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, -40),
+    ]);
+    const laserMat = new THREE.LineBasicMaterial({ color: '#ff0033', transparent: true, opacity: 0.75, linewidth: 2 });
+    const laserLine = new THREE.Line(laserGeo, laserMat);
+    scene.add(laserLine);
+    g.laserLine = laserLine;
+
+    // Laser impact dot
+    const dotGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const dotMat = new THREE.MeshBasicMaterial({ color: '#ff0033' });
+    const laserDot = new THREE.Mesh(dotGeo, dotMat);
+    scene.add(laserDot);
+    g.laserDot = laserDot;
+  };
+
+  const updateTacticalLaser = (g: any) => {
+    if (!g.laserLine || !g.laserDot || !g.player.mesh || !g.camera) return;
+
+    const startPos = g.player.position.clone().add(new THREE.Vector3(
+      Math.cos(g.mouseLook.yaw) * 0.45,
+      1.3,
+      -Math.sin(g.mouseLook.yaw) * 0.45
+    ));
+
+    const aimDir = new THREE.Vector3(
+      -Math.sin(g.mouseLook.yaw),
+      Math.sin(g.mouseLook.pitch),
+      -Math.cos(g.mouseLook.yaw)
+    ).normalize();
+
+    const endPos = startPos.clone().add(aimDir.clone().multiplyScalar(45));
+
+    // Update laser line vertices
+    const posAttr = g.laserLine.geometry.attributes.position;
+    posAttr.setXYZ(0, startPos.x, startPos.y, startPos.z);
+    posAttr.setXYZ(1, endPos.x, endPos.y, endPos.z);
+    posAttr.needsUpdate = true;
+
+    // Laser dot position
+    g.laserDot.position.copy(endPos);
+  };
 
   // ==========================================
   // ENEMY AI SYNDICATE PATROL SPAWNS
@@ -864,7 +967,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const spawnEnemyPatrols = (scene: THREE.Scene, g: any) => {
     const enemyMat = new THREE.MeshStandardMaterial({ color: '#8a1c14', roughness: 0.5 });
     const visorMat = new THREE.MeshBasicMaterial({ color: '#ff0033' });
-    const gunMat = darkSteelMaterial();
+    const gunMat = darkSteelMat();
 
     const patrolConfigs = [
       {
@@ -899,13 +1002,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const eGroup = new THREE.Group();
       eGroup.position.copy(cfg.startPos);
 
-      // Guard Torso
       const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.55), enemyMat);
       torso.position.y = 1.35;
       torso.castShadow = true;
       eGroup.add(torso);
 
-      // Red Glowing Helmet Visor
       const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), enemyMat);
       head.position.y = 2.1;
       head.castShadow = true;
@@ -915,12 +1016,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       visor.position.set(0, 2.12, 0.24);
       eGroup.add(visor);
 
-      // Weapon
       const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.8), gunMat);
       rifle.position.set(0.4, 1.25, 0.35);
       eGroup.add(rifle);
 
-      // Muzzle Light for enemy shooting
       const mLight = new THREE.PointLight('#ff3300', 0, 7);
       mLight.position.set(0.4, 1.25, 0.8);
       eGroup.add(mLight);
@@ -954,7 +1053,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   // MISSION & INTERACTIVE ITEMS SETUP
   // ==========================================
   const setupMissionSystem = (scene: THREE.Scene, g: any) => {
-    // 1. Blue Glowing Military Keycard on guard table
+    // Blue Glowing Keycard
     const keycardGroup = new THREE.Group();
     keycardGroup.position.set(7, 1.2, 1);
 
@@ -967,11 +1066,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     const cardLight = new THREE.PointLight('#00f0ff', 2.0, 6);
     keycardGroup.add(cardLight);
-
     scene.add(keycardGroup);
     g.keycardMesh = keycardGroup;
 
-    // 2. Gold Classified Intel Drive in Bunker
+    // Gold Intel Drive
     const intelGroup = new THREE.Group();
     intelGroup.position.set(0, 1.2, -24);
 
@@ -984,11 +1082,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     const intelLight = new THREE.PointLight('#ffd700', 2.5, 8);
     intelGroup.add(intelLight);
-
     scene.add(intelGroup);
     g.intelMesh = intelGroup;
 
-    // 3. Campaign Objectives Roster
+    // Objectives
     const objectives: Objective[] = [
       {
         id: 1,
@@ -1045,39 +1142,43 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // ==========================================
-  // INPUT LISTENERS (KEYBOARD & POINTER LOCK)
+  // INPUT LISTENERS (KEYBOARD & MOUSE)
   // ==========================================
   const setupInputListeners = (canvas: HTMLCanvasElement, g: any) => {
-    // Keyboard Down
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k === 'w' || e.key === 'ArrowUp') g.keys.w = true;
       if (k === 'a' || e.key === 'ArrowLeft') g.keys.a = true;
       if (k === 's' || e.key === 'ArrowDown') g.keys.s = true;
       if (k === 'd' || e.key === 'ArrowRight') g.keys.d = true;
-      if (e.key === 'Shift') g.keys.shift = true;
+      if (e.key === 'Shift') {
+        g.keys.shift = true;
+        setIsSprinting(true);
+      }
       if (e.key === ' ') {
         e.preventDefault();
         g.keys.space = true;
       }
       if (k === 'e') g.keys.e = true;
       if (k === 'r') reloadPlayerWeapon(g);
+      if (k === 'f') firePlayerWeapon(g); // F key also fires
       if (e.key === 'Escape') togglePause();
     };
 
-    // Keyboard Up
     const onKeyUp = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k === 'w' || e.key === 'ArrowUp') g.keys.w = false;
       if (k === 'a' || e.key === 'ArrowLeft') g.keys.a = false;
       if (k === 's' || e.key === 'ArrowDown') g.keys.s = false;
       if (k === 'd' || e.key === 'ArrowRight') g.keys.d = false;
-      if (e.key === 'Shift') g.keys.shift = false;
+      if (e.key === 'Shift') {
+        g.keys.shift = false;
+        setIsSprinting(false);
+      }
       if (e.key === ' ') g.keys.space = false;
       if (k === 'e') g.keys.e = false;
     };
 
-    // Pointer Lock & Mouse Look
     const onMouseDown = (e: MouseEvent) => {
       if (g.state !== 'PLAYING') return;
 
@@ -1087,17 +1188,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       if (e.button === 0) {
         // Left click: Fire weapon
-        g.mouseLook.isShooting = true;
         firePlayerWeapon(g);
       } else if (e.button === 2) {
         // Right click: Aim down sights
-        g.mouseLook.isAiming = true;
+        g.mouseLook.isAiming = !g.mouseLook.isAiming;
+        setIsAiming(g.mouseLook.isAiming);
       }
-    };
-
-    const onMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) g.mouseLook.isShooting = false;
-      if (e.button === 2) g.mouseLook.isAiming = false;
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -1114,7 +1210,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     canvas.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('contextmenu', onContextMenu);
   };
@@ -1126,7 +1221,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const p = g.player;
     if (!p.mesh) return;
 
-    // Calculate move direction relative to camera yaw
     const forward = new THREE.Vector3(-Math.sin(g.mouseLook.yaw), 0, -Math.cos(g.mouseLook.yaw));
     const right = new THREE.Vector3(Math.cos(g.mouseLook.yaw), 0, -Math.sin(g.mouseLook.yaw));
 
@@ -1139,25 +1233,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const isMoving = moveDir.lengthSq() > 0.01;
     if (isMoving) moveDir.normalize();
 
-    // Speed calculation
     const baseSpeed = g.keys.shift && !g.mouseLook.isAiming ? 13.0 : g.mouseLook.isAiming ? 5.0 : 7.8;
     p.velocity.x = moveDir.x * baseSpeed;
     p.velocity.z = moveDir.z * baseSpeed;
 
-    // Jump
     if (g.keys.space && p.onGround) {
       p.velocity.y = 9.5;
       p.onGround = false;
       gameSounds.playFootstep();
     }
 
-    // Gravity
     p.velocity.y -= 22.0 * dt;
 
-    // Apply movement
     const nextPos = p.position.clone().add(p.velocity.clone().multiplyScalar(dt));
 
-    // Terrain Ground Collision
     const groundY = getTerrainHeight(nextPos.x, nextPos.z);
     if (nextPos.y <= groundY + 0.1) {
       nextPos.y = groundY;
@@ -1165,7 +1254,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       p.onGround = true;
     }
 
-    // Obstacle Box Collisions
     const playerBox = new THREE.Box3().setFromCenterAndSize(
       new THREE.Vector3(nextPos.x, nextPos.y + 1.2, nextPos.z),
       new THREE.Vector3(1.2, 2.4, 1.2)
@@ -1182,18 +1270,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (!hitObstacle) {
       p.position.copy(nextPos);
     } else {
-      // Allow vertical movement even if horizontally colliding
       p.position.y = nextPos.y;
     }
 
     p.mesh.position.copy(p.position);
 
-    // Player Rotation: Faces camera yaw when moving or aiming
     if (isMoving || g.mouseLook.isAiming) {
       p.mesh.rotation.y = g.mouseLook.yaw;
     }
 
-    // Footsteps & Walk Cycle Animation
     if (isMoving && p.onGround) {
       p.walkCycle += dt * (g.keys.shift ? 14 : 9);
       if (Math.sin(p.walkCycle) > 0.95 && g.lastStepTime + 0.28 < g.elapsedTime) {
@@ -1205,7 +1290,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     }
 
-    // Smooth Third-Person Camera Tracking
     const camDist = g.mouseLook.isAiming ? 1.8 : 3.8;
     const camHeight = g.mouseLook.isAiming ? 1.6 : 2.1;
     const shoulderOffset = g.mouseLook.isAiming ? 0.65 : 0.85;
@@ -1218,7 +1302,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (g.camera) {
       g.camera.position.copy(g.currentCamPos);
 
-      // Camera Look-At target (Head height forward)
       const lookTarget = p.position.clone().add(new THREE.Vector3(
         -Math.sin(g.mouseLook.yaw) * 25,
         1.6 + Math.sin(g.mouseLook.pitch) * 12,
@@ -1250,6 +1333,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }, 50);
     }
 
+    // Ejecting golden brass casing particle
+    spawnBulletCasing(p.position.clone().add(new THREE.Vector3(0, 1.3, 0)), g);
+
     // Weapon Recoil Kick
     g.mouseLook.pitch += 0.02;
 
@@ -1262,7 +1348,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     let hitPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(90));
 
     if (hits.length > 0) {
-      // Find valid first hit that isn't the player
       for (let hit of hits) {
         if (!isChildOf(hit.object, p.mesh)) {
           hitPoint = hit.point;
@@ -1270,19 +1355,76 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           // Check if hit an enemy
           const enemyHit = findEnemyFromHit(hit.object, g.enemies);
           if (enemyHit && !enemyHit.isDead) {
-            damageEnemy(enemyHit, 34, g);
+            damageEnemy(enemyHit, 35, g);
             triggerHitMarker();
           }
 
-          // Spawn impact sparks
+          // Check if hit an explosive red barrel
+          for (let b of g.explosiveBarrels) {
+            if (!b.detonated && hit.point.distanceTo(b.position) < 2.0) {
+              detonateBarrel(b, g);
+              break;
+            }
+          }
+
           spawnImpactSparks(hitPoint, g);
           break;
         }
       }
     }
 
-    // Create Bullet Tracer Visual Line
     createBulletTracer(p.position.clone().add(new THREE.Vector3(0, 1.3, 0)), hitPoint, g);
+  };
+
+  // Detonate explosive fuel barrel with huge fireball
+  const detonateBarrel = (b: ExplosiveBarrel, g: any) => {
+    b.detonated = true;
+    gameSounds.playExplosion();
+
+    // Fireball visual mesh
+    const fireGeo = new THREE.SphereGeometry(3.5, 12, 12);
+    const fireMat = new THREE.MeshBasicMaterial({ color: '#ff5500', transparent: true, opacity: 0.9 });
+    const fireball = new THREE.Mesh(fireGeo, fireMat);
+    fireball.position.copy(b.position);
+    g.scene.add(fireball);
+
+    // Light flash
+    const fLight = new THREE.PointLight('#ff7700', 6.0, 20);
+    fLight.position.copy(b.position);
+    g.scene.add(fLight);
+
+    setTimeout(() => {
+      g.scene.remove(fireball);
+      g.scene.remove(fLight);
+      g.scene.remove(b.mesh);
+    }, 350);
+
+    // Area damage to nearby enemies
+    for (let e of g.enemies) {
+      if (!e.isDead && e.position.distanceTo(b.position) < 10) {
+        damageEnemy(e, 85, g);
+      }
+    }
+  };
+
+  // Ejecting bullet casing particle
+  const spawnBulletCasing = (pos: THREE.Vector3, g: any) => {
+    const caseGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.08, 6);
+    const caseMat = new THREE.MeshBasicMaterial({ color: '#ffd700' });
+    const casing = new THREE.Mesh(caseGeo, caseMat);
+    casing.position.copy(pos);
+    g.scene.add(casing);
+    g.particles.push({
+      mesh: casing,
+      velocity: new THREE.Vector3(
+        Math.cos(g.mouseLook.yaw) * 4 + (Math.random() - 0.5),
+        2.5 + Math.random(),
+        -Math.sin(g.mouseLook.yaw) * 4 + (Math.random() - 0.5)
+      ),
+      life: 0.4,
+      maxLife: 0.4,
+      fade: true,
+    });
   };
 
   const isChildOf = (obj: THREE.Object3D, parent: THREE.Object3D | null): boolean => {
@@ -1307,7 +1449,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     e.state = 'CHASE';
     e.lastKnownPos.copy(g.player.position);
 
-    // Flash white on hit
     e.mesh.traverse((child: any) => {
       if (child.isMesh && child.material) {
         const orig = child.material.color.getHex();
@@ -1321,7 +1462,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (e.hp <= 0 && !e.isDead) {
       e.isDead = true;
       e.state = 'DEAD';
-      e.mesh.rotation.x = Math.PI / 2; // fall to ground
+      e.mesh.rotation.x = Math.PI / 2;
       e.mesh.position.y = 0.2;
       setEnemiesNeutralized((n) => n + 1);
       setScore((s) => s + 150);
@@ -1329,14 +1470,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
   };
 
-  // Hit Marker feedback
   const triggerHitMarker = () => {
     gameSounds.playHitMarker();
     setHitMarkerVisible(true);
     setTimeout(() => setHitMarkerVisible(false), 90);
   };
 
-  // Reload Player Weapon
   const reloadPlayerWeapon = (g: any) => {
     const p = g.player;
     if (p.reloading || p.clip >= 30 || p.reserve <= 0) return;
@@ -1357,7 +1496,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }, 1800);
   };
 
-  // Bullet Tracer Visual Mesh
   const createBulletTracer = (start: THREE.Vector3, end: THREE.Vector3, g: any) => {
     const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
     const mat = new THREE.LineBasicMaterial({ color: '#ffea00', linewidth: 2 });
@@ -1366,7 +1504,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     g.bulletTracers.push({ line, life: 3 });
   };
 
-  // Impact Sparks
   const spawnImpactSparks = (pos: THREE.Vector3, g: any) => {
     const sparkGeo = new THREE.SphereGeometry(0.08, 4, 4);
     const sparkMat = new THREE.MeshBasicMaterial({ color: '#ffcc00' });
@@ -1389,7 +1526,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
   };
 
-  // Item Drop on Enemy Kill (Ammo crate or Health stim)
   const spawnItemDrop = (pos: THREE.Vector3, g: any) => {
     const dropGeo = new THREE.BoxGeometry(0.6, 0.4, 0.6);
     const dropMat = new THREE.MeshStandardMaterial({ color: '#00ff66', emissive: '#00aa44', roughness: 0.3 });
@@ -1410,7 +1546,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const toPlayer = p.position.clone().sub(e.position);
       const distToPlayer = toPlayer.length();
 
-      // State Machine
       switch (e.state) {
         case 'PATROL': {
           const target = e.patrolPoints[e.currentPatrolIdx];
@@ -1423,7 +1558,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             e.mesh.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
           }
 
-          // Vision check: detects player if within 25m
           if (distToPlayer < 25) {
             e.state = 'ALERT';
             e.alertTimer = 1.0;
@@ -1446,7 +1580,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           e.position.add(toPlayer.multiplyScalar(5.5 * dt));
           e.mesh.rotation.y = Math.atan2(-toPlayer.x, -toPlayer.z);
 
-          // Attack when in gun range (< 18m)
           if (distToPlayer < 18) {
             e.state = 'ATTACK';
           } else if (distToPlayer > 45) {
@@ -1459,7 +1592,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         case 'ATTACK': {
           e.mesh.rotation.y = Math.atan2(-toPlayer.x, -toPlayer.z);
 
-          // Shoot bursts at player
           e.shootCooldown -= dt;
           if (e.shootCooldown <= 0) {
             e.shootCooldown = 1.4 + Math.random() * 0.4;
@@ -1481,17 +1613,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }
       }
 
-      // Keep enemy snapped to terrain height
       e.position.y = getTerrainHeight(e.position.x, e.position.z);
       e.mesh.position.copy(e.position);
     }
   };
 
-  // Enemy Gunfire
   const enemyFireAtPlayer = (e: EnemyEntity, g: any) => {
     gameSounds.playEnemyGunshot();
 
-    // Flash enemy muzzle light
     if (e.muzzleFlashMesh) {
       e.muzzleFlashMesh.intensity = 4.0;
       setTimeout(() => {
@@ -1499,7 +1628,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }, 60);
     }
 
-    // Tracer line towards player
     const start = e.position.clone().add(new THREE.Vector3(0, 1.3, 0));
     const end = g.player.position.clone().add(new THREE.Vector3(
       (Math.random() - 0.5) * 1.5,
@@ -1508,19 +1636,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     ));
     createBulletTracer(start, end, g);
 
-    // Damage player if distance < 20m
     const dist = e.position.distanceTo(g.player.position);
     if (dist < 22 && Math.random() < 0.65) {
       damagePlayer(12, g);
     }
   };
 
-  // Damage Player Logic
   const damagePlayer = (dmg: number, g: any) => {
     const p = g.player;
     gameSounds.playPlayerHit();
 
-    // Damage armor first
     if (p.armor > 0) {
       p.armor = Math.max(0, p.armor - dmg);
       setPlayerArmor(p.armor);
@@ -1529,11 +1654,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       setPlayerHp(p.hp);
     }
 
-    // Trigger red damage vignette flash
     setDamageVignette(true);
     setTimeout(() => setDamageVignette(false), 240);
 
-    // Game Over Check
     if (p.hp <= 0 && g.state === 'PLAYING') {
       g.state = 'GAMEOVER';
       setGameState('GAMEOVER');
@@ -1548,15 +1671,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const currentObj = g.objectives[g.currentObjIndex];
     if (!currentObj) return;
 
-    // Track distance to target
     const dist = Math.round(p.position.distanceTo(currentObj.targetPos));
     setObjectiveDist(dist);
 
-    // Spin interactive Keycard and Intel Drive in world
     if (g.keycardMesh) g.keycardMesh.rotation.y += 0.03;
     if (g.intelMesh) g.intelMesh.rotation.y += 0.03;
 
-    // Interactive Prompts
     switch (currentObj.type) {
       case 'explore': {
         if (dist < 6) {
@@ -1567,7 +1687,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       case 'keycard': {
         if (dist < 3.5 && !p.hasKeycard) {
-          setInteractPrompt('PRESS [E] TO COLLECT SECURITY KEYCARD');
+          setInteractPrompt('PRESS [E] OR TAP INTERACT TO COLLECT KEYCARD');
           if (g.keys.e) {
             p.hasKeycard = true;
             if (g.keycardMesh) g.scene.remove(g.keycardMesh);
@@ -1583,10 +1703,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       case 'enter': {
         if (dist < 8) {
           if (p.hasKeycard && !g.gateOpen) {
-            // Open Gate blast door
             g.gateOpen = true;
             if (g.gateMesh) {
-              g.gateMesh.position.y += 5.5; // raise door
+              g.gateMesh.position.y += 5.5;
             }
             completeCurrentObjective(g);
           }
@@ -1595,7 +1714,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
 
       case 'eliminate': {
-        // Check if facility guards are cleared
         const deadCount = g.enemies.filter((e: any) => e.isDead).length;
         if (deadCount >= 3) {
           completeCurrentObjective(g);
@@ -1605,7 +1723,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       case 'intel': {
         if (dist < 4.0 && !p.hasIntel) {
-          setInteractPrompt('PRESS [E] TO DOWNLOAD CLASSIFIED INTEL');
+          setInteractPrompt('PRESS [E] OR TAP INTERACT TO DOWNLOAD INTEL');
           if (g.keys.e) {
             p.hasIntel = true;
             if (g.intelMesh) g.scene.remove(g.intelMesh);
@@ -1620,7 +1738,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       case 'extract': {
         if (dist < 8) {
-          // Mission Complete Victory!
           g.state = 'VICTORY';
           setGameState('VICTORY');
           gameSounds.playObjectiveComplete();
@@ -1649,7 +1766,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setTimeout(() => setMissionNotification(null), 3000);
   };
 
-  // Particle life update
   const updateParticles = (dt: number, g: any) => {
     for (let i = g.particles.length - 1; i >= 0; i--) {
       const pt = g.particles[i];
@@ -1664,7 +1780,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     }
 
-    // Clean bullet tracers
     for (let i = g.bulletTracers.length - 1; i >= 0; i--) {
       const tr = g.bulletTracers[i];
       tr.life -= 1;
@@ -1676,7 +1791,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const updateCombatAndWeapons = (dt: number, g: any) => {
-    // Timer updates
     setMissionTimeSec((s) => s + dt);
   };
 
@@ -1727,7 +1841,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setScore(0);
     setMissionTimeSec(0);
 
-    // Reset enemies
     for (let e of g.enemies) {
       e.hp = 100;
       e.isDead = false;
@@ -1765,7 +1878,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
         {/* IN-GAME TACTICAL HUD */}
         {gameState === 'PLAYING' && (
-          <View style={styles.hudOverlay} pointerEvents="none">
+          <View style={styles.hudOverlay} pointerEvents="box-none">
             {/* Top Bar: Health, Armor & Mission Objective */}
             <View style={styles.hudTopRow}>
               {/* Health & Armor Bars */}
@@ -1814,7 +1927,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             </View>
 
             {/* Dynamic Center Crosshair */}
-            <View style={styles.crosshairWrap}>
+            <View style={styles.crosshairWrap} pointerEvents="none">
               <View style={styles.crosshairDot} />
               <View style={[styles.crosshairLine, styles.chTop]} />
               <View style={[styles.crosshairLine, styles.chBottom]} />
@@ -1837,18 +1950,150 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
             )}
 
-            {/* Bottom Right: Ammo Counter & Weapon Telemetry */}
-            <View style={styles.hudBottomRow}>
-              <View style={styles.weaponTelemetry}>
-                <Text style={styles.weaponName}>MK-18 CARBINE 5.56mm</Text>
-                <View style={styles.ammoRow}>
-                  <Text style={[styles.ammoClip, isReloading && { color: '#ffaa00' }]}>
-                    {isReloading ? 'RELOADING' : ammoClip}
-                  </Text>
-                  <Text style={styles.ammoDivider}>/</Text>
-                  <Text style={styles.ammoReserve}>{ammoReserve}</Text>
+            {/* ==================================================== */}
+            {/* HIGH PRO MAX: ON-SCREEN TACTICAL COMBAT CONTROLS */}
+            {/* ==================================================== */}
+            <View style={styles.onScreenControlsRow} pointerEvents="box-none">
+              {/* Left Side: Directional D-Pad Navigation */}
+              <View style={styles.dpadContainer} pointerEvents="auto">
+                <TouchableOpacity
+                  style={styles.dpadBtn}
+                  onPressIn={() => (gameRef.current.keys.w = true)}
+                  onPressOut={() => (gameRef.current.keys.w = false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dpadText}>▲</Text>
+                </TouchableOpacity>
+
+                <View style={styles.dpadMiddleRow}>
+                  <TouchableOpacity
+                    style={styles.dpadBtn}
+                    onPressIn={() => (gameRef.current.keys.a = true)}
+                    onPressOut={() => (gameRef.current.keys.a = false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.dpadText}>◀</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadCenterText}>MOVE</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.dpadBtn}
+                    onPressIn={() => (gameRef.current.keys.d = true)}
+                    onPressOut={() => (gameRef.current.keys.d = false)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.dpadText}>▶</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.ammoHint}>[L-CLICK] Fire • [R-CLICK] Aim • [R] Reload</Text>
+
+                <TouchableOpacity
+                  style={styles.dpadBtn}
+                  onPressIn={() => (gameRef.current.keys.s = true)}
+                  onPressOut={() => (gameRef.current.keys.s = false)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.dpadText}>▼</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Right Side: HIGH PRO MAX COMBAT ACTION BUTTONS & BIG FIRE BUTTON */}
+              <View style={styles.actionButtonsCluster} pointerEvents="auto">
+                {/* Secondary Tactical Actions Row: Jump, Sprint, Aim, Reload, Interact */}
+                <View style={styles.secondaryActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.tacticalSmallBtn, isSprinting && styles.tacticalBtnActive]}
+                    onPress={() => {
+                      const next = !gameRef.current.keys.shift;
+                      gameRef.current.keys.shift = next;
+                      setIsSprinting(next);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tacticalBtnIcon}>⚡</Text>
+                    <Text style={styles.tacticalBtnLabel}>SPRINT</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.tacticalSmallBtn}
+                    onPress={() => {
+                      if (gameRef.current.player.onGround) {
+                        gameRef.current.player.velocity.y = 9.5;
+                        gameRef.current.player.onGround = false;
+                        gameSounds.playFootstep();
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tacticalBtnIcon}>🦘</Text>
+                    <Text style={styles.tacticalBtnLabel}>JUMP</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.tacticalSmallBtn, isAiming && styles.tacticalBtnActive]}
+                    onPress={() => {
+                      const next = !gameRef.current.mouseLook.isAiming;
+                      gameRef.current.mouseLook.isAiming = next;
+                      setIsAiming(next);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tacticalBtnIcon}>🎯</Text>
+                    <Text style={styles.tacticalBtnLabel}>AIM</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.tacticalSmallBtn}
+                    onPress={() => reloadPlayerWeapon(gameRef.current)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tacticalBtnIcon}>🔄</Text>
+                    <Text style={styles.tacticalBtnLabel}>RELOAD</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.tacticalSmallBtn, { borderColor: '#ffd700' }]}
+                    onPress={() => {
+                      gameRef.current.keys.e = true;
+                      setTimeout(() => (gameRef.current.keys.e = false), 250);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.tacticalBtnIcon}>✋</Text>
+                    <Text style={[styles.tacticalBtnLabel, { color: '#ffd700' }]}>ACTION</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* BIG GLOWING RED HIGH PRO MAX FIRE BUTTON */}
+                <View style={styles.fireRow}>
+                  {/* Weapon Telemetry info */}
+                  <View style={styles.weaponTelemetry}>
+                    <Text style={styles.weaponName}>MK-18 5.56mm</Text>
+                    <View style={styles.ammoRow}>
+                      <Text style={[styles.ammoClip, isReloading && { color: '#ffaa00' }]}>
+                        {isReloading ? 'RELOAD' : ammoClip}
+                      </Text>
+                      <Text style={styles.ammoDivider}>/</Text>
+                      <Text style={styles.ammoReserve}>{ammoReserve}</Text>
+                    </View>
+                  </View>
+
+                  {/* MASSIVE PRO MAX FIRE BUTTON */}
+                  <TouchableOpacity
+                    style={styles.bigFireButton}
+                    onPressIn={() => firePlayerWeapon(gameRef.current)}
+                    onPress={() => firePlayerWeapon(gameRef.current)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.fireInnerGlow}>
+                      <Text style={styles.fireIconText}>🔥</Text>
+                      <Text style={styles.fireLabelText}>FIRE</Text>
+                      <Text style={styles.fireSubText}>SHOOT</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -1860,7 +2105,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <View style={styles.menuCard}>
               <Text style={styles.menuBadge}>TACTICAL THIRD-PERSON ACTION</Text>
               <Text style={styles.menuTitle}>SHADOW STRIKE</Text>
-              <Text style={styles.menuSubTitle}>OPEN WORLD • OPERATION ESCAPE</Text>
+              <Text style={styles.menuSubTitle}>OPEN WORLD • OPERATION ESCAPE THE FACILITY</Text>
 
               <View style={styles.menuBtnGroup}>
                 <TouchableOpacity style={styles.primaryMenuBtn} onPress={startGame} activeOpacity={0.85}>
@@ -1874,7 +2119,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     setGraphicsQuality(next);
                   }}
                 >
-                  <Text style={styles.secondaryMenuBtnText}>GRAPHICS QUALITY: {graphicsQuality}</Text>
+                  <Text style={styles.secondaryMenuBtnText}>GRAPHICS QUALITY: {graphicsQuality} (PRO MAX)</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1888,14 +2133,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
 
               <View style={styles.controlsGuide}>
-                <Text style={styles.guideTitle}>MISSION CONTROLS:</Text>
-                <Text style={styles.guideText}>• WASD / Arrow Keys : Move Tactical Operative</Text>
-                <Text style={styles.guideText}>• Mouse / Look : 360° Third-Person Orbit View</Text>
-                <Text style={styles.guideText}>• Left Click : Shoot Weapon with Recoil</Text>
-                <Text style={styles.guideText}>• Right Click : Aim Down Sights (Zoom)</Text>
-                <Text style={styles.guideText}>• Shift / Space : Sprint / Jump</Text>
-                <Text style={styles.guideText}>• E : Interact / Collect Keycard & Intel</Text>
-                <Text style={styles.guideText}>• R : Tactical Magazine Reload</Text>
+                <Text style={styles.guideTitle}>HIGH PRO MAX CONTROLS:</Text>
+                <Text style={styles.guideText}>• 🔥 RED FIRE BUTTON on screen / F Key / Left-Click to Shoot!</Text>
+                <Text style={styles.guideText}>• 🎯 AIM Button / Right-Click for Over-The-Shoulder ADS Zoom</Text>
+                <Text style={styles.guideText}>• 🔄 RELOAD Button / R Key to reload MK-18 magazine</Text>
+                <Text style={styles.guideText}>• ▲◀▼▶ On-screen D-Pad or WASD to move operative</Text>
+                <Text style={styles.guideText}>• ⚡ SPRINT & 🦘 JUMP Buttons or Shift & Spacebar</Text>
+                <Text style={styles.guideText}>• ✋ ACTION Button or E Key to collect Keycard & Intel</Text>
               </View>
             </View>
           </View>
@@ -2002,9 +2246,9 @@ const styles = StyleSheet.create({
   },
   damageVignette: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 0, 0, 0.35)',
-    borderWidth: 14,
-    borderColor: 'rgba(255, 0, 0, 0.75)',
+    backgroundColor: 'rgba(255, 0, 0, 0.38)',
+    borderWidth: 16,
+    borderColor: 'rgba(255, 0, 0, 0.85)',
     zIndex: 10,
   },
   hudOverlay: {
@@ -2019,9 +2263,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusGauges: {
-    backgroundColor: 'rgba(5, 10, 20, 0.85)',
+    backgroundColor: 'rgba(5, 10, 20, 0.88)',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.35)',
+    borderColor: 'rgba(0, 240, 255, 0.45)',
     borderRadius: 10,
     padding: 10,
     minWidth: 180,
@@ -2057,14 +2301,14 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   objectiveBanner: {
-    backgroundColor: 'rgba(4, 8, 18, 0.9)',
+    backgroundColor: 'rgba(4, 8, 18, 0.92)',
     borderWidth: 1.5,
     borderColor: '#ffd700',
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 18,
     alignItems: 'center',
-    boxShadow: '0 0 16px rgba(255, 215, 0, 0.35)',
+    boxShadow: '0 0 16px rgba(255, 215, 0, 0.4)',
   },
   objectiveTag: {
     color: '#ffd700',
@@ -2085,12 +2329,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   pauseBtn: {
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     borderWidth: 1,
     borderColor: '#4a5568',
     borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
   },
   pauseBtnText: {
     color: '#e2e8f0',
@@ -2117,7 +2361,7 @@ const styles = StyleSheet.create({
   },
   crosshairLine: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 240, 255, 0.75)',
+    backgroundColor: 'rgba(0, 240, 255, 0.85)',
   },
   chTop: { width: 2, height: 8, top: 0 },
   chBottom: { width: 2, height: 8, bottom: 0 },
@@ -2130,14 +2374,15 @@ const styles = StyleSheet.create({
   },
   interactBox: {
     position: 'absolute',
-    bottom: 120,
+    bottom: 140,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 240, 255, 0.25)',
+    backgroundColor: 'rgba(0, 240, 255, 0.3)',
     borderWidth: 1.5,
     borderColor: '#00f0ff',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 18,
+    boxShadow: '0 0 15px rgba(0, 240, 255, 0.5)',
   },
   interactText: {
     color: '#ffffff',
@@ -2150,7 +2395,7 @@ const styles = StyleSheet.create({
     top: 85,
     alignSelf: 'center',
     backgroundColor: 'rgba(10, 20, 40, 0.95)',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#00ff66',
     borderRadius: 8,
     paddingVertical: 6,
@@ -2161,52 +2406,168 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  hudBottomRow: {
+
+  /* ON-SCREEN TACTICAL COMBAT CONTROLS */
+  onScreenControlsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    width: '100%',
+    paddingBottom: 4,
+  },
+
+  /* D-PAD STYLING */
+  dpadContainer: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(6, 12, 24, 0.65)',
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 240, 255, 0.25)',
+  },
+  dpadMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  dpadBtn: {
+    width: 44,
+    height: 44,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderWidth: 1.5,
+    borderColor: '#00f0ff',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadText: {
+    color: '#00f0ff',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  dpadCenter: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadCenterText: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+
+  /* ACTION CLUSTER STYLING */
+  actionButtonsCluster: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
+  },
+  tacticalSmallBtn: {
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1.5,
+    borderColor: '#00f0ff',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    minWidth: 54,
+  },
+  tacticalBtnActive: {
+    backgroundColor: '#00f0ff',
+    borderColor: '#ffffff',
+  },
+  tacticalBtnIcon: {
+    fontSize: 16,
+  },
+  tacticalBtnLabel: {
+    color: '#00f0ff',
+    fontSize: 9,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+
+  /* BIG PRO MAX FIRE BUTTON */
+  fireRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   weaponTelemetry: {
     backgroundColor: 'rgba(4, 8, 18, 0.85)',
     borderWidth: 1.5,
     borderColor: 'rgba(0, 240, 255, 0.35)',
     borderRadius: 10,
-    padding: 12,
+    padding: 8,
     alignItems: 'flex-end',
   },
   weaponName: {
     color: '#00f0ff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
   },
   ammoRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginVertical: 2,
   },
   ammoClip: {
     color: '#ffffff',
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '900',
   },
   ammoDivider: {
     color: '#718096',
-    fontSize: 18,
-    marginHorizontal: 4,
+    fontSize: 15,
+    marginHorizontal: 3,
   },
   ammoReserve: {
     color: '#a0aec0',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
   },
-  ammoHint: {
-    color: '#718096',
-    fontSize: 10,
-    fontWeight: '600',
+
+  bigFireButton: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: '#ff0033',
+    borderWidth: 3,
+    borderColor: '#ff6688',
+    justifyContent: 'center',
+    alignItems: 'center',
+    boxShadow: '0 0 25px rgba(255, 0, 51, 0.75)',
   },
+  fireInnerGlow: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#cc0029',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fireIconText: {
+    fontSize: 22,
+  },
+  fireLabelText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+  },
+  fireSubText: {
+    color: '#ffc2cc',
+    fontSize: 8,
+    fontWeight: '800',
+  },
+
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(4, 7, 16, 0.75)',
+    backgroundColor: 'rgba(4, 7, 16, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -2221,7 +2582,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 28,
     alignItems: 'center',
-    boxShadow: '0 0 45px rgba(0, 240, 255, 0.3)',
+    boxShadow: '0 0 45px rgba(0, 240, 255, 0.35)',
   },
   menuBadge: {
     color: '#00f0ff',
@@ -2250,11 +2611,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   primaryMenuBtn: {
-    backgroundColor: '#ff0055',
+    backgroundColor: '#ff0033',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
-    boxShadow: '0 4px 20px rgba(255, 0, 85, 0.6)',
+    boxShadow: '0 4px 20px rgba(255, 0, 51, 0.65)',
   },
   primaryMenuBtnText: {
     color: '#ffffff',
@@ -2277,7 +2638,7 @@ const styles = StyleSheet.create({
   },
   controlsGuide: {
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: 10,
     padding: 12,
   },
