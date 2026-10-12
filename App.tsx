@@ -8,6 +8,7 @@ import CyberPong from './screen/pong';
 import NeonBreakout from './screen/breakout';
 import GalaxyDefender from './screen/shooter';
 import CyberGlider from './screen/flappy';
+import ShadowStrikeScreen from './screen/shadow_strike';
 import LeaderboardScreen from './screen/leaderboard';
 import RegisterScreen from './screen/register';
 
@@ -24,6 +25,7 @@ export default function App() {
         }}
       >
         <Stack.Screen name="Home" component={Home} />
+        <Stack.Screen name="ShadowStrike" component={ShadowStrikeScreen} />
         <Stack.Screen name="Racing" component={NeonRacing} />
         <Stack.Screen name="Snake" component={SnakeGame} />
         <Stack.Screen name="Pong" component={CyberPong} />

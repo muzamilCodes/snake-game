@@ -100,6 +100,19 @@ export default function Home({ navigation }: any) {
 
   const ALL_GAMES = [
     {
+      id: 'ShadowStrike',
+      route: 'ShadowStrike',
+      category: 'ACTION & SHOOTER',
+      name: 'SHADOW STRIKE: OPEN WORLD',
+      tag: '3D THIRD-PERSON SURVIVAL',
+      emoji: '🥷',
+      badge: '★ AAA 3D ★',
+      color: '#00f0ff',
+      desc: 'Third-person open world tactical action! Explore abandoned military facility, collect access keycards, neutralize enemy patrol AI, and evacuate with classified intel.',
+      highScoreText: 'Mission: Escape the Facility',
+      params: { theme: settings.theme },
+    },
+    {
       id: 'Racing',
       route: 'Racing',
       category: 'RACING & SPEED',
@@ -257,39 +270,39 @@ export default function Home({ navigation }: any) {
           </Text>
         </View>
 
-        {/* Featured Flagship Card: NEON VELOCITY 2077 RACING */}
+        {/* Featured Flagship Card: SHADOW STRIKE: OPEN WORLD */}
         <TouchableOpacity
-          style={[styles.flagshipCard, { borderColor: '#ff0055' }]}
+          style={[styles.flagshipCard, { borderColor: '#00f0ff' }]}
           onPress={() => handleLaunchGame(ALL_GAMES[0])}
           activeOpacity={0.88}
         >
           <View style={styles.flagshipGlowOverlay} />
           <View style={styles.flagshipContent}>
             <View style={styles.flagshipTopRow}>
-              <View style={styles.flagshipTagPill}>
-                <Text style={styles.flagshipTagText}>🔥 FEATURED RELEASE</Text>
+              <View style={[styles.flagshipTagPill, { backgroundColor: '#00f0ff' }]}>
+                <Text style={[styles.flagshipTagText, { color: '#000' }]}>★ NEW 3D AAA RELEASE ★</Text>
               </View>
               <View style={styles.flagshipLevelPill}>
-                <Text style={styles.flagshipLevelText}>10 CIRCUITS</Text>
+                <Text style={styles.flagshipLevelText}>THIRD-PERSON</Text>
               </View>
             </View>
 
             <View style={styles.flagshipMiddleRow}>
-              <Text style={styles.flagshipEmoji}>🏎️</Text>
+              <Text style={styles.flagshipEmoji}>🥷</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.flagshipTitle}>NEON VELOCITY 2077</Text>
+                <Text style={styles.flagshipTitle}>SHADOW STRIKE: OPEN WORLD</Text>
                 <Text style={styles.flagshipSub}>
-                  Pseudo-3D Highway Racer • Dodge Cyber Traffic • Nitro Boosts • 10 Unique Levels!
+                  Third-Person 3D Tactical Action • Abandoned Military Base • Enemy AI Patrols • Weapon Combat!
                 </Text>
               </View>
             </View>
 
             <View style={styles.flagshipFooter}>
               <Text style={styles.flagshipStats}>
-                🏁 Circuit: Lvl {gameScores.racing}/10 Unlocked
+                🎯 Mission: Escape The Facility
               </Text>
-              <View style={styles.flagshipLaunchBtn}>
-                <Text style={styles.flagshipLaunchText}>ENTER RACE ▶</Text>
+              <View style={[styles.flagshipLaunchBtn, { backgroundColor: '#00f0ff' }]}>
+                <Text style={[styles.flagshipLaunchText, { color: '#000' }]}>DEPLOY OPERATIVE ▶</Text>
               </View>
             </View>
           </View>
