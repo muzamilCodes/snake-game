@@ -1213,10 +1213,14 @@ export default function RealisticRacing({ navigation }: any) {
             soundManager.playClick();
             soundManager.stopEngineLoop();
             engineRef.current.active = false;
-            navigation.goBack();
+            if (navigation.canGoBack && navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('Home');
+            }
           }}
         >
-          <Text style={styles.backBtnText}>‹ Arcade</Text>
+          <Text style={styles.backBtnText}>‹ Arcade Hub</Text>
         </TouchableOpacity>
 
         {/* Level & Meter Display */}
