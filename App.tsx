@@ -28,6 +28,7 @@ export default function App() {
         <Stack.Screen name="ShadowStrike" component={ShadowStrikeScreen} />
         <Stack.Screen name="Racing" component={NeonRacing} />
         <Stack.Screen name="Snake" component={SnakeGame} />
+
         <Stack.Screen name="Pong" component={CyberPong} />
         <Stack.Screen name="Breakout" component={NeonBreakout} />
         <Stack.Screen name="Shooter" component={GalaxyDefender} />

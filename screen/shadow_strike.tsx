@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   SafeAreaView,
   useWindowDimensions,
-  StatusBar,
   Modal,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import * as THREE from 'three';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { ERANGEL_MAP_BASE64, BGMI_LOBBY_BG_BASE64 } from '../utils/erangel_assets';
 
 // ============================================================================
@@ -748,12 +750,96 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [killFeed, setKillFeed] = useState<string[]>([]);
   const [showFullMap, setShowFullMap] = useState<boolean>(false);
   const [showInventoryModal, setShowInventoryModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [showSeasonModal, setShowSeasonModal] = useState<boolean>(false);
+  const [floatingDamage, setFloatingDamage] = useState<{ text: string; color: string } | null>(null);
   const [eliminationBanner, setEliminationBanner] = useState<{
     visible: boolean;
     victimName: string;
     kills: number;
     remaining: number;
   }>({ visible: false, victimName: '', kills: 0, remaining: 100 });
+
+  // Persistent Career Stats backed by @react-native-async-storage/async-storage
+  const [totalDinners, setTotalDinners] = useState<number>(140);
+  const [highestKills, setHighestKills] = useState<number>(18);
+  const [matchesPlayed, setMatchesPlayed] = useState<number>(412);
+
+  useEffect(() => {
+    const loadCareerStats = async () => {
+      try {
+        const savedDinners = await AsyncStorage.getItem('BGMI_SHADOW_DINNERS');
+        const savedKills = await AsyncStorage.getItem('BGMI_SHADOW_HIGH_KILLS');
+        const savedMatches = await AsyncStorage.getItem('BGMI_SHADOW_MATCHES');
+        const savedSkin = await AsyncStorage.getItem('BGMI_SHADOW_SKIN');
+        const savedMap = await AsyncStorage.getItem('BGMI_SHADOW_MAP');
+
+        if (savedDinners !== null) setTotalDinners(parseInt(savedDinners, 10));
+        if (savedKills !== null) setHighestKills(parseInt(savedKills, 10));
+        if (savedMatches !== null) setMatchesPlayed(parseInt(savedMatches, 10));
+        if (savedSkin && (SKIN_DEFINITIONS as any)[savedSkin]) {
+          setSelectedSkinId(savedSkin as SkinSetId);
+        }
+        if (savedMap && (FOUR_MAPS as any)[savedMap]) {
+          setSelectedMapId(savedMap as MapId);
+        }
+      } catch (err) {
+        console.warn('AsyncStorage load error:', err);
+      }
+    };
+    loadCareerStats();
+  }, []);
+
+  const handleSelectSkin = async (skinId: SkinSetId) => {
+    setSelectedSkinId(skinId);
+    try {
+      await AsyncStorage.setItem('BGMI_SHADOW_SKIN', skinId);
+    } catch (e) {}
+  };
+
+  const handleSelectMap = async (mapId: MapId) => {
+    setSelectedMapId(mapId);
+    try {
+      await AsyncStorage.setItem('BGMI_SHADOW_MAP', mapId);
+    } catch (e) {}
+  };
+
+  const handleGameVictory = () => {
+    setPhase('VICTORY');
+    setTotalDinners((prev) => {
+      const next = prev + 1;
+      AsyncStorage.setItem('BGMI_SHADOW_DINNERS', next.toString()).catch(() => {});
+      return next;
+    });
+    setMatchesPlayed((prev) => {
+      const next = prev + 1;
+      AsyncStorage.setItem('BGMI_SHADOW_MATCHES', next.toString()).catch(() => {});
+      return next;
+    });
+    setHighestKills((prev) => {
+      if (killsCount > prev) {
+        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', killsCount.toString()).catch(() => {});
+        return killsCount;
+      }
+      return prev;
+    });
+  };
+
+  const handleGameOver = () => {
+    setPhase('GAMEOVER');
+    setMatchesPlayed((prev) => {
+      const next = prev + 1;
+      AsyncStorage.setItem('BGMI_SHADOW_MATCHES', next.toString()).catch(() => {});
+      return next;
+    });
+    setHighestKills((prev) => {
+      if (killsCount > prev) {
+        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', killsCount.toString()).catch(() => {});
+        return killsCount;
+      }
+      return prev;
+    });
+  };
 
   // Web Audio Context & Synthesizer for Realistic Sound Effects
   const audioCtxRef = useRef<any>(null);
@@ -1491,7 +1577,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       setTimeout(() => setDamageFlash(false), 90);
 
       if (g.player.hp <= 0) {
-        setPhase('GAMEOVER');
+        handleGameOver();
       }
     }
 
@@ -1513,7 +1599,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             g.totalAlive = Math.max(1, g.totalAlive - 1);
             setAliveCount(g.totalAlive);
             pushKillFeed(`☣️ ${b.name} fell to the Playzone`);
-            if (g.totalAlive === 1 && g.player.hp > 0) setPhase('VICTORY');
+            if (g.totalAlive === 1 && g.player.hp > 0) handleGameVictory();
           }
         }
       });
@@ -1539,7 +1625,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             setPlayerHp(p.hp);
             setDamageFlash(true);
             setTimeout(() => setDamageFlash(false), 80);
-            if (p.hp <= 0) setPhase('GAMEOVER');
+            if (p.hp <= 0) handleGameOver();
           }
         }
       } else {
@@ -1673,6 +1759,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             playHitMarkerSound();
             setHitMarker(true);
             setTimeout(() => setHitMarker(false), 70);
+            setFloatingDamage({ text: `-${p.currentWeapon.damage}`, color: p.currentWeapon.color });
+            setTimeout(() => setFloatingDamage(null), 550);
 
             if (struckBot.hp <= 0 && !struckBot.isDead) {
               struckBot.isDead = true;
@@ -1695,13 +1783,32 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               setTimeout(() => setEliminationBanner((prev) => ({ ...prev, visible: false })), 2600);
               pushKillFeed(`SMxTHUG eliminated ${struckBot.name} with M416 Glacier`);
 
-              if (g.totalAlive === 1 && p.hp > 0) setPhase('VICTORY');
+              if (g.totalAlive === 1 && p.hp > 0) handleGameVictory();
             }
           }
           break;
         }
       }
     }
+  };
+
+  const reloadWeapon = () => {
+    const g = gameRef.current;
+    const p = g.player;
+    if (p.reloading || p.clip >= p.currentWeapon.clipSize || p.reserve <= 0) return;
+    p.reloading = true;
+    setIsReloading(true);
+    pushKillFeed(`🔄 Reloading ${p.currentWeapon.name}...`);
+    setTimeout(() => {
+      const needed = p.currentWeapon.clipSize - p.clip;
+      const amount = Math.min(needed, p.reserve);
+      p.clip += amount;
+      p.reserve -= amount;
+      p.reloading = false;
+      setIsReloading(false);
+      setAmmoClip(p.clip);
+      setAmmoReserve(p.reserve);
+    }, p.currentWeapon.reloadTime * 1000);
   };
 
   const switchWeapon = (type: WeaponType) => {
@@ -1730,6 +1837,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       if (k === 's') g.keys.s = true;
       if (k === 'd') g.keys.d = true;
       if (e.key === 'Shift') g.keys.shift = true;
+      if (k === 'r') reloadWeapon();
       if (e.key === ' ') {
         e.preventDefault();
         if (g.phase === 'AIRPLANE') jumpFromAirplane();
@@ -1864,7 +1972,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             {/* TOP BAR */}
             <View style={styles.bgmiTopBar}>
               {/* Profile Card (Left) */}
-              <View style={styles.profileSection}>
+              <TouchableOpacity
+                style={styles.profileSection}
+                onPress={() => setShowProfileModal(true)}
+                activeOpacity={0.8}
+              >
                 <View style={styles.avatarFrameGold}>
                   <Text style={styles.avatarIcon}>👑</Text>
                   <View style={styles.lvlBadge}><Text style={styles.lvlText}>75</Text></View>
@@ -1877,10 +1989,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   </View>
                 </View>
                 {/* Team slots / icons */}
-                <TouchableOpacity style={styles.findTeamBtn}>
+                <View style={styles.findTeamBtn}>
                   <Text style={styles.findTeamText}>Find Teammates</Text>
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
 
               {/* Center Icons & 3D Inspect Mode Switcher */}
               <View style={styles.centerIconsRow}>
@@ -1892,43 +2004,70 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     {is3DInspect ? '🎪 BGMI REAL LOBBY' : '🔄 3D INSPECT SKIN'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon}><Text>🏠 Home</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon}><Text>☁️</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon}><Text>🪖</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon}><Text>⚙️</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🏠 HOME: Personal Space level 8')}>
+                  <Text>🏠 Home</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('☁️ CLOUD: All Resource Packs (HD Icons) Downloaded 100%')}>
+                  <Text>☁️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🪖 ARMORY: Glacier M416 Lv.7 Equipped')}>
+                  <Text>🪖</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('⚙️ SETTINGS: 90 FPS Ultra HD Graphic Preset Applied')}>
+                  <Text>⚙️</Text>
+                </TouchableOpacity>
               </View>
 
               {/* Currency & RP Section (Right) */}
               <View style={styles.currencySection}>
-                <View style={styles.currencyPill}>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💰 G-Coin Balance: 289 G')}>
                   <Text style={styles.currencyLabel}>G</Text>
                   <Text style={styles.currencyVal}>289</Text>
-                </View>
-                <View style={styles.currencyPill}>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💎 UC Balance: 1+ UC (Elite Pass Plus Ready)')}>
                   <Text style={styles.currencyLabelUC}>UC</Text>
                   <Text style={styles.currencyVal}>1+</Text>
-                </View>
-                <View style={styles.rpShieldBadge}>
-                  <Text style={styles.rpText}>RP</Text>
-                </View>
-                <View style={styles.luckyCrateBadge}>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowSeasonModal(true)}>
+                  <LinearGradient
+                    colors={['#eab308', '#d97706', '#92400e']}
+                    style={styles.rpShieldBadge}
+                  >
+                    <Text style={styles.rpText}>RP</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.luckyCrateBadge} onPress={() => pushKillFeed('🎁 CRATE: Glacier Classic Crate Opened!')}>
                   <Text style={styles.crateText}>🎁</Text>
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
 
             {/* RIGHT SIDE EVENT BANNERS (FROSTY VOYAGER SET) */}
             <View style={styles.rightBannersColumn}>
-              <TouchableOpacity style={styles.eventBannerCard} activeOpacity={0.85}>
-                <View style={styles.eventBannerInner}>
-                  <Text style={styles.eventTag}>FROSTY</Text>
-                  <Text style={styles.eventTitle}>VOYAGER SET</Text>
-                  <Text style={styles.eventSub}>12 ❯</Text>
-                </View>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setShowSeasonModal(true)}
+              >
+                <LinearGradient
+                  colors={['#0284c7', '#0369a1', '#1e3a8a']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.eventBannerCard}
+                >
+                  <View style={styles.eventBannerInner}>
+                    <Text style={styles.eventTag}>FROSTY</Text>
+                    <Text style={styles.eventTitle}>VOYAGER SET</Text>
+                    <Text style={styles.eventSub}>12 ❯</Text>
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
               <View style={styles.subBannerRow}>
-                <TouchableOpacity style={styles.subBanner}><Text style={styles.subBannerText}>🏷 Deals</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.subBanner}><Text style={styles.subBannerText}>🎮 Play & Win</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.subBanner} onPress={() => pushKillFeed('🏷️ DEALS: 70% Off on Glacier Weapon Materials')}>
+                  <Text style={styles.subBannerText}>🏷 Deals</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.subBanner} onPress={() => pushKillFeed('🎮 PLAY & WIN: Event Challenge 5/5 Completed')}>
+                  <Text style={styles.subBannerText}>🎮 Play & Win</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -1936,29 +2075,41 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <View style={styles.bottomLeftControls}>
               {/* Map & Mode Card */}
               <TouchableOpacity
-                style={styles.modeSelectorCard}
                 onPress={() => setPhase('MAP_SELECT')}
                 activeOpacity={0.8}
               >
-                <View style={styles.modeCrestRow}>
-                  <Text style={styles.modeCrestIcon}>🐉</Text>
-                  <Text style={styles.modeCrestTitle}>Icemire Frontier</Text>
-                </View>
-                <Text style={styles.modeMainTitle}>
-                  {selectedMapId === 'ERANGEL' ? 'Classic - Erangel' : FOUR_MAPS[selectedMapId].name}
-                </Text>
-                <View style={styles.modeSubInfoRow}>
-                  <Text style={styles.modeSubText}>👥 4 TPP | {selectedMapId}</Text>
-                </View>
+                <LinearGradient
+                  colors={['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.95)', 'rgba(23, 37, 84, 0.9)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.modeSelectorCard}
+                >
+                  <View style={styles.modeCrestRow}>
+                    <Text style={styles.modeCrestIcon}>🐉</Text>
+                    <Text style={styles.modeCrestTitle}>Icemire Frontier</Text>
+                  </View>
+                  <Text style={styles.modeMainTitle}>
+                    {selectedMapId === 'ERANGEL' ? 'Classic - Erangel' : FOUR_MAPS[selectedMapId].name}
+                  </Text>
+                  <View style={styles.modeSubInfoRow}>
+                    <Text style={styles.modeSubText}>👥 4 TPP | {selectedMapId}</Text>
+                  </View>
+                </LinearGradient>
               </TouchableOpacity>
 
-              {/* THE ICONIC YELLOW START BUTTON */}
+              {/* THE ICONIC YELLOW START BUTTON with LinearGradient */}
               <TouchableOpacity
-                style={styles.bgmiStartBtn}
                 onPress={startErangelMatch}
                 activeOpacity={0.85}
               >
-                <Text style={styles.bgmiStartBtnText}>START</Text>
+                <LinearGradient
+                  colors={['#ffe000', '#f59e0b', '#d97706']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.bgmiStartBtn}
+                >
+                  <Text style={styles.bgmiStartBtnText}>START</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
 
@@ -1971,11 +2122,19 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
 
               <View style={styles.bottomMenuRow}>
-                <TouchableOpacity style={styles.botNavBtn}><Text style={styles.botNavText}>REGION</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn}><Text style={styles.botNavText}>CLAN</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn}><Text style={[styles.botNavText, { color: '#ffd700' }]}>C7S20 SEASON</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn}><Text style={styles.botNavText}>WORKSHOP</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn}>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🌐 SERVER: Asia / India Region (Low Ping 20ms)')}>
+                  <Text style={styles.botNavText}>REGION</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🛡️ CLAN: [TABAAHI] Level 10 Active')}>
+                  <Text style={styles.botNavText}>CLAN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => setShowSeasonModal(true)}>
+                  <Text style={[styles.botNavText, { color: '#ffd700' }]}>C7S20 SEASON</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🔨 WORKSHOP: Glacier M416 Max Level 7 Upgraded')}>
+                  <Text style={styles.botNavText}>WORKSHOP</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('📋 MISSIONS: All Daily Season Missions Complete!')}>
                   <Text style={styles.botNavText}>MISSIONS</Text>
                   <View style={styles.redBadgeDot} />
                 </TouchableOpacity>
@@ -1986,7 +2145,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   <Text style={[styles.botNavText, { color: '#00f0ff' }]}>INVENTORY</Text>
                   <View style={styles.redBadgeDot} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn}><Text style={styles.botNavText}>😀</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🤡 SMxTHUG: The Fool Victory Laugh Emote!')}>
+                  <Text style={styles.botNavText}>😀</Text>
+                </TouchableOpacity>
               </View>
 
               {/* Network Status Stamp */}
@@ -2002,59 +2163,69 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* ==================================================================== */}
         {phase === 'MAP_SELECT' && (
           <View style={styles.modalBackdrop}>
-            <View style={styles.erangelModalCard}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>OPERATIONAL BATTLEGROUNDS</Text>
-                <TouchableOpacity onPress={() => setPhase('LOBBY')}>
-                  <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.erangelModalCard}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>OPERATIONAL BATTLEGROUNDS</Text>
+                  <TouchableOpacity onPress={() => setPhase('LOBBY')}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Erangel Satellite Preview (Image 2) */}
+                <TouchableOpacity
+                  style={[
+                    styles.erangelFeatureCard,
+                    selectedMapId === 'ERANGEL' && styles.erangelFeatureCardActive,
+                  ]}
+                  onPress={() => handleSelectMap('ERANGEL')}
+                  activeOpacity={0.85}
+                >
+                  <Image
+                    source={{ uri: ERANGEL_MAP_BASE64 }}
+                    style={styles.erangelPreviewImg}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={['transparent', 'rgba(10, 18, 32, 0.85)', 'rgba(7, 13, 23, 0.98)']}
+                    style={styles.erangelFeatureOverlay}
+                  >
+                    <View style={styles.erangelTagPill}>
+                      <Text style={styles.erangelTagText}>★ SIGNATURE 8x8 ISLAND ★</Text>
+                    </View>
+                    <Text style={styles.erangelTitleText}>ERANGEL 8x8 (CLASSIC)</Text>
+                    <Text style={styles.erangelDescText}>
+                      Featuring Pochinki, Sosnovka Military Base Island, Georgopol Docks, School, Rozhok, and twin sea bridges.
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Other Maps List */}
+                <ScrollView style={{ maxHeight: 200, width: '100%' }} showsVerticalScrollIndicator={false}>
+                  {Object.values(FOUR_MAPS)
+                    .filter((m) => m.id !== 'ERANGEL')
+                    .map((m) => (
+                      <TouchableOpacity
+                        key={m.id}
+                        style={[styles.mapOptionRow, selectedMapId === m.id && styles.mapOptionRowActive]}
+                        onPress={() => handleSelectMap(m.id)}
+                      >
+                        <Text style={styles.mapOptionName}>{m.name}</Text>
+                        <Text style={styles.mapOptionTag}>{m.tagline}</Text>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
+                <TouchableOpacity onPress={() => setPhase('LOBBY')} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.confirmMapBtn}
+                  >
+                    <Text style={styles.confirmMapBtnText}>✓ CONFIRM THEATRE ({FOUR_MAPS[selectedMapId].name})</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
-
-              {/* Erangel Satellite Preview (Image 2) */}
-              <TouchableOpacity
-                style={[
-                  styles.erangelFeatureCard,
-                  selectedMapId === 'ERANGEL' && styles.erangelFeatureCardActive,
-                ]}
-                onPress={() => setSelectedMapId('ERANGEL')}
-                activeOpacity={0.85}
-              >
-                <Image
-                  source={{ uri: ERANGEL_MAP_BASE64 }}
-                  style={styles.erangelPreviewImg}
-                  resizeMode="cover"
-                />
-                <View style={styles.erangelFeatureOverlay}>
-                  <View style={styles.erangelTagPill}>
-                    <Text style={styles.erangelTagText}>★ SIGNATURE 8x8 ISLAND ★</Text>
-                  </View>
-                  <Text style={styles.erangelTitleText}>ERANGEL 8x8 (CLASSIC)</Text>
-                  <Text style={styles.erangelDescText}>
-                    Featuring Pochinki, Sosnovka Military Base Island, Georgopol Docks, School, Rozhok, and twin sea bridges.
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Other Maps List */}
-              <ScrollView style={{ maxHeight: 200, width: '100%' }} showsVerticalScrollIndicator={false}>
-                {Object.values(FOUR_MAPS)
-                  .filter((m) => m.id !== 'ERANGEL')
-                  .map((m) => (
-                    <TouchableOpacity
-                      key={m.id}
-                      style={[styles.mapOptionRow, selectedMapId === m.id && styles.mapOptionRowActive]}
-                      onPress={() => setSelectedMapId(m.id)}
-                    >
-                      <Text style={styles.mapOptionName}>{m.name}</Text>
-                      <Text style={styles.mapOptionTag}>{m.tagline}</Text>
-                    </TouchableOpacity>
-                  ))}
-              </ScrollView>
-
-              <TouchableOpacity style={styles.confirmMapBtn} onPress={() => setPhase('LOBBY')}>
-                <Text style={styles.confirmMapBtnText}>✓ CONFIRM THEATRE ({FOUR_MAPS[selectedMapId].name})</Text>
-              </TouchableOpacity>
-            </View>
+            </BlurView>
           </View>
         )}
 
@@ -2063,39 +2234,41 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* ==================================================================== */}
         <Modal visible={showInventoryModal} transparent animationType="slide">
           <View style={styles.modalBackdrop}>
-            <View style={styles.inventoryCard}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>OUTFIT & WEAPON INVENTORY</Text>
-                <TouchableOpacity onPress={() => setShowInventoryModal(false)}>
-                  <Text style={styles.modalCloseText}>✕ CLOSE</Text>
-                </TouchableOpacity>
-              </View>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.inventoryCard}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>OUTFIT & WEAPON INVENTORY</Text>
+                  <TouchableOpacity onPress={() => setShowInventoryModal(false)}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
 
-              <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-                {Object.values(SKIN_DEFINITIONS).map((s) => {
-                  const isSel = selectedSkinId === s.id;
-                  return (
-                    <TouchableOpacity
-                      key={s.id}
-                      style={[styles.skinItemCard, isSel && { borderColor: s.rarityColor, backgroundColor: 'rgba(255,255,255,0.08)' }]}
-                      onPress={() => {
-                        setSelectedSkinId(s.id);
-                        setShowInventoryModal(false);
-                      }}
-                    >
-                      <View style={styles.skinCardHeader}>
-                        <Text style={[styles.skinRarityBadge, { backgroundColor: s.rarityColor }]}>
-                          {s.rarity}
-                        </Text>
-                        <Text style={styles.skinWeaponTag}>{s.weaponSkin}</Text>
-                      </View>
-                      <Text style={[styles.skinTitle, isSel && { color: s.rarityColor }]}>{s.name}</Text>
-                      <Text style={styles.skinDesc}>{s.tag}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+                  {Object.values(SKIN_DEFINITIONS).map((s) => {
+                    const isSel = selectedSkinId === s.id;
+                    return (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[styles.skinItemCard, isSel && { borderColor: s.rarityColor, backgroundColor: 'rgba(255,255,255,0.08)' }]}
+                        onPress={() => {
+                          handleSelectSkin(s.id);
+                          setShowInventoryModal(false);
+                        }}
+                      >
+                        <View style={styles.skinCardHeader}>
+                          <Text style={[styles.skinRarityBadge, { backgroundColor: s.rarityColor }]}>
+                            {s.rarity}
+                          </Text>
+                          <Text style={styles.skinWeaponTag}>{s.weaponSkin}</Text>
+                        </View>
+                        <Text style={[styles.skinTitle, isSel && { color: s.rarityColor }]}>{s.name}</Text>
+                        <Text style={styles.skinDesc}>{s.tag}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </BlurView>
           </View>
         </Modal>
 
@@ -2130,17 +2303,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           <View style={styles.inGameHUD} pointerEvents="box-none">
             {/* Top Bar */}
             <View style={styles.inGameTopBar}>
-              <View style={styles.hudAliveCard}>
+              <BlurView intensity={35} tint="dark" style={styles.hudAliveCard}>
                 <Text style={styles.hudAliveText}>ALIVE: {aliveCount}</Text>
                 <Text style={styles.hudKillsText}>KILLS: {killsCount}</Text>
-              </View>
+              </BlurView>
 
-              <View style={styles.hudStormCard}>
+              <BlurView intensity={35} tint="dark" style={styles.hudStormCard}>
                 <Text style={styles.hudStormText}>
                   PLAYZONE: {Math.floor(safeZoneTime / 60)}:{String(safeZoneTime % 60).padStart(2, '0')}
                 </Text>
                 {isOutsideSafeZone && <Text style={styles.stormWarning}>⚠️ TAKING ZONE DAMAGE!</Text>}
-              </View>
+              </BlurView>
 
               {/* Erangel Satellite Radar */}
               <TouchableOpacity onPress={() => setShowFullMap(true)}>
@@ -2158,6 +2331,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             {/* Reticle */}
             <View style={styles.reticleCenter} pointerEvents="none">
               <View style={[styles.reticleDot, hitMarker && styles.reticleHit]} />
+              {floatingDamage && (
+                <Text style={[styles.floatingDmgText, { color: floatingDamage.color }]}>
+                  {floatingDamage.text}
+                </Text>
+              )}
             </View>
 
             {/* Bottom HUD: 5 Weapon Slots & Health */}
@@ -2166,12 +2344,26 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               <View style={styles.vitalsBox}>
                 <View style={styles.barRow}>
                   <Text style={styles.barLbl}>HP</Text>
-                  <View style={styles.barTrack}><View style={[styles.barFill, { width: `${playerHp}%`, backgroundColor: '#22c55e' }]} /></View>
+                  <View style={styles.barTrack}>
+                    <LinearGradient
+                      colors={['#4ade80', '#22c55e', '#15803d']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.barFill, { width: `${playerHp}%` }]}
+                    />
+                  </View>
                   <Text style={styles.barVal}>{playerHp}</Text>
                 </View>
                 <View style={styles.barRow}>
                   <Text style={styles.barLbl}>AP</Text>
-                  <View style={styles.barTrack}><View style={[styles.barFill, { width: `${playerArmor}%`, backgroundColor: '#00f0ff' }]} /></View>
+                  <View style={styles.barTrack}>
+                    <LinearGradient
+                      colors={['#38bdf8', '#00f0ff', '#0284c7']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.barFill, { width: `${playerArmor}%` }]}
+                    />
+                  </View>
                   <Text style={styles.barVal}>{playerArmor}</Text>
                 </View>
               </View>
@@ -2198,8 +2390,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               {/* Ammo Box */}
               <View style={styles.ammoBox}>
                 <Text style={styles.ammoWeaponTitle}>{currentWeapon.name}</Text>
-                <Text style={styles.ammoCount}>{ammoClip} <Text style={styles.ammoReserve}>/ {ammoReserve}</Text></Text>
+                <Text style={styles.ammoCount}>
+                  {isReloading ? 'RELOAD...' : `${ammoClip} `}
+                  <Text style={styles.ammoReserve}>/ {ammoReserve}</Text>
+                </Text>
               </View>
+            </View>
+
+            {/* In-Game Key Guide Bar */}
+            <View style={styles.controlHintsBar} pointerEvents="none">
+              <Text style={styles.controlHintText}>
+                🎮 WASD: Move • SHIFT: Sprint • L-CLICK: Fire • R-CLICK: ADS Scope • R: Reload • 1-5: Guns • M: Map
+              </Text>
             </View>
           </View>
         )}
@@ -2208,8 +2410,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {phase === 'AIRPLANE' && (
           <View style={styles.airplaneOverlay} pointerEvents="box-none">
             <Text style={styles.flightTitle}>C-130 HERCULES OVER ERANGEL</Text>
-            <TouchableOpacity style={styles.jumpActionBtn} onPress={jumpFromAirplane}>
-              <Text style={styles.jumpActionBtnText}>🪂 PRESS [SPACE] TO JUMP (HOT DROP)</Text>
+            <TouchableOpacity onPress={jumpFromAirplane} activeOpacity={0.85}>
+              <LinearGradient
+                colors={['#ef4444', '#dc2626', '#991b1b']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.jumpActionBtn}
+              >
+                <Text style={styles.jumpActionBtnText}>🪂 PRESS [SPACE] TO JUMP (HOT DROP)</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         )}
@@ -2217,27 +2426,165 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* VICTORY MODAL */}
         <Modal visible={phase === 'VICTORY'} transparent animationType="slide">
           <View style={styles.modalBackdrop}>
-            <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
-              <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
-              <Text style={styles.victorySub}>CHICKEN DINNER!</Text>
-              <Text style={styles.victoryMap}>MAP: ERANGEL 8x8 • RANK #1</Text>
-              <TouchableOpacity style={styles.bgmiStartBtn} onPress={() => setPhase('LOBBY')}>
-                <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
-              </TouchableOpacity>
-            </View>
+            <BlurView intensity={40} tint="dark" style={styles.blurModalContainer}>
+              <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
+                <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
+                <Text style={styles.victorySub}>CHICKEN DINNER!</Text>
+                <Text style={styles.victoryMap}>MAP: ERANGEL 8x8 • RANK #1</Text>
+                <TouchableOpacity onPress={() => setPhase('LOBBY')} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.bgmiStartBtn}
+                  >
+                    <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
           </View>
         </Modal>
 
         {/* DEFEAT MODAL */}
         <Modal visible={phase === 'GAMEOVER'} transparent animationType="fade">
           <View style={styles.modalBackdrop}>
-            <View style={[styles.endModalCard, { borderColor: '#ef4444' }]}>
-              <Text style={styles.defeatTitle}>BETTER LUCK NEXT TIME</Text>
-              <Text style={styles.victoryMap}>MAP: ERANGEL 8x8</Text>
-              <TouchableOpacity style={styles.bgmiStartBtn} onPress={() => setPhase('LOBBY')}>
-                <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
-              </TouchableOpacity>
-            </View>
+            <BlurView intensity={40} tint="dark" style={styles.blurModalContainer}>
+              <View style={[styles.endModalCard, { borderColor: '#ef4444' }]}>
+                <Text style={styles.defeatTitle}>BETTER LUCK NEXT TIME</Text>
+                <Text style={styles.victoryMap}>MAP: ERANGEL 8x8</Text>
+                <TouchableOpacity onPress={() => setPhase('LOBBY')} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.bgmiStartBtn}
+                  >
+                    <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
+        </Modal>
+
+        {/* ==================================================================== */}
+        {/* OPERATIVE PROFILE MODAL (SMxTHUG LEVEL 75) */}
+        {/* ==================================================================== */}
+        <Modal visible={showProfileModal} transparent animationType="slide">
+          <View style={styles.modalBackdrop}>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.profileModalCard}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>OPERATIVE PROFILE & DOSSIER</Text>
+                  <TouchableOpacity onPress={() => setShowProfileModal(false)}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.profileModalBody}>
+                  <View style={styles.avatarBigFrame}>
+                    <Text style={{ fontSize: 36 }}>👑</Text>
+                    <View style={styles.avatarBigBadge}><Text style={styles.avatarBigBadgeText}>LV.75</Text></View>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.profileHeroName}>SMxTHUG</Text>
+                    <Text style={styles.profileClanBadge}>CLAN: [TABAAHI] • TIER: ACE DOMINATOR ★</Text>
+                    <Text style={styles.profileServerInfo}>SERVER: ASIA (INDIA) • ID: 5289410729</Text>
+                  </View>
+                </View>
+
+                <View style={styles.profileStatsRow}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{(highestKills * 0.28 + 3.2).toFixed(2)}</Text>
+                    <Text style={styles.statLbl}>K/D RATIO</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{Math.round((totalDinners / Math.max(matchesPlayed, 1)) * 100)}%</Text>
+                    <Text style={styles.statLbl}>WIN RATE</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{matchesPlayed}</Text>
+                    <Text style={styles.statLbl}>MATCHES</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{totalDinners}</Text>
+                    <Text style={styles.statLbl}>DINNERS</Text>
+                  </View>
+                </View>
+
+                <LinearGradient
+                  colors={['#0f172a', '#1e293b', '#0e7490']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.signatureGunCard}
+                >
+                  <Text style={styles.signatureGunTitle}>SIGNATURE FIREARM</Text>
+                  <Text style={styles.signatureGunName}>M416 GLACIER (LEVEL 7 MAX)</Text>
+                  <Text style={styles.signatureGunDesc}>On-hit Frost Effect • Ice Sculpture Death Crate • Cyan Emissive Glow</Text>
+                </LinearGradient>
+
+                <TouchableOpacity onPress={() => setShowProfileModal(false)} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.confirmMapBtn}
+                  >
+                    <Text style={styles.confirmMapBtnText}>✓ CONFIRM DOSSIER</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
+        </Modal>
+
+        {/* ==================================================================== */}
+        {/* C7S20 SEASON & ROYALE PASS MODAL */}
+        {/* ==================================================================== */}
+        <Modal visible={showSeasonModal} transparent animationType="slide">
+          <View style={styles.modalBackdrop}>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.profileModalCard}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>C7S20 ROYALE PASS & SEASONS</Text>
+                  <TouchableOpacity onPress={() => setShowSeasonModal(false)}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <LinearGradient
+                  colors={['#78350f', '#b45309', '#d97706']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.seasonBannerBox}
+                >
+                  <Text style={styles.seasonBannerTitle}>FROSTY VOYAGER • ELITE PASS LV.100</Text>
+                  <Text style={styles.seasonBannerDesc}>All Season Mythic Rewards & Upgrades Unlocked for SMxTHUG</Text>
+                </LinearGradient>
+
+                <View style={styles.seasonRewardsRow}>
+                  <View style={styles.seasonRewardCard}>
+                    <Text style={{ fontSize: 28 }}>🃏</Text>
+                    <Text style={styles.rewardCardTitle}>The Fool Suit</Text>
+                    <Text style={styles.rewardCardStatus}>CLAIMED</Text>
+                  </View>
+                  <View style={styles.seasonRewardCard}>
+                    <Text style={{ fontSize: 28 }}>❄️</Text>
+                    <Text style={styles.rewardCardTitle}>Glacier M416</Text>
+                    <Text style={styles.rewardCardStatus}>EQUIPPED</Text>
+                  </View>
+                  <View style={styles.seasonRewardCard}>
+                    <Text style={{ fontSize: 28 }}>🤖</Text>
+                    <Text style={styles.rewardCardTitle}>Red Companion</Text>
+                    <Text style={styles.rewardCardStatus}>ACTIVE</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity onPress={() => setShowSeasonModal(false)} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.confirmMapBtn}
+                  >
+                    <Text style={styles.confirmMapBtnText}>✓ CLAIM ALL & CLOSE</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
           </View>
         </Modal>
       </View>
@@ -2521,10 +2868,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
   },
+  blurModalContainer: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '92%',
+  },
   erangelModalCard: {
     width: '100%',
     maxWidth: 680,
-    backgroundColor: '#0a1220',
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 2,
     borderColor: '#38bdf8',
     borderRadius: 14,
@@ -2593,7 +2947,7 @@ const styles = StyleSheet.create({
   inventoryCard: {
     width: '100%',
     maxWidth: 500,
-    backgroundColor: '#0a1220',
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 2,
     borderColor: '#ffd700',
     borderRadius: 14,
@@ -2777,7 +3131,7 @@ const styles = StyleSheet.create({
   endModalCard: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: '#0a1220',
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 2,
     borderRadius: 14,
     padding: 24,
@@ -2787,4 +3141,125 @@ const styles = StyleSheet.create({
   victorySub: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 2 },
   defeatTitle: { color: '#ef4444', fontSize: 22, fontWeight: '900' },
   victoryMap: { color: '#38bdf8', fontSize: 12, fontWeight: '800', marginVertical: 10 },
+
+  // Floating Damage Number
+  floatingDmgText: {
+    position: 'absolute',
+    top: -24,
+    fontSize: 16,
+    fontWeight: '900',
+    textShadowColor: '#000',
+    textShadowRadius: 4,
+    letterSpacing: 1,
+  },
+
+  // Control Hints Bar
+  controlHintsBar: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignSelf: 'center',
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  controlHintText: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+
+  // Profile Modal Styles
+  profileModalCard: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
+    borderWidth: 2,
+    borderColor: '#ffd700',
+    borderRadius: 14,
+    padding: 18,
+    gap: 12,
+  },
+  profileModalBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    padding: 12,
+    borderRadius: 8,
+  },
+  avatarBigFrame: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    borderWidth: 2.5,
+    borderColor: '#ffd700',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  avatarBigBadge: {
+    position: 'absolute',
+    bottom: -6,
+    backgroundColor: '#b45309',
+    paddingHorizontal: 6,
+    borderRadius: 4,
+  },
+  avatarBigBadgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  profileHeroName: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  profileClanBadge: { color: '#ffd700', fontSize: 12, fontWeight: '800', marginTop: 2 },
+  profileServerInfo: { color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 2 },
+
+  profileStatsRow: { flexDirection: 'row', gap: 8 },
+  statBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  statVal: { color: '#00f0ff', fontSize: 16, fontWeight: '900' },
+  statLbl: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '800', marginTop: 2 },
+
+  signatureGunCard: {
+    backgroundColor: 'rgba(0, 240, 255, 0.08)',
+    borderWidth: 1.5,
+    borderColor: '#00f0ff',
+    borderRadius: 8,
+    padding: 12,
+  },
+  signatureGunTitle: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '800' },
+  signatureGunName: { color: '#00f0ff', fontSize: 14, fontWeight: '900', marginTop: 2 },
+  signatureGunDesc: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginTop: 2 },
+
+  // Season Modal Styles
+  seasonBannerBox: {
+    backgroundColor: 'rgba(234, 179, 8, 0.12)',
+    borderWidth: 1.5,
+    borderColor: '#ffd700',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+  },
+  seasonBannerTitle: { color: '#ffd700', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  seasonBannerDesc: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 4 },
+
+  seasonRewardsRow: { flexDirection: 'row', gap: 10 },
+  seasonRewardCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  rewardCardTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  rewardCardStatus: { color: '#22c55e', fontSize: 10, fontWeight: '900' },
 });
