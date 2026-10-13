@@ -18,7 +18,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Home"
+        initialRouteName="ShadowStrike"
         screenOptions={{
           headerShown: false,
           animation: 'fade',

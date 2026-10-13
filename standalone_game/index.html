@@ -732,6 +732,52 @@
 
         safeZoneTimer -= dt;
         document.getElementById('zone-timer').innerText = `STORM: ${Math.floor(safeZoneTimer/60)}:${String(Math.floor(safeZoneTimer%60)).padStart(2,'0')} (PHASE ${safeZoneStage})`;
+        if (safeZoneTimer <= 0) {
+          safeZoneStage++;
+          safeZoneTimer = 60;
+          safeZoneRadius = Math.max(30, safeZoneRadius * 0.6);
+          if (stormWall) stormWall.scale.set(safeZoneRadius / 220, 1, safeZoneRadius / 220);
+        }
+
+        // Periodic safe-zone damage
+        if (typeof window.stormTickAcc === 'undefined') window.stormTickAcc = 0;
+        window.stormTickAcc += dt;
+        if (window.stormTickAcc >= 1.0) {
+          window.stormTickAcc = 0;
+          const currentDPS = 8 + (safeZoneStage - 1) * 4;
+
+          // Player damage outside zone
+          const pDist = new THREE.Vector2(player.position.x, player.position.z).length();
+          if (pDist > safeZoneRadius) {
+            playerHp = Math.max(0, playerHp - currentDPS);
+            const hpEl = document.getElementById('hp-bar');
+            if (hpEl) hpEl.style.width = `${playerHp}%`;
+            if (playerHp <= 0) {
+              gamePhase = 'GAMEOVER';
+              const defModal = document.getElementById('defeat-modal');
+              if (defModal) defModal.style.display = 'flex';
+            }
+          }
+
+          // Living Enemy damage outside safe zone (Fix Safe-Zone Elimination)
+          bots.forEach(b => {
+            if (b.isDead) return;
+            const bDist = new THREE.Vector2(b.mesh.position.x, b.mesh.position.z).length();
+            if (bDist > safeZoneRadius) {
+              b.hp = Math.max(0, b.hp - currentDPS);
+              if (b.hpBar) b.hpBar.scale.x = Math.max(0.01, b.hp / 100);
+              if (b.hp <= 0 && !b.isDead) {
+                b.isDead = true;
+                b.mesh.rotation.x = Math.PI / 2;
+                alive -= 1;
+                const aliveEl = document.getElementById('alive-val');
+                if (aliveEl) aliveEl.innerText = `ALIVE: ${alive}`;
+                showEliminationBanner(`${b.name} (STORM)`, kills, alive);
+                if (alive <= 1 && playerHp > 0) showVictory();
+              }
+            }
+          });
+        }
       }
 
       renderer.render(scene, camera);

@@ -15,13 +15,13 @@ import * as THREE from 'three';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================================================
-// SHADOW STRIKE: AAA BATTLE ROYALE — MAP CONFIGURATIONS & TYPES
+// GAME FLOW & MAP DEFINITIONS
 // ============================================================================
 export type GameFlowPhase =
-  | 'MENU'
-  | 'MAP_SELECT'
-  | 'DASHBOARD'
   | 'LOBBY'
+  | 'MAP_SELECT'
+  | 'MODE_SELECT'
+  | 'DASHBOARD'
   | 'AIRPLANE'
   | 'FREEFALL'
   | 'PARACHUTE'
@@ -31,6 +31,7 @@ export type GameFlowPhase =
   | 'GAMEOVER';
 
 export type MapId = 'GREEN_ISLAND' | 'DESERT_FRONTIER' | 'FROZEN_SUMMIT' | 'NEON_METROPOLIS';
+export type GameModeId = 'SOLO_BR' | 'RANKED_TAC';
 
 export interface MapDefinition {
   id: MapId;
@@ -53,8 +54,8 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   GREEN_ISLAND: {
     id: 'GREEN_ISLAND',
     name: 'GREEN ISLAND',
-    tagline: 'TACTICAL ARCHIPELAGO & CITY',
-    desc: 'Lush coastal archipelago featuring Neo-Kavala downtown skyscrapers, river bridges, Sector 04 military base, harbor warehouses, and dense pine forests.',
+    tagline: 'TACTICAL ARCHIPELAGO & MILITARY BASE',
+    desc: 'Lush coastal archipelago featuring military outposts, harbor warehouses, radar towers, and dense pine forests.',
     duration: '12-15 MINS',
     badge: '★ CLASSIC BR ★',
     accentColor: '#00f0ff',
@@ -63,14 +64,14 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
     fogDensity: 0.0055,
     sunColor: '#fff2de',
     terrainColors: ['#263b20', '#1f301b', '#3a4e2e', '#483c2c'],
-    vehicleName: 'TACTICAL ALL-TERRAIN BUGGY',
+    vehicleName: 'ALL-TERRAIN ASSAULT BUGGY',
     vehicleColor: '#2b3724',
   },
   DESERT_FRONTIER: {
     id: 'DESERT_FRONTIER',
     name: 'DESERT FRONTIER',
-    tagline: 'ARID CANYONS & OIL DEPOTS',
-    desc: 'Vast scorched desert with sweeping sand dunes, sandstone canyon bluffs, sun-baked adobe compounds, oil storage tanks, and high-speed highway routes.',
+    tagline: 'ARID CANYONS & OIL REFINERY',
+    desc: 'Vast scorched desert with sweeping sand dunes, sandstone canyon bluffs, adobe compounds, and high-speed dunes.',
     duration: '10-14 MINS',
     badge: '★ SNIPER HAVEN ★',
     accentColor: '#eab308',
@@ -79,14 +80,14 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
     fogDensity: 0.0045,
     sunColor: '#ffeed4',
     terrainColors: ['#d4a359', '#b8863b', '#8c5828', '#e2b774'],
-    vehicleName: 'DESERT ROVER SAND BUGGY',
+    vehicleName: 'DESERT SAND ROVER',
     vehicleColor: '#b45309',
   },
   FROZEN_SUMMIT: {
     id: 'FROZEN_SUMMIT',
     name: 'FROZEN SUMMIT',
-    tagline: 'GLACIAL PEAKS & ICE LAKE',
-    desc: 'Snow-capped alpine mountain ridges, a reflective frozen turquoise ice lake, snow-dusted pine forests, and an arctic military research facility.',
+    tagline: 'GLACIAL PEAKS & ARCTIC RESEARCH LAB',
+    desc: 'Snow-capped alpine ridges, reflective turquoise ice lake, sub-zero pine forests, and arctic military bunker.',
     duration: '12-16 MINS',
     badge: '★ EXTREME COLD ★',
     accentColor: '#38bdf8',
@@ -102,7 +103,7 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
     id: 'NEON_METROPOLIS',
     name: 'NEON METROPOLIS',
     tagline: 'CYBERPUNK MEGA-GRID DOWNTOWN',
-    desc: 'High-density futuristic city with 12 illuminated skyscrapers, glowing holographic billboards, multi-level skybridges, commercial plazas, and wide highways.',
+    desc: 'Futuristic city with illuminated skyscrapers, holographic billboards, multi-level skybridges, and wide highways.',
     duration: '14-18 MINS',
     badge: '★ URBAN CLOSE-QUARTERS ★',
     accentColor: '#ec4899',
@@ -116,19 +117,156 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   },
 };
 
-export type WeaponType = 'CARBINE' | 'SMG' | 'SNIPER' | 'SHOTGUN' | 'PISTOL';
+// ============================================================================
+// CHARACTER CUSTOMIZATION & APPEARANCE DEFINITIONS
+// ============================================================================
+export type CharacterGender = 'MALE' | 'FEMALE';
+export type OutfitId = 'WOODLAND' | 'URBAN' | 'DESERT' | 'CYBER' | 'ARCTIC';
+export type HeadgearId = 'HELMET' | 'BERET' | 'NVG' | 'BALACLAVA' | 'CAP';
+export type BackpackId = 'NONE' | 'LVL1' | 'LVL2' | 'LVL3';
+
+export interface CharacterAppearance {
+  gender: CharacterGender;
+  outfit: OutfitId;
+  headgear: HeadgearId;
+  backpack: BackpackId;
+  lobbyWeapon: WeaponType;
+}
+
+export const OUTFIT_DEFINITIONS: Record<
+  OutfitId,
+  {
+    name: string;
+    tag: string;
+    shirtColor: string;
+    pantsColor: string;
+    vestColor: string;
+    bootsColor: string;
+    accentColor: string;
+    glovesColor: string;
+  }
+> = {
+  WOODLAND: {
+    name: 'TACTICAL WOODLAND',
+    tag: 'SPECIAL RECON',
+    shirtColor: '#30422c',
+    pantsColor: '#243221',
+    vestColor: '#1a2417',
+    bootsColor: '#1a1a1a',
+    accentColor: '#4ade80',
+    glovesColor: '#20291e',
+  },
+  URBAN: {
+    name: 'URBAN OPERATIVE',
+    tag: 'STEALTH DIGITAL',
+    shirtColor: '#2a303c',
+    pantsColor: '#1e232b',
+    vestColor: '#13171e',
+    bootsColor: '#111317',
+    accentColor: '#60a5fa',
+    glovesColor: '#161920',
+  },
+  DESERT: {
+    name: 'DESERT VANGUARD',
+    tag: 'ARID SPEC-OPS',
+    shirtColor: '#a68254',
+    pantsColor: '#8c693a',
+    vestColor: '#634925',
+    bootsColor: '#4a371c',
+    accentColor: '#facc15',
+    glovesColor: '#594121',
+  },
+  CYBER: {
+    name: 'CYBER MERCENARY',
+    tag: 'HI-TECH CARBON',
+    shirtColor: '#0f172a',
+    pantsColor: '#090d16',
+    vestColor: '#1e293b',
+    bootsColor: '#020617',
+    accentColor: '#00f0ff',
+    glovesColor: '#0f172a',
+  },
+  ARCTIC: {
+    name: 'ARCTIC GHOST',
+    tag: 'SUB-ZERO BLIZZARD',
+    shirtColor: '#cbd5e1',
+    pantsColor: '#94a3b8',
+    vestColor: '#475569',
+    bootsColor: '#334155',
+    accentColor: '#38bdf8',
+    glovesColor: '#334155',
+  },
+};
+
+export const HEADGEAR_DEFINITIONS: Record<
+  HeadgearId,
+  { name: string; tag: string; color: string; desc: string }
+> = {
+  HELMET: {
+    name: 'LEVEL 3 KEVLAR HELMET',
+    tag: 'HEAVY ARMOR',
+    color: '#1e293b',
+    desc: 'Ballistic titanium alloy helmet with side rails, chin strap, and night vision mount.',
+  },
+  BERET: {
+    name: 'COMMANDO CRIMSON BERET',
+    tag: 'VETERAN',
+    color: '#dc2626',
+    desc: 'Traditional military wool beret with special forces gold crest pin.',
+  },
+  NVG: {
+    name: 'QUAD-EYE NIGHT VISION (NVG)',
+    tag: 'SPEC-OPS',
+    color: '#090d16',
+    desc: 'Tactical helmet mount with quad-tube wide-angle illuminated night vision lenses.',
+  },
+  BALACLAVA: {
+    name: 'GHOST BALACLAVA & GOGGLES',
+    tag: 'COVERT',
+    color: '#111827',
+    desc: 'Tactical flame-resistant balaclava with polarized ballistic shooting goggles.',
+  },
+  CAP: {
+    name: 'OPERATOR CAP & COMMS',
+    tag: 'FIELD RECON',
+    color: '#334155',
+    desc: 'Low-profile tactical baseball cap with integrated military boom headset.',
+  },
+};
+
+export const BACKPACK_DEFINITIONS: Record<
+  BackpackId,
+  { name: string; capacity: string; color: string }
+> = {
+  NONE: { name: 'NO BACKPACK', capacity: 'LIGHTWEIGHT (+0)', color: '#333333' },
+  LVL1: { name: 'LEVEL 1 PATROL PACK', capacity: 'STANDARD (+50 CAP)', color: '#2d3748' },
+  LVL2: { name: 'LEVEL 2 ASSAULT PACK', capacity: 'ENHANCED (+100 CAP)', color: '#1a202c' },
+  LVL3: { name: 'LEVEL 3 TACTICAL RUCKSACK', capacity: 'MAX EXPANSION (+180 CAP)', color: '#0d1117' },
+};
+
+// ============================================================================
+// FIVE FUNCTIONAL WEAPONS & WEAPON REGISTRY
+// ============================================================================
+export type WeaponType = 'CARBINE' | 'SMG' | 'SHOTGUN' | 'SNIPER' | 'PISTOL';
 
 export interface WeaponDef {
   id: WeaponType;
   name: string;
   category: string;
+  slotNumber: number;
   damage: number;
   clipSize: number;
   reserveMax: number;
-  fireRate: number;
+  fireRate: number; // in seconds
+  isAutomatic: boolean;
+  pelletCount: number; // 1 for single bullet, 8 for shotgun
   range: number;
   spread: number;
+  recoil: number;
+  zoomFOV: number;
+  reloadTime: number;
   color: string;
+  desc: string;
 }
 
 export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
@@ -136,64 +274,102 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
     id: 'CARBINE',
     name: 'M4A1 TACTICAL',
     category: 'ASSAULT RIFLE',
-    damage: 34,
+    slotNumber: 1,
+    damage: 35,
     clipSize: 30,
     reserveMax: 150,
     fireRate: 0.11,
-    range: 120,
+    isAutomatic: true,
+    pelletCount: 1,
+    range: 130,
     spread: 0.02,
+    recoil: 0.015,
+    zoomFOV: 52,
+    reloadTime: 1.6,
     color: '#00f0ff',
+    desc: 'Fully automatic modular 5.56mm carbine. Outstanding balance of fire rate, range, and recoil control.',
   },
   SMG: {
     id: 'SMG',
     name: 'VECTOR SUB-9',
     category: 'SUBMACHINE GUN',
+    slotNumber: 2,
     damage: 22,
     clipSize: 35,
     reserveMax: 180,
-    fireRate: 0.075,
+    fireRate: 0.065,
+    isAutomatic: true,
+    pelletCount: 1,
     range: 75,
-    spread: 0.04,
-    color: '#ff00ff',
-  },
-  SNIPER: {
-    id: 'SNIPER',
-    name: 'AWM COVERT .338',
-    category: 'SNIPER RIFLE',
-    damage: 98,
-    clipSize: 5,
-    reserveMax: 30,
-    fireRate: 1.1,
-    range: 220,
-    spread: 0.003,
-    color: '#ffd700',
+    spread: 0.038,
+    recoil: 0.009,
+    zoomFOV: 56,
+    reloadTime: 1.3,
+    color: '#ec4899',
+    desc: 'Ultra-fast 9mm SMG with extreme cyclic rate. Shreds opponents at close quarters with high mobility.',
   },
   SHOTGUN: {
     id: 'SHOTGUN',
     name: 'SPAS-12 BREACHER',
     category: 'TACTICAL SHOTGUN',
-    damage: 70,
+    slotNumber: 3,
+    damage: 16, // 16 * 8 pellets = 128 max burst damage
     clipSize: 8,
     reserveMax: 40,
-    fireRate: 0.75,
-    range: 45,
-    spread: 0.08,
-    color: '#ff6600',
+    fireRate: 0.72,
+    isAutomatic: false,
+    pelletCount: 8,
+    range: 42,
+    spread: 0.085,
+    recoil: 0.045,
+    zoomFOV: 60,
+    reloadTime: 2.1,
+    color: '#f97316',
+    desc: '12-gauge tactical pump shotgun. Fires 8 devastating buckshot pellets simultaneously. Fatal in breach combat.',
+  },
+  SNIPER: {
+    id: 'SNIPER',
+    name: 'AWM COVERT .338',
+    category: 'SNIPER RIFLE',
+    slotNumber: 4,
+    damage: 110,
+    clipSize: 5,
+    reserveMax: 25,
+    fireRate: 1.25,
+    isAutomatic: false,
+    pelletCount: 1,
+    range: 260,
+    spread: 0.002,
+    recoil: 0.065,
+    zoomFOV: 22, // High-zoom scope overlay
+    reloadTime: 2.4,
+    color: '#eab308',
+    desc: 'Bolt-action heavy anti-materiel sniper rifle. High-power optical scope with lethal one-shot precision.',
   },
   PISTOL: {
     id: 'PISTOL',
     name: 'G19 COMBAT 9mm',
     category: 'SIDEARM',
-    damage: 26,
+    slotNumber: 5,
+    damage: 28,
     clipSize: 15,
     reserveMax: 60,
-    fireRate: 0.22,
+    fireRate: 0.20,
+    isAutomatic: false,
+    pelletCount: 1,
     range: 55,
-    spread: 0.035,
-    color: '#a0aec0',
+    spread: 0.03,
+    recoil: 0.02,
+    zoomFOV: 58,
+    reloadTime: 1.0,
+    color: '#94a3b8',
+    desc: 'Reliable semi-automatic secondary sidearm. Lightweight, lightning-quick draw, and rapid tactical reload.',
   },
 };
 
+// ============================================================================
+// MATCH TELEMETRY & DASHBOARD TYPES
+// ============================================================================
 export interface LootItem {
   id: number;
   type: 'WEAPON' | 'MEDKIT' | 'ARMOR' | 'AMMO';
@@ -205,10 +381,26 @@ export interface LootItem {
   value: number;
 }
 
+export interface HumanRig {
+  root: THREE.Group;
+  torsoGroup: THREE.Group;
+  headGroup: THREE.Group;
+  armLGroup: THREE.Group;
+  armRGroup: THREE.Group;
+  handRGroup: THREE.Group;
+  legLGroup: THREE.Group;
+  legRGroup: THREE.Group;
+  backpackGroup: THREE.Group;
+  parachuteGroup: THREE.Group;
+  weaponAnchor: THREE.Group;
+  currentWeaponMesh: THREE.Group | null;
+  hpBarMesh?: THREE.Mesh;
+}
+
 export interface EnemyBot {
   id: number;
   name: string;
-  mesh: THREE.Group;
+  rig: HumanRig;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
   hp: number;
@@ -217,6 +409,7 @@ export interface EnemyBot {
   state: 'PATROL' | 'ALERT' | 'CHASE' | 'ATTACK' | 'COVER' | 'DEAD';
   patrolTarget: THREE.Vector3;
   shootCooldown: number;
+  walkCycle: number;
   isDead: boolean;
   muzzleLight: THREE.PointLight;
   hpBarMesh: THREE.Mesh;
@@ -291,34 +484,41 @@ class BattleRoyaleAudioSystem {
 
       if (type === 'SNIPER') {
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(340, now);
-        osc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
-        gain.gain.setValueAtTime(0.75 * this.volume, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+        osc.frequency.setValueAtTime(360, now);
+        osc.frequency.exponentialRampToValueAtTime(22, now + 0.38);
+        gain.gain.setValueAtTime(0.85 * this.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
       } else if (type === 'SHOTGUN') {
         osc.type = 'square';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(20, now + 0.28);
-        gain.gain.setValueAtTime(0.8 * this.volume, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(18, now + 0.32);
+        gain.gain.setValueAtTime(0.9 * this.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       } else if (type === 'SMG') {
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(420, now);
-        osc.frequency.exponentialRampToValueAtTime(60, now + 0.08);
-        gain.gain.setValueAtTime(0.4 * this.volume, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-      } else {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(280, now);
-        osc.frequency.exponentialRampToValueAtTime(35, now + 0.14);
-        gain.gain.setValueAtTime(0.55 * this.volume, now);
+        osc.frequency.setValueAtTime(460, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.07);
+        gain.gain.setValueAtTime(0.42 * this.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      } else if (type === 'PISTOL') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(380, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.14);
+        gain.gain.setValueAtTime(0.5 * this.volume, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      } else {
+        // CARBINE M4A1
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(35, now + 0.13);
+        gain.gain.setValueAtTime(0.6 * this.volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
       }
 
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.4);
+      osc.stop(now + 0.45);
     } catch (_) {}
   }
 
@@ -342,6 +542,47 @@ class BattleRoyaleAudioSystem {
     } catch (_) {}
   }
 
+  playWeaponSwitch() {
+    if (!this.enabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.exponentialRampToValueAtTime(240, now + 0.12);
+      gain.gain.setValueAtTime(0.3 * this.volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    } catch (_) {}
+  }
+
+  playReload() {
+    if (!this.enabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      [320, 480].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.18);
+        gain.gain.setValueAtTime(0.3 * this.volume, now + idx * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.18 + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.18);
+        osc.stop(now + idx * 0.18 + 0.16);
+      });
+    } catch (_) {}
+  }
+
   startAirplaneDrone() {
     if (!this.enabled || this.airplaneSoundNode) return;
     const ctx = this.getContext();
@@ -362,7 +603,10 @@ class BattleRoyaleAudioSystem {
   stopAirplaneDrone() {
     if (this.airplaneSoundNode) {
       try {
-        this.airplaneSoundNode.gain.gain.exponentialRampToValueAtTime(0.001, this.getContext()?.currentTime || 0 + 0.3);
+        this.airplaneSoundNode.gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          (this.getContext()?.currentTime || 0) + 0.3
+        );
         this.airplaneSoundNode.osc.stop(this.airplaneSoundNode.osc.context.currentTime + 0.35);
       } catch (_) {}
       this.airplaneSoundNode = null;
@@ -544,28 +788,660 @@ class BattleRoyaleAudioSystem {
       });
     } catch (_) {}
   }
-
-  playFootstep() {
-    if (!this.enabled) return;
-    const ctx = this.getContext();
-    if (!ctx) return;
-    try {
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(80 + Math.random() * 25, now);
-      gain.gain.setValueAtTime(0.08 * this.volume, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.05);
-    } catch (_) {}
-  }
 }
 
 const brAudio = new BattleRoyaleAudioSystem();
+
+// ============================================================================
+// 3D PROCEDURAL WEAPON MODELS GENERATOR
+// ============================================================================
+export const build3DWeaponMesh = (type: WeaponType): THREE.Group => {
+  const group = new THREE.Group();
+
+  const gunMetalMat = new THREE.MeshStandardMaterial({
+    color: '#151921',
+    roughness: 0.25,
+    metalness: 0.85,
+  });
+  const polymerMat = new THREE.MeshStandardMaterial({
+    color: '#0e1116',
+    roughness: 0.65,
+    metalness: 0.2,
+  });
+  const barrelMat = new THREE.MeshStandardMaterial({
+    color: '#0a0d12',
+    roughness: 0.2,
+    metalness: 0.9,
+  });
+  const opticMat = new THREE.MeshStandardMaterial({
+    color: '#00f0ff',
+    emissive: '#00c8e0',
+    roughness: 0.1,
+  });
+  const woodStockMat = new THREE.MeshStandardMaterial({
+    color: '#422a16',
+    roughness: 0.5,
+  });
+
+  if (type === 'CARBINE') {
+    // M4A1 TACTICAL ASSAULT RIFLE
+    // Receiver
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.15, 0.42), gunMetalMat);
+    receiver.position.set(0, 0, 0);
+    group.add(receiver);
+
+    // Barrel & Handguard
+    const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.38), polymerMat);
+    handguard.position.set(0, 0.01, 0.35);
+    group.add(handguard);
+
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), barrelMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.01, 0.65);
+    group.add(barrel);
+
+    // Flash Hider
+    const flashHider = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.022, 0.06, 8), gunMetalMat);
+    flashHider.rotation.x = Math.PI / 2;
+    flashHider.position.set(0, 0.01, 0.79);
+    group.add(flashHider);
+
+    // Curved STANAG Magazine
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 0.12), gunMetalMat);
+    mag.position.set(0, -0.15, 0.08);
+    mag.rotation.x = 0.15;
+    group.add(mag);
+
+    // Tactical Buffer Tube & Crane Stock
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.28), polymerMat);
+    stock.position.set(0, -0.01, -0.32);
+    group.add(stock);
+
+    // Pistol Grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.09), polymerMat);
+    grip.position.set(0, -0.14, -0.1);
+    grip.rotation.x = -0.3;
+    group.add(grip);
+
+    // Holographic Sight
+    const optic = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.14), polymerMat);
+    optic.position.set(0, 0.11, 0.04);
+    group.add(optic);
+    const opticLens = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.01), opticMat);
+    opticLens.position.set(0, 0.12, 0.11);
+    group.add(opticLens);
+
+    // Tactical Foregrip
+    const foregrip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 8), polymerMat);
+    foregrip.position.set(0, -0.1, 0.32);
+    group.add(foregrip);
+  } else if (type === 'SMG') {
+    // VECTOR SUB-9
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.18, 0.35), polymerMat);
+    upper.position.set(0, 0, 0);
+    group.add(upper);
+
+    // Integrated angled receiver & magwell
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.08), gunMetalMat);
+    mag.position.set(0, -0.16, 0.05);
+    mag.rotation.x = 0.12;
+    group.add(mag);
+
+    // Short compensator barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), barrelMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.02, 0.24);
+    group.add(barrel);
+
+    // Side folding compact stock
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.22), polymerMat);
+    stock.position.set(0, 0.02, -0.26);
+    group.add(stock);
+
+    // Foregrip
+    const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.06), polymerMat);
+    foregrip.position.set(0, -0.1, 0.18);
+    group.add(foregrip);
+
+    // Micro reflex optic
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.09), gunMetalMat);
+    sight.position.set(0, 0.11, 0.02);
+    group.add(sight);
+  } else if (type === 'SHOTGUN') {
+    // SPAS-12 BREACHER
+    // Heavy cylindrical barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.55, 8), barrelMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.03, 0.26);
+    group.add(barrel);
+
+    // Under-barrel tubular magazine
+    const tubeMag = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.48, 8), gunMetalMat);
+    tubeMag.rotation.x = Math.PI / 2;
+    tubeMag.position.set(0, -0.02, 0.22);
+    group.add(tubeMag);
+
+    // Ribbed pump slide
+    const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.18, 8), polymerMat);
+    pump.rotation.x = Math.PI / 2;
+    pump.position.set(0, 0.0, 0.22);
+    group.add(pump);
+
+    // Receiver & metal stock
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.28), gunMetalMat);
+    receiver.position.set(0, 0, -0.08);
+    group.add(receiver);
+
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), polymerMat);
+    grip.position.set(0, -0.12, -0.16);
+    grip.rotation.x = -0.3;
+    group.add(grip);
+
+    const foldStock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.32), gunMetalMat);
+    foldStock.position.set(0, 0.08, -0.12);
+    group.add(foldStock);
+  } else if (type === 'SNIPER') {
+    // AWM COVERT .338
+    // Receiver & Bolt Action Chassis
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.14, 0.55), woodStockMat);
+    chassis.position.set(0, -0.01, 0);
+    group.add(chassis);
+
+    // Long fluted heavy barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.02, 0.82, 8), barrelMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.02, 0.65);
+    group.add(barrel);
+
+    // Heavy Muzzle Brake
+    const muzzleBrake = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.1), gunMetalMat);
+    muzzleBrake.position.set(0, 0.02, 1.08);
+    group.add(muzzleBrake);
+
+    // Elevated Sniper Scope with dual rings
+    const scopeTube = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.036, 0.36, 12), gunMetalMat);
+    scopeTube.rotation.x = Math.PI / 2;
+    scopeTube.position.set(0, 0.14, 0.08);
+    group.add(scopeTube);
+
+    const scopeLensFront = new THREE.Mesh(new THREE.CircleGeometry(0.034, 12), opticMat);
+    scopeLensFront.position.set(0, 0.14, 0.26);
+    group.add(scopeLensFront);
+
+    const scopeLensBack = new THREE.Mesh(new THREE.CircleGeometry(0.03, 12), opticMat);
+    scopeLensBack.rotation.y = Math.PI;
+    scopeLensBack.position.set(0, 0.14, -0.1);
+    group.add(scopeLensBack);
+
+    // Bolt handle
+    const boltHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.08, 6), gunMetalMat);
+    boltHandle.rotation.z = Math.PI / 2.5;
+    boltHandle.position.set(0.06, 0.06, -0.06);
+    group.add(boltHandle);
+
+    // Sniper Thumbhole Stock
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.18, 0.35), woodStockMat);
+    stock.position.set(0, -0.02, -0.42);
+    group.add(stock);
+
+    // Folded Bipod under barrel
+    const bipod = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.22), gunMetalMat);
+    bipod.position.set(0, -0.06, 0.52);
+    group.add(bipod);
+  } else {
+    // PISTOL G19 COMBAT
+    // Slide
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.24), gunMetalMat);
+    slide.position.set(0, 0.04, 0);
+    group.add(slide);
+
+    // Polymer Frame & Grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.16, 0.08), polymerMat);
+    grip.position.set(0, -0.07, -0.04);
+    grip.rotation.x = -0.28;
+    group.add(grip);
+
+    // Under-barrel tactical accessory rail & light
+    const tacLight = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.04, 0.08), polymerMat);
+    tacLight.position.set(0, -0.01, 0.07);
+    group.add(tacLight);
+
+    // Barrel crown
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.04, 8), barrelMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.04, 0.13);
+    group.add(barrel);
+  }
+
+  // Muzzle light for firing illumination
+  const mLight = new THREE.PointLight('#ffe066', 0, 10);
+  mLight.position.set(0, 0.04, 0.95);
+  group.add(mLight);
+
+  return group;
+};
+
+// ============================================================================
+// REALISTIC HUMAN RIG GENERATOR (PLAYER OPERATIVE & HOSTILE BOTS)
+// ============================================================================
+export const buildRealisticHumanRig = (
+  appearance: CharacterAppearance,
+  isEnemy: boolean = false,
+  enemyNumber: number = 1
+): HumanRig => {
+  const root = new THREE.Group();
+  const outfit = OUTFIT_DEFINITIONS[appearance.outfit] || OUTFIT_DEFINITIONS.WOODLAND;
+  const isFemale = appearance.gender === 'FEMALE';
+
+  // Distinct Color Variations for Enemies
+  let shirtCol = outfit.shirtColor;
+  let pantsCol = outfit.pantsColor;
+  let vestCol = outfit.vestColor;
+  let bootsCol = outfit.bootsColor;
+  let headgearCol = outfit.accentColor;
+
+  if (isEnemy) {
+    const enemyPalettes = [
+      { shirt: '#4b1e1e', pants: '#2b1414', vest: '#1a0d0d', gear: '#dc2626' },
+      { shirt: '#1e293b', pants: '#0f172a', vest: '#090d16', gear: '#2563eb' },
+      { shirt: '#3f3323', pants: '#2c2317', vest: '#1d170e', gear: '#eab308' },
+      { shirt: '#2d3748', pants: '#1a202c', vest: '#0d1117', gear: '#9333ea' },
+    ];
+    const pal = enemyPalettes[enemyNumber % enemyPalettes.length];
+    shirtCol = pal.shirt;
+    pantsCol = pal.pants;
+    vestCol = pal.vest;
+    bootsCol = '#111317';
+    headgearCol = pal.gear;
+  }
+
+  // Realistic PBR Materials
+  const skinColor = isFemale ? '#e0b094' : '#c99274';
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: skinColor,
+    roughness: 0.65,
+    metalness: 0.05,
+  });
+  const shirtMat = new THREE.MeshStandardMaterial({
+    color: shirtCol,
+    roughness: 0.75,
+    metalness: 0.1,
+  });
+  const vestMat = new THREE.MeshStandardMaterial({
+    color: vestCol,
+    roughness: 0.6,
+    metalness: 0.25,
+  });
+  const pantsMat = new THREE.MeshStandardMaterial({
+    color: pantsCol,
+    roughness: 0.8,
+  });
+  const bootsMat = new THREE.MeshStandardMaterial({
+    color: bootsCol,
+    roughness: 0.5,
+    metalness: 0.3,
+  });
+  const glovesMat = new THREE.MeshStandardMaterial({
+    color: outfit.glovesColor,
+    roughness: 0.6,
+  });
+  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+  const eyeIrisMat = new THREE.MeshBasicMaterial({ color: '#2563eb' });
+  const eyePupilMat = new THREE.MeshBasicMaterial({ color: '#000000' });
+  const hairMat = new THREE.MeshStandardMaterial({
+    color: isFemale ? '#221711' : '#1a130f',
+    roughness: 0.85,
+  });
+  const beltMat = new THREE.MeshStandardMaterial({
+    color: '#0a0d12',
+    roughness: 0.5,
+    metalness: 0.4,
+  });
+
+  // 1. Torso Group (Center of Mass at waist/chest)
+  const torsoGroup = new THREE.Group();
+  torsoGroup.position.set(0, 1.15, 0);
+  root.add(torsoGroup);
+
+  // Chest & Abdomen (proportions tuned for realistic athletic posture)
+  const chestWidth = isFemale ? 0.68 : 0.78;
+  const chestHeight = 0.72;
+  const chestDepth = isFemale ? 0.42 : 0.48;
+
+  const shirt = new THREE.Mesh(new THREE.BoxGeometry(chestWidth, chestHeight, chestDepth), shirtMat);
+  shirt.castShadow = true;
+  torsoGroup.add(shirt);
+
+  // Heavy Tactical Plate Carrier Vest (MOLLE webbing)
+  const vest = new THREE.Mesh(
+    new THREE.BoxGeometry(chestWidth + 0.08, chestHeight * 0.78, chestDepth + 0.1),
+    vestMat
+  );
+  vest.position.set(0, 0.04, 0.01);
+  vest.castShadow = true;
+  torsoGroup.add(vest);
+
+  // 3 Ammo Magazine Pouches on Chest
+  for (let m = -1; m <= 1; m++) {
+    const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.2, 0.08), vestMat);
+    pouch.position.set(m * 0.18, -0.08, chestDepth * 0.5 + 0.05);
+    torsoGroup.add(pouch);
+  }
+
+  // Tactical Comms Radio with Whip Antenna on Left Shoulder
+  const radio = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.08), vestMat);
+  radio.position.set(-chestWidth * 0.38, 0.22, chestDepth * 0.45);
+  torsoGroup.add(radio);
+  const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.24, 6), bootsMat);
+  antenna.position.set(-chestWidth * 0.38, 0.38, chestDepth * 0.45);
+  torsoGroup.add(antenna);
+
+  // Tactical Duty Belt with Holster
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(chestWidth + 0.04, 0.1, chestDepth + 0.06), beltMat);
+  belt.position.set(0, -chestHeight * 0.5 - 0.02, 0);
+  torsoGroup.add(belt);
+
+  const thighHolster = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.09), bootsMat);
+  thighHolster.position.set(chestWidth * 0.45, -chestHeight * 0.5 - 0.12, 0);
+  torsoGroup.add(thighHolster);
+
+  // 2. Head Group & Facial Anatomy
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, chestHeight * 0.5 + 0.38, 0);
+  torsoGroup.add(headGroup);
+
+  // Neck
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.22, 10), skinMat);
+  neck.position.set(0, -0.16, 0);
+  headGroup.add(neck);
+
+  // Anatomical Head (Cranium + Jaw)
+  const headSize = isFemale ? 0.36 : 0.4;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(headSize * 0.55, 16, 12), skinMat);
+  head.scale.set(1.0, 1.25, 1.15);
+  head.castShadow = true;
+  headGroup.add(head);
+
+  // Modeled Nose
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 0.06), skinMat);
+  nose.position.set(0, 0.01, headSize * 0.58);
+  headGroup.add(nose);
+
+  // Realistic Eyes (Sclera + Iris + Pupil)
+  [-0.08, 0.08].forEach((eyeX) => {
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), eyeWhiteMat);
+    eyeWhite.position.set(eyeX, 0.06, headSize * 0.52);
+    headGroup.add(eyeWhite);
+
+    const iris = new THREE.Mesh(new THREE.CircleGeometry(0.02, 8), eyeIrisMat);
+    iris.position.set(eyeX, 0.06, headSize * 0.55);
+    headGroup.add(iris);
+
+    const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.009, 8), eyePupilMat);
+    pupil.position.set(eyeX, 0.06, headSize * 0.555);
+    headGroup.add(pupil);
+  });
+
+  // Modeled Mouth & Ears
+  const lips = new THREE.Mesh(
+    new THREE.BoxGeometry(0.11, 0.03, 0.02),
+    new THREE.MeshBasicMaterial({ color: '#9e624f' })
+  );
+  lips.position.set(0, -0.09, headSize * 0.55);
+  headGroup.add(lips);
+
+  [-headSize * 0.52, headSize * 0.52].forEach((earX) => {
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.09, 0.06), skinMat);
+    ear.position.set(earX, 0.02, 0);
+    headGroup.add(ear);
+  });
+
+  // Hair Styling
+  if (isFemale) {
+    // Female Sleek Tactical Ponytail
+    const hairBase = new THREE.Mesh(new THREE.SphereGeometry(headSize * 0.58, 12, 10), hairMat);
+    hairBase.position.set(0, 0.06, -0.04);
+    headGroup.add(hairBase);
+
+    const ponytail = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.02, 0.32, 8), hairMat);
+    ponytail.position.set(0, -0.05, -headSize * 0.65);
+    ponytail.rotation.x = -0.4;
+    headGroup.add(ponytail);
+  } else {
+    // Male Tapered Military Buzz Cut
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(headSize * 0.56, 12, 10), hairMat);
+    hair.position.set(0, 0.08, -0.02);
+    headGroup.add(hair);
+  }
+
+  // Selected Headgear
+  const headgearType = appearance.headgear || 'HELMET';
+  const headgearMat = new THREE.MeshStandardMaterial({
+    color: isEnemy ? headgearCol : HEADGEAR_DEFINITIONS[headgearType]?.color || '#1e293b',
+    roughness: 0.45,
+    metalness: 0.4,
+  });
+
+  if (headgearType === 'HELMET') {
+    // Level 3 Kevlar Helmet with Chin Strap
+    const helmet = new THREE.Mesh(
+      new THREE.SphereGeometry(headSize * 0.64, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.6),
+      headgearMat
+    );
+    helmet.position.set(0, 0.04, 0);
+    helmet.castShadow = true;
+    headGroup.add(helmet);
+
+    const chinStrap = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.015, 6, 16, Math.PI), beltMat);
+    chinStrap.position.set(0, -0.12, 0.04);
+    chinStrap.rotation.x = Math.PI / 1.5;
+    headGroup.add(chinStrap);
+  } else if (headgearType === 'BERET') {
+    // Crimson Commando Beret
+    const beret = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.22, 0.12, 12), headgearMat);
+    beret.position.set(0.04, 0.22, -0.02);
+    beret.rotation.z = -0.18;
+    headGroup.add(beret);
+  } else if (headgearType === 'NVG') {
+    // Night Vision Goggles Helmet Mount
+    const helmet = new THREE.Mesh(
+      new THREE.SphereGeometry(headSize * 0.62, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.6),
+      headgearMat
+    );
+    helmet.position.set(0, 0.04, 0);
+    headGroup.add(helmet);
+
+    const nvgMount = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.18), beltMat);
+    nvgMount.position.set(0, 0.12, headSize * 0.58);
+    headGroup.add(nvgMount);
+
+    [-0.05, 0.05].forEach((gx) => {
+      const lens = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.03, 0.14, 8),
+        new THREE.MeshBasicMaterial({ color: '#00ff88' })
+      );
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(gx, 0.1, headSize * 0.68);
+      headGroup.add(lens);
+    });
+  } else if (headgearType === 'BALACLAVA') {
+    // Balaclava & Shooting Glasses
+    const mask = new THREE.Mesh(new THREE.SphereGeometry(headSize * 0.58, 14, 12), headgearMat);
+    mask.scale.set(1.0, 1.25, 1.15);
+    headGroup.add(mask);
+
+    const goggles = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.09, 0.08),
+      new THREE.MeshStandardMaterial({ color: '#f59e0b', roughness: 0.1, metalness: 0.8 })
+    );
+    goggles.position.set(0, 0.06, headSize * 0.58);
+    headGroup.add(goggles);
+  } else {
+    // Operator Cap & Headset
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 12), headgearMat);
+    cap.position.set(0, 0.18, 0);
+    headGroup.add(cap);
+
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.02, 0.18), headgearMat);
+    visor.position.set(0, 0.12, 0.2);
+    headGroup.add(visor);
+  }
+
+  // 3. Backpack (Attached to rear of torso)
+  const backpackGroup = new THREE.Group();
+  backpackGroup.position.set(0, 0.04, -chestDepth * 0.5 - 0.08);
+  torsoGroup.add(backpackGroup);
+
+  const bpType = appearance.backpack || 'LVL2';
+  if (bpType !== 'NONE') {
+    const bpDepth = bpType === 'LVL3' ? 0.36 : bpType === 'LVL2' ? 0.28 : 0.2;
+    const bpHeight = bpType === 'LVL3' ? 0.65 : 0.52;
+    const bpMat = new THREE.MeshStandardMaterial({
+      color: BACKPACK_DEFINITIONS[bpType]?.color || '#1e293b',
+      roughness: 0.7,
+    });
+
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(chestWidth * 0.75, bpHeight, bpDepth), bpMat);
+    pack.castShadow = true;
+    backpackGroup.add(pack);
+
+    // Bedroll on bottom for Level 3
+    if (bpType === 'LVL3') {
+      const bedroll = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, chestWidth * 0.8, 8), shirtMat);
+      bedroll.rotation.z = Math.PI / 2;
+      bedroll.position.set(0, -bpHeight * 0.5 - 0.08, 0);
+      backpackGroup.add(bedroll);
+    }
+  }
+
+  // 4. Parachute (Stored & Deployable)
+  const chuteGroup = new THREE.Group();
+  chuteGroup.position.set(0, 4.8, 0);
+  const canopy = new THREE.Mesh(
+    new THREE.SphereGeometry(4.2, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45),
+    new THREE.MeshStandardMaterial({ color: '#166534', side: THREE.DoubleSide })
+  );
+  canopy.rotation.x = Math.PI;
+  chuteGroup.add(canopy);
+  chuteGroup.visible = false;
+  root.add(chuteGroup);
+
+  // 5. Left & Right Jointed Arms
+  // Left Arm (Support Hand)
+  const armLGroup = new THREE.Group();
+  armLGroup.position.set(-chestWidth * 0.56, chestHeight * 0.4, 0);
+  torsoGroup.add(armLGroup);
+
+  const bicepL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.38, 8), shirtMat);
+  bicepL.position.set(0, -0.19, 0);
+  bicepL.castShadow = true;
+  armLGroup.add(bicepL);
+
+  const forearmL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.38, 8), shirtMat);
+  forearmL.position.set(0, -0.5, 0.12);
+  forearmL.rotation.x = 0.55;
+  armLGroup.add(forearmL);
+
+  const handL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.09), glovesMat);
+  handL.position.set(0, -0.68, 0.25);
+  armLGroup.add(handL);
+
+  // Right Arm (Trigger Hand holding weapon)
+  const armRGroup = new THREE.Group();
+  armRGroup.position.set(chestWidth * 0.56, chestHeight * 0.4, 0);
+  torsoGroup.add(armRGroup);
+
+  const bicepR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.38, 8), shirtMat);
+  bicepR.position.set(0, -0.19, 0);
+  bicepR.castShadow = true;
+  armRGroup.add(bicepR);
+
+  const forearmR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.38, 8), shirtMat);
+  forearmR.position.set(0, -0.48, 0.16);
+  forearmR.rotation.x = 0.7;
+  armRGroup.add(forearmR);
+
+  const handRGroup = new THREE.Group();
+  handRGroup.position.set(0, -0.66, 0.3);
+  armRGroup.add(handRGroup);
+
+  const handR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.09), glovesMat);
+  handRGroup.add(handR);
+
+  // Weapon Socket attached to right hand
+  const weaponAnchor = new THREE.Group();
+  weaponAnchor.position.set(0.02, 0.02, 0.1);
+  handRGroup.add(weaponAnchor);
+
+  // Attach Initial 3D Weapon
+  const initialWeapon = appearance.lobbyWeapon || 'CARBINE';
+  const initialWeaponMesh = build3DWeaponMesh(initialWeapon);
+  weaponAnchor.add(initialWeaponMesh);
+
+  // 6. Left & Right Legs with Knee Joints & Tactical Boots
+  const legSpacing = chestWidth * 0.28;
+
+  // Left Leg
+  const legLGroup = new THREE.Group();
+  legLGroup.position.set(-legSpacing, -chestHeight * 0.52, 0);
+  torsoGroup.add(legLGroup);
+
+  const thighL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.52, 8), pantsMat);
+  thighL.position.set(0, -0.26, 0);
+  thighL.castShadow = true;
+  legLGroup.add(thighL);
+
+  const kneeL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.08), bootsMat);
+  kneeL.position.set(0, -0.52, 0.06);
+  legLGroup.add(kneeL);
+
+  const calfL = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.08, 0.48, 8), pantsMat);
+  calfL.position.set(0, -0.76, 0);
+  legLGroup.add(calfL);
+
+  const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, 0.28), bootsMat);
+  bootL.position.set(0, -1.04, 0.05);
+  bootL.castShadow = true;
+  legLGroup.add(bootL);
+
+  // Right Leg
+  const legRGroup = new THREE.Group();
+  legRGroup.position.set(legSpacing, -chestHeight * 0.52, 0);
+  torsoGroup.add(legRGroup);
+
+  const thighR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.1, 0.52, 8), pantsMat);
+  thighR.position.set(0, -0.26, 0);
+  thighR.castShadow = true;
+  legRGroup.add(thighR);
+
+  const kneeR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.08), bootsMat);
+  kneeR.position.set(0, -0.52, 0.06);
+  legRGroup.add(kneeR);
+
+  const calfR = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.08, 0.48, 8), pantsMat);
+  calfR.position.set(0, -0.76, 0);
+  legRGroup.add(calfR);
+
+  const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.16, 0.28), bootsMat);
+  bootR.position.set(0, -1.04, 0.05);
+  bootR.castShadow = true;
+  legRGroup.add(bootR);
+
+  return {
+    root,
+    torsoGroup,
+    headGroup,
+    armLGroup,
+    armRGroup,
+    handRGroup,
+    legLGroup,
+    legRGroup,
+    backpackGroup,
+    parachuteGroup: chuteGroup,
+    weaponAnchor,
+    currentWeaponMesh: initialWeaponMesh,
+  };
+};
 
 // ============================================================================
 // MAIN COMPONENT: SHADOW STRIKE AAA BATTLE ROYALE
@@ -576,9 +1452,26 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Flow State
-  const [phase, setPhase] = useState<GameFlowPhase>('MENU');
+  const [phase, setPhase] = useState<GameFlowPhase>('LOBBY');
+  const [lobbyTab, setLobbyTab] = useState<'PLAY' | 'CUSTOMIZE' | 'ARSENAL' | 'DASHBOARD' | 'SETTINGS'>('PLAY');
   const [selectedMapId, setSelectedMapId] = useState<MapId>('GREEN_ISLAND');
+  const [gameMode, setGameMode] = useState<GameModeId>('SOLO_BR');
   const [graphicsPreset, setGraphicsPreset] = useState<'LOW' | 'MED' | 'HIGH'>('HIGH');
+
+  // Character Customization State
+  const [appearance, setAppearance] = useState<CharacterAppearance>({
+    gender: 'MALE',
+    outfit: 'WOODLAND',
+    headgear: 'HELMET',
+    backpack: 'LVL2',
+    lobbyWeapon: 'CARBINE',
+  });
+
+  // Lobby 3D Camera & Rotation
+  const lobbyRotationRef = useRef<number>(0);
+  const lobbyZoomRef = useRef<number>(4.2);
+  const isDraggingLobbyRef = useRef<boolean>(false);
+  const lastMouseXRef = useRef<number>(0);
 
   // Player Dashboard State
   const [dashboard, setDashboard] = useState<PlayerDashboardStats>({
@@ -600,18 +1493,35 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [playerArmor, setPlayerArmor] = useState<number>(100);
   const [aliveCount, setAliveCount] = useState<number>(20);
   const [killsCount, setKillsCount] = useState<number>(0);
+
+  // Weapon Inventory State (5 Functional Weapons)
   const [currentWeapon, setCurrentWeapon] = useState<WeaponDef>(WEAPON_REGISTRY.CARBINE);
   const [ammoClip, setAmmoClip] = useState<number>(30);
-  const [ammoReserve, setAmmoReserve] = useState<number>(120);
+  const [ammoReserve, setAmmoReserve] = useState<number>(150);
   const [isReloading, setIsReloading] = useState<boolean>(false);
   const [isAiming, setIsAiming] = useState<boolean>(false);
+  const [weaponsInventory, setWeaponsInventory] = useState<
+    Record<WeaponType, { clip: number; reserve: number }>
+  >({
+    CARBINE: { clip: 30, reserve: 150 },
+    SMG: { clip: 35, reserve: 180 },
+    SHOTGUN: { clip: 8, reserve: 40 },
+    SNIPER: { clip: 5, reserve: 25 },
+    PISTOL: { clip: 15, reserve: 60 },
+  });
+
+  // Flight & Parachute Telemetry
   const [altitudeMeters, setAltitudeMeters] = useState<number>(1200);
   const [descentSpeedKmh, setDescentSpeedKmh] = useState<number>(240);
 
-  // Safe Zone
+  // Safe Zone Telemetry
   const [safeZoneTime, setSafeZoneTime] = useState<number>(90);
   const [safeZonePhase, setSafeZonePhase] = useState<number>(1);
   const [isOutsideSafeZone, setIsOutsideSafeZone] = useState<boolean>(false);
+
+  // Driving Telemetry
+  const [isDriving, setIsDriving] = useState<boolean>(false);
+  const [vehicleSpeedKmh, setVehicleSpeedKmh] = useState<number>(0);
 
   // Prompts & Banners
   const [interactPrompt, setInteractPrompt] = useState<string | null>(null);
@@ -626,10 +1536,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [killFeed, setKillFeed] = useState<string[]>([]);
   const [showFullMap, setShowFullMap] = useState<boolean>(false);
 
-  // Driving Telemetry
-  const [isDriving, setIsDriving] = useState<boolean>(false);
-  const [vehicleSpeedKmh, setVehicleSpeedKmh] = useState<number>(0);
-
   // Post-Match End Results
   const [endMatchStats, setEndMatchStats] = useState({
     won: false,
@@ -641,9 +1547,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     mapName: 'GREEN ISLAND',
   });
 
-  // Mutable Game Loop State
+  // Mutable Game Loop State Ref
   const gameRef = useRef({
-    phase: 'MENU' as GameFlowPhase,
+    phase: 'LOBBY' as GameFlowPhase,
     mapId: 'GREEN_ISLAND' as MapId,
     scene: null as THREE.Scene | null,
     camera: null as THREE.PerspectiveCamera | null,
@@ -652,6 +1558,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     animFrameId: null as any,
     clock: new THREE.Clock(),
     elapsedTime: 0,
+    isFiring: false,
 
     keys: {
       w: false,
@@ -662,6 +1569,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       space: false,
       e: false,
       r: false,
+      1: false,
+      2: false,
+      3: false,
+      4: false,
+      5: false,
     },
     mouseLook: {
       yaw: 0,
@@ -669,23 +1581,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       isAiming: false,
     },
 
+    playerRig: null as HumanRig | null,
     player: {
       position: new THREE.Vector3(0, 120, -200),
       velocity: new THREE.Vector3(0, 0, 0),
-      mesh: null as THREE.Group | null,
-      torsoGroup: null as THREE.Group | null,
-      legL: null as THREE.Group | null,
-      legR: null as THREE.Group | null,
-      gunGroup: null as THREE.Group | null,
-      parachuteGroup: null as THREE.Group | null,
-      parachuteOpen: false,
       onGround: false,
       hp: 100,
       armor: 100,
       walkCycle: 0,
       currentWeapon: WEAPON_REGISTRY.CARBINE,
       clip: 30,
-      reserve: 120,
+      reserve: 150,
       reloading: false,
       lastShotTime: 0,
       inVehicle: false,
@@ -713,6 +1619,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       radius: 220,
       targetRadius: 130,
       shrinkTimer: 90,
+      damageTickTimer: 0,
+      baseDPS: 8,
       mesh: null as THREE.Mesh | null,
       stormRingMesh: null as THREE.Mesh | null,
       currentStage: 1,
@@ -721,22 +1629,48 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     bots: [] as EnemyBot[],
     lootItems: [] as LootItem[],
     bulletTracers: [] as { line: THREE.Line; life: number }[],
-    obstacles: [] as THREE.Box3[],
     damageDealt: 0,
     eliminationCount: 0,
+
+    // Lobby Specific 3D Environment
+    lobbyShowroomGroup: null as THREE.Group | null,
+    lobbyCharacterRig: null as HumanRig | null,
   });
 
-  // Load persistent dashboard stats on start
+  // Load persistent appearance and dashboard stats on startup
   useEffect(() => {
     (async () => {
       try {
-        const saved = await AsyncStorage.getItem('SHADOW_STRIKE_DASHBOARD');
-        if (saved) {
-          setDashboard(JSON.parse(saved));
+        const savedDash = await AsyncStorage.getItem('SHADOW_STRIKE_DASHBOARD');
+        if (savedDash) setDashboard(JSON.parse(savedDash));
+
+        const savedApp = await AsyncStorage.getItem('SHADOW_STRIKE_APPEARANCE');
+        if (savedApp) {
+          const parsed = JSON.parse(savedApp);
+          setAppearance(parsed);
+          setCurrentWeapon(WEAPON_REGISTRY[parsed.lobbyWeapon as WeaponType] || WEAPON_REGISTRY.CARBINE);
         }
       } catch (_) {}
     })();
   }, []);
+
+  // Save appearance changes
+  const updateAppearance = async (partial: Partial<CharacterAppearance>) => {
+    const next = { ...appearance, ...partial };
+    setAppearance(next);
+    try {
+      await AsyncStorage.setItem('SHADOW_STRIKE_APPEARANCE', JSON.stringify(next));
+    } catch (_) {}
+
+    // Refresh Lobby 3D character in real-time
+    const g = gameRef.current;
+    if (g.lobbyShowroomGroup && g.lobbyCharacterRig) {
+      g.lobbyShowroomGroup.remove(g.lobbyCharacterRig.root);
+      const newRig = buildRealisticHumanRig(next, false);
+      g.lobbyCharacterRig = newRig;
+      g.lobbyShowroomGroup.add(newRig.root);
+    }
+  };
 
   const saveDashboardStats = async (newEntry: MatchHistoryEntry) => {
     try {
@@ -780,7 +1714,34 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // ============================================================================
-  // THREE.JS SCENE BUILDER ACCORDING TO SELECTED MAP
+  // PROCEDURAL TERRAIN HEIGHT CALCULATOR
+  // ============================================================================
+  const getTerrainHeight = (x: number, z: number, map: MapId): number => {
+    const scale1 = 0.015;
+    const scale2 = 0.045;
+    if (map === 'DESERT_FRONTIER') {
+      return Math.sin(x * scale1) * Math.cos(z * scale1) * 8.5 + Math.sin(x * scale2 + z * scale2) * 2.5;
+    }
+    if (map === 'FROZEN_SUMMIT') {
+      return (
+        Math.sin(x * 0.012) * Math.cos(z * 0.012) * 16.0 +
+        Math.cos(x * 0.035) * 4.5 +
+        Math.sin(z * 0.04) * 3.5
+      );
+    }
+    if (map === 'NEON_METROPOLIS') {
+      return 0.15; // Flat urban mega-grid
+    }
+    // GREEN_ISLAND
+    return (
+      Math.sin(x * scale1) * Math.cos(z * scale1) * 6.5 +
+      Math.sin(x * scale2 * 1.5) * 2.0 +
+      Math.cos(z * scale2) * 1.5
+    );
+  };
+
+  // ============================================================================
+  // THREE.JS SCENE BUILDER ACCORDING TO CURRENT PHASE
   // ============================================================================
   useEffect(() => {
     if (Platform.OS !== 'web' || !mountRef.current) return;
@@ -794,34 +1755,22 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     // 1. Scene & Map Atmospheric Fog
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(mapDef.skyGradient[0]);
-    scene.fog = new THREE.FogExp2(mapDef.fogColor, mapDef.fogDensity);
+    scene.background = new THREE.Color(phase === 'LOBBY' ? '#070a12' : mapDef.skyGradient[0]);
+    scene.fog = new THREE.FogExp2(
+      phase === 'LOBBY' ? '#070a12' : mapDef.fogColor,
+      phase === 'LOBBY' ? 0.015 : mapDef.fogDensity
+    );
     g.scene = scene;
 
-    // 2. Skydome with Map Gradient
-    const skyGeo = new THREE.SphereGeometry(450, 32, 16);
-    const skyMat = new THREE.MeshBasicMaterial({
-      color: mapDef.skyGradient[1],
-      side: THREE.BackSide,
-      fog: false,
-    });
-    const skyDome = new THREE.Mesh(skyGeo, skyMat);
-    scene.add(skyDome);
-
-    // 3. Camera
-    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 950);
-    camera.position.set(0, 3, 40);
+    // 2. Camera Setup
+    const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1500);
     g.camera = camera;
 
-    // 4. Renderer
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      alpha: false,
-    });
+    // 3. WebGL Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: graphicsPreset !== 'LOW', alpha: false });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, graphicsPreset === 'HIGH' ? 2 : 1.5));
+    renderer.shadowMap.enabled = graphicsPreset !== 'LOW';
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.35;
@@ -830,38 +1779,37 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
 
-    // 5. Lighting Rig Tailored to Map
-    const ambientLight = new THREE.HemisphereLight(mapDef.accentColor, '#221810', 1.05);
+    // 4. Lighting Rig
+    const ambientLight = new THREE.HemisphereLight(
+      phase === 'LOBBY' ? '#60a5fa' : mapDef.accentColor,
+      '#111827',
+      phase === 'LOBBY' ? 1.4 : 1.1
+    );
     scene.add(ambientLight);
 
-    const dirSun = new THREE.DirectionalLight(mapDef.sunColor, 2.5);
-    dirSun.position.set(90, 160, 80);
-    dirSun.castShadow = true;
+    const dirSun = new THREE.DirectionalLight(mapDef.sunColor, phase === 'LOBBY' ? 2.2 : 2.5);
+    dirSun.position.set(45, 120, 45);
+    dirSun.castShadow = graphicsPreset !== 'LOW';
     dirSun.shadow.mapSize.width = 2048;
     dirSun.shadow.mapSize.height = 2048;
-    dirSun.shadow.camera.near = 10;
-    dirSun.shadow.camera.far = 450;
-    const d = 160;
-    dirSun.shadow.camera.left = -d;
-    dirSun.shadow.camera.right = d;
-    dirSun.shadow.camera.top = d;
-    dirSun.shadow.camera.bottom = -d;
     scene.add(dirSun);
     g.dirSun = dirSun;
 
-    // 6. Build Map-Specific Terrain, Structures, Vehicle, and Entities
-    buildDistinctMapWorld(scene, g, selectedMapId);
-    buildMapVehicle(scene, g, mapDef);
-    buildC130Airplane(scene, g);
-    buildSafeZoneStorm(scene, g);
-    buildPlayerOperative(scene, g);
-    spawnMapLoot(scene, g);
-    spawnHostileBots(scene, g);
+    // 5. Build Environments based on Phase
+    if (phase === 'LOBBY') {
+      buildLobbyShowroom(scene, g);
+    } else {
+      buildBattlegroundWorld(scene, g, mapDef);
+      buildPlayerOperative(scene, g);
+      spawnMapLoot(scene, g);
+      spawnHostileBots(scene, g);
+      buildSafeZoneStorm(scene, g);
+    }
 
-    // 7. Input Events
+    // 6. Setup Input Events
     setupInputEvents(renderer.domElement, g);
 
-    // 8. Resize Handler
+    // 7. Resize Handler
     const onResize = () => {
       if (!mountRef.current || !g.camera || !g.renderer) return;
       const w = mountRef.current.clientWidth || window.innerWidth;
@@ -872,418 +1820,302 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     };
     window.addEventListener('resize', onResize);
 
-    // 9. Main Game Loop
+    // 8. Main RAF Game Loop
     let isRunning = true;
     const loop = () => {
       if (!isRunning) return;
+      g.animFrameId = requestAnimationFrame(loop);
+
       const dt = Math.min(g.clock.getDelta(), 0.1);
       g.elapsedTime += dt;
 
-      if (g.phase === 'MENU' || g.phase === 'MAP_SELECT' || g.phase === 'DASHBOARD') {
-        const t = g.elapsedTime * 0.35;
-        if (g.camera) {
-          g.camera.position.set(Math.sin(t) * 14, 3.8, Math.cos(t) * 14);
-          g.camera.lookAt(0, 1.4, 0);
-        }
+      if (g.phase === 'LOBBY') {
+        updateLobbyPreview(dt, g);
       } else if (g.phase === 'AIRPLANE') {
         updateAirplaneFlight(dt, g);
       } else if (g.phase === 'FREEFALL' || g.phase === 'PARACHUTE') {
-        updateAirborneDescent(dt, g);
+        updateFreefallAndParachute(dt, g);
       } else if (g.phase === 'PLAYING') {
-        updateGroundGameplay(dt, g);
-        updateSafeZoneStorm(dt, g);
+        updatePlayerMovement(dt, g);
         updateHostileBotAI(dt, g);
-        updateVehiclePhysics(dt, g);
+        updateSafeZoneStorm(dt, g);
         updateBulletTracers(g);
         renderMinimap(g);
+
+        // Continuous automatic fire if mouse held down
+        if (g.isFiring && g.player.currentWeapon.isAutomatic) {
+          fireWeapon();
+        }
       }
 
       if (g.renderer && g.scene && g.camera) {
         g.renderer.render(g.scene, g.camera);
       }
-
-      g.animFrameId = requestAnimationFrame(loop);
     };
-
-    g.animFrameId = requestAnimationFrame(loop);
+    loop();
 
     return () => {
       isRunning = false;
       if (g.animFrameId) cancelAnimationFrame(g.animFrameId);
       window.removeEventListener('resize', onResize);
-      brAudio.stopAirplaneDrone();
-      brAudio.setVehicleEngine(false);
       renderer.dispose();
     };
-  }, [winWidth, winHeight, selectedMapId]);
+  }, [selectedMapId, phase, graphicsPreset]);
 
   // ============================================================================
-  // PROCEDURAL TERRAIN ELEVATION PER MAP
+  // PUBG-INSPIRED 3D LOBBY SHOWROOM BUILDER
   // ============================================================================
-  const getTerrainHeight = (x: number, z: number, mapId: MapId): number => {
-    const dist = Math.sqrt(x * x + z * z);
-    if (dist > 220) return -1.5; // Outer boundary / ocean
+  const buildLobbyShowroom = (scene: THREE.Scene, g: any) => {
+    const showroomGroup = new THREE.Group();
+    scene.add(showroomGroup);
+    g.lobbyShowroomGroup = showroomGroup;
 
-    if (mapId === 'GREEN_ISLAND') {
-      if (Math.abs(x + 10) < 6) return -0.8; // river
-      if (Math.sqrt((x - 50) ** 2 + (z + 60) ** 2) < 45) return 0.2; // city floor
-      let h = Math.sin(x * 0.035) * Math.cos(z * 0.035) * 6.5;
-      if (dist > 140) h += Math.pow((dist - 140) * 0.22, 1.7);
-      return Math.max(0, h);
-    } else if (mapId === 'DESERT_FRONTIER') {
-      // Rolling sweeping sand dunes
-      let h =
-        Math.sin(x * 0.025 + 0.5) * Math.cos(z * 0.025) * 8.5 +
-        Math.sin(x * 0.06) * 3.2;
-      return Math.max(0, h);
-    } else if (mapId === 'FROZEN_SUMMIT') {
-      // Central frozen lake basin
-      if (dist < 40) return 0.1;
-      // Steep mountain crags
-      let h = Math.sin(x * 0.04) * Math.cos(z * 0.04) * 11.5 + Math.pow(dist * 0.08, 1.6);
-      return Math.max(0, h);
-    } else {
-      // NEON_METROPOLIS: Flat urban floor
-      return 0.1;
+    // 1. High-Tech Hexagonal Floor Podium
+    const floorGeo = new THREE.CylinderGeometry(4.5, 4.8, 0.25, 32);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: '#0d1522',
+      roughness: 0.2,
+      metalness: 0.8,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.position.set(0, -0.12, 0);
+    floor.receiveShadow = true;
+    showroomGroup.add(floor);
+
+    // Glowing Neon Rim
+    const rimGeo = new THREE.RingGeometry(4.4, 4.6, 48);
+    const rimMat = new THREE.MeshBasicMaterial({ color: '#00f0ff', side: THREE.DoubleSide });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(0, 0.02, 0);
+    showroomGroup.add(rim);
+
+    // Overhead Volumetric Spotlight
+    const spot = new THREE.SpotLight('#ffffff', 4.5, 25, Math.PI / 4, 0.4, 1.2);
+    spot.position.set(0, 8.5, 3);
+    spot.target.position.set(0, 1.2, 0);
+    spot.castShadow = true;
+    showroomGroup.add(spot);
+    showroomGroup.add(spot.target);
+
+    // Back Blue Rim Light for Silhouette separation
+    const backLight = new THREE.PointLight('#00f0ff', 2.8, 12);
+    backLight.position.set(0, 2.5, -3.5);
+    showroomGroup.add(backLight);
+
+    // Warm Key Fill Light
+    const fillLight = new THREE.PointLight('#ffd700', 1.8, 10);
+    fillLight.position.set(3, 2.2, 3);
+    showroomGroup.add(fillLight);
+
+    // 2. Spawn 3D Realistic Character Rig in Lobby
+    const charRig = buildRealisticHumanRig(appearance, false);
+    charRig.root.position.set(0, 0.01, 0);
+    showroomGroup.add(charRig.root);
+    g.lobbyCharacterRig = charRig;
+
+    // Position Camera facing Character
+    if (g.camera) {
+      g.camera.position.set(0, 1.5, lobbyZoomRef.current);
+      g.camera.lookAt(0, 1.2, 0);
     }
   };
 
-  const buildDistinctMapWorld = (scene: THREE.Scene, g: any, mapId: MapId) => {
-    const mapDef = FOUR_MAPS[mapId];
-    g.obstacles = [];
+  const updateLobbyPreview = (dt: number, g: any) => {
+    if (!g.lobbyCharacterRig) return;
+    const rig = g.lobbyCharacterRig;
 
-    // 1. Terrain Mesh
-    const geo = new THREE.PlaneGeometry(500, 500, 90, 90);
-    geo.rotateX(-Math.PI / 2);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      pos.setY(i, getTerrainHeight(pos.getX(i), pos.getZ(i), mapId));
+    // Idle Breathing Kinematics
+    const breath = Math.sin(g.elapsedTime * 2.2) * 0.015;
+    rig.torsoGroup.position.y = 1.15 + breath;
+    rig.headGroup.rotation.x = Math.sin(g.elapsedTime * 1.8) * 0.02;
+
+    // Subtle idle arm & weapon sway
+    rig.armRGroup.rotation.z = Math.sin(g.elapsedTime * 2.2) * 0.01;
+    rig.armLGroup.rotation.z = -Math.sin(g.elapsedTime * 2.2) * 0.01;
+
+    // Rotate character according to user drag
+    rig.root.rotation.y = lobbyRotationRef.current;
+
+    // Camera Zoom smoothly lerping
+    if (g.camera) {
+      const targetZ = lobbyZoomRef.current;
+      g.camera.position.z += (targetZ - g.camera.position.z) * 0.1;
+      g.camera.lookAt(0, 1.25, 0);
     }
-    geo.computeVertexNormals();
+  };
+
+  // ============================================================================
+  // BATTLEGROUND 3D WORLD BUILDER
+  // ============================================================================
+  const buildBattlegroundWorld = (scene: THREE.Scene, g: any, mapDef: MapDefinition) => {
+    // 1. Procedural Terrain Mesh
+    const terrainGeo = new THREE.PlaneGeometry(800, 800, 96, 96);
+    const pos = terrainGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i);
+      const vz = pos.getY(i);
+      pos.setZ(i, getTerrainHeight(vx, vz, mapDef.id));
+    }
+    terrainGeo.computeVertexNormals();
 
     const terrainMat = new THREE.MeshStandardMaterial({
       color: mapDef.terrainColors[0],
-      roughness: 0.88,
-      flatShading: true,
+      roughness: 0.85,
+      metalness: 0.1,
     });
-    const terrain = new THREE.Mesh(geo, terrainMat);
+    const terrain = new THREE.Mesh(terrainGeo, terrainMat);
+    terrain.rotation.x = -Math.PI / 2;
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // 2. Surrounding Water / Boundary
-    const waterMat = new THREE.MeshStandardMaterial({
-      color: mapId === 'FROZEN_SUMMIT' ? '#7dd3fc' : '#0d2d4a',
-      roughness: mapId === 'FROZEN_SUMMIT' ? 0.1 : 0.25,
-      metalness: 0.7,
-    });
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), waterMat);
-    water.rotateX(-Math.PI / 2);
-    water.position.y = -0.4;
-    scene.add(water);
+    // 2. Military Structures, Hangars & Bunkers
+    for (let b = 0; b < 12; b++) {
+      const bx = (b % 4) * 65 - 95;
+      const bz = Math.floor(b / 4) * 75 - 75;
+      const by = getTerrainHeight(bx, bz, mapDef.id);
 
-    // 3. Map Structures
-    if (mapId === 'GREEN_ISLAND') {
-      buildGreenIslandStructures(scene, g);
-    } else if (mapId === 'DESERT_FRONTIER') {
-      buildDesertFrontierStructures(scene, g);
-    } else if (mapId === 'FROZEN_SUMMIT') {
-      buildFrozenSummitStructures(scene, g);
-    } else {
-      buildNeonMetropolisStructures(scene, g);
+      const bGroup = new THREE.Group();
+      bGroup.position.set(bx, by, bz);
+
+      const building = new THREE.Mesh(
+        new THREE.BoxGeometry(16, 9, 22),
+        new THREE.MeshStandardMaterial({ color: '#273344', roughness: 0.7 })
+      );
+      building.position.y = 4.5;
+      building.castShadow = true;
+      building.receiveShadow = true;
+      bGroup.add(building);
+
+      // Roof Antenna
+      const ant = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 6, 6),
+        new THREE.MeshStandardMaterial({ color: '#ffd700' })
+      );
+      ant.position.set(0, 12, 0);
+      bGroup.add(ant);
+
+      scene.add(bGroup);
     }
-  };
 
-  // Map 1 Structures: Green Island
-  const buildGreenIslandStructures = (scene: THREE.Scene, g: any) => {
-    const bMat = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 0.7 });
-    const cMat = new THREE.MeshStandardMaterial({ color: '#4b5563', roughness: 0.8 });
+    // 3. Foliage / Rocks
+    for (let t = 0; t < 45; t++) {
+      const tx = (Math.random() - 0.5) * 360;
+      const tz = (Math.random() - 0.5) * 360;
+      const ty = getTerrainHeight(tx, tz, mapDef.id);
 
-    // Neo-Kavala Downtown Towers
-    [
-      { x: 40, z: -50, w: 18, h: 42, d: 18 },
-      { x: 65, z: -50, w: 16, h: 32, d: 16 },
-      { x: 40, z: -75, w: 16, h: 26, d: 16 },
-      { x: 65, z: -75, w: 20, h: 48, d: 20 },
-    ].forEach((b) => {
-      const by = getTerrainHeight(b.x, b.z, 'GREEN_ISLAND');
-      const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), bMat);
-      m.position.set(b.x, by + b.h / 2, b.z);
-      m.castShadow = true;
-      m.receiveShadow = true;
-      scene.add(m);
-      g.obstacles.push(new THREE.Box3().setFromObject(m));
-    });
+      const tree = new THREE.Group();
+      tree.position.set(tx, ty, tz);
 
-    // Sector 04 Military Bunker
-    const bunker = new THREE.Mesh(new THREE.BoxGeometry(32, 7.5, 22), cMat);
-    bunker.position.set(-90, getTerrainHeight(-90, -70, 'GREEN_ISLAND') + 3.75, -70);
-    bunker.castShadow = true;
-    scene.add(bunker);
-    g.obstacles.push(new THREE.Box3().setFromObject(bunker));
-  };
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.3, 0.45, 4.5, 6),
+        new THREE.MeshStandardMaterial({ color: '#3d2817' })
+      );
+      trunk.position.y = 2.25;
+      tree.add(trunk);
 
-  // Map 2 Structures: Desert Frontier
-  const buildDesertFrontierStructures = (scene: THREE.Scene, g: any) => {
-    const adobeMat = new THREE.MeshStandardMaterial({ color: '#c29b68', roughness: 0.9 });
-    const rustMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.6, metalness: 0.5 });
+      const leaves = new THREE.Mesh(
+        new THREE.ConeGeometry(3.2, 7.5, 7),
+        new THREE.MeshStandardMaterial({ color: '#1a3318' })
+      );
+      leaves.position.y = 6.2;
+      leaves.castShadow = true;
+      tree.add(leaves);
 
-    // Desert Adobe Compounds
-    [
-      { x: 30, z: -40, w: 16, h: 9, d: 14 },
-      { x: 55, z: -35, w: 20, h: 12, d: 18 },
-      { x: 35, z: -65, w: 14, h: 8, d: 14 },
-      { x: -50, z: 40, w: 22, h: 10, d: 20 },
-      { x: -75, z: 45, w: 18, h: 14, d: 16 },
-    ].forEach((b) => {
-      const by = getTerrainHeight(b.x, b.z, 'DESERT_FRONTIER');
-      const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), adobeMat);
-      m.position.set(b.x, by + b.h / 2, b.z);
-      m.castShadow = true;
-      scene.add(m);
-      g.obstacles.push(new THREE.Box3().setFromObject(m));
-    });
+      scene.add(tree);
+    }
 
-    // Industrial Cylindrical Oil Storage Tanks
-    [-30, -10, 10].forEach((ox) => {
-      const tank = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 12, 16), rustMat);
-      tank.position.set(ox, getTerrainHeight(ox, 80, 'DESERT_FRONTIER') + 6, 80);
-      tank.castShadow = true;
-      scene.add(tank);
-      g.obstacles.push(new THREE.Box3().setFromObject(tank));
-    });
-  };
+    // 4. Tactical Vehicle
+    const buggyGroup = new THREE.Group();
+    buggyGroup.position.set(12, getTerrainHeight(12, 15, mapDef.id) + 0.4, 15);
 
-  // Map 3 Structures: Frozen Summit
-  const buildFrozenSummitStructures = (scene: THREE.Scene, g: any) => {
-    const snowLabMat = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.4, metalness: 0.6 });
-    const iceDomeMat = new THREE.MeshStandardMaterial({ color: '#38bdf8', roughness: 0.2, metalness: 0.8 });
-
-    // Arctic Research Labs
-    [
-      { x: -45, z: -45, w: 24, h: 10, d: 16 },
-      { x: -15, z: -50, w: 20, h: 8, d: 18 },
-      { x: 50, z: 50, w: 22, h: 11, d: 20 },
-    ].forEach((b) => {
-      const by = getTerrainHeight(b.x, b.z, 'FROZEN_SUMMIT');
-      const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), snowLabMat);
-      m.position.set(b.x, by + b.h / 2, b.z);
-      m.castShadow = true;
-      scene.add(m);
-      g.obstacles.push(new THREE.Box3().setFromObject(m));
-    });
-
-    // Radar Geo-Dome
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), iceDomeMat);
-    dome.position.set(0, getTerrainHeight(0, 0, 'FROZEN_SUMMIT'), 0);
-    scene.add(dome);
-  };
-
-  // Map 4 Structures: Neon Metropolis
-  const buildNeonMetropolisStructures = (scene: THREE.Scene, g: any) => {
-    const cyberDarkMat = new THREE.MeshStandardMaterial({ color: '#090d16', roughness: 0.2, metalness: 0.8 });
-    const neonPinkMat = new THREE.MeshBasicMaterial({ color: '#f43f5e' });
-    const neonCyanMat = new THREE.MeshBasicMaterial({ color: '#06b6d4' });
-
-    // 12 Cyberpunk Towers with glowing billboard headers
-    const towers = [
-      { x: -60, z: -60, w: 20, h: 65, d: 20 },
-      { x: -30, z: -60, w: 18, h: 50, d: 18 },
-      { x: 0, z: -60, w: 22, h: 75, d: 22 },
-      { x: 30, z: -60, w: 18, h: 55, d: 18 },
-      { x: 60, z: -60, w: 20, h: 60, d: 20 },
-      { x: -60, z: 0, w: 18, h: 48, d: 18 },
-      { x: 60, z: 0, w: 22, h: 70, d: 22 },
-      { x: -60, z: 60, w: 20, h: 58, d: 20 },
-      { x: -30, z: 60, w: 18, h: 45, d: 18 },
-      { x: 0, z: 60, w: 22, h: 80, d: 22 },
-      { x: 30, z: 60, w: 18, h: 52, d: 18 },
-      { x: 60, z: 60, w: 20, h: 62, d: 20 },
-    ];
-
-    towers.forEach((b, idx) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), cyberDarkMat);
-      m.position.set(b.x, b.h / 2, b.z);
-      m.castShadow = true;
-      scene.add(m);
-
-      // Neon Top Header
-      const bill = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.8, 4, 0.4), idx % 2 === 0 ? neonPinkMat : neonCyanMat);
-      bill.position.set(b.x, b.h + 2.5, b.z + b.d / 2);
-      scene.add(bill);
-
-      g.obstacles.push(new THREE.Box3().setFromObject(m));
-    });
-  };
-
-  // ============================================================================
-  // DRIVABLE VEHICLE
-  // ============================================================================
-  const buildMapVehicle = (scene: THREE.Scene, g: any, mapDef: MapDefinition) => {
-    const vGroup = new THREE.Group();
-    vGroup.position.set(12, 0.5, 15);
-
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: mapDef.vehicleColor,
-      roughness: 0.5,
-      metalness: 0.4,
-    });
-    const cageMat = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.4, metalness: 0.8 });
-    const wheelMat = new THREE.MeshStandardMaterial({ color: '#090d16', roughness: 0.9 });
-
-    // Chassis
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 4.4), bodyMat);
-    body.position.y = 0.5;
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 1.1, 4.2),
+      new THREE.MeshStandardMaterial({ color: mapDef.vehicleColor, roughness: 0.5, metalness: 0.7 })
+    );
     body.castShadow = true;
-    vGroup.add(body);
+    buggyGroup.add(body);
 
-    // Roll cage
-    const cage = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.3, 2.5), cageMat);
-    cage.position.set(0, 1.4, -0.2);
-    vGroup.add(cage);
-
-    // 4 Wheels
-    const wGeo = new THREE.CylinderGeometry(0.48, 0.48, 0.38, 12);
-    wGeo.rotateZ(Math.PI / 2);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: '#111', roughness: 0.9 });
     [
-      { x: -1.3, z: 1.4 },
-      { x: 1.3, z: 1.4 },
-      { x: -1.3, z: -1.4 },
-      { x: 1.3, z: -1.4 },
-    ].forEach((pos) => {
-      const w = new THREE.Mesh(wGeo, wheelMat);
-      w.position.set(pos.x, 0.48, pos.z);
-      w.castShadow = true;
-      vGroup.add(w);
+      [-1.3, -0.2, 1.4],
+      [1.3, -0.2, 1.4],
+      [-1.3, -0.2, -1.4],
+      [1.3, -0.2, -1.4],
+    ].forEach((wPos) => {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.42, 12), wheelMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(wPos[0], wPos[1], wPos[2]);
+      wheel.castShadow = true;
+      buggyGroup.add(wheel);
     });
 
-    scene.add(vGroup);
-    g.vehicle.mesh = vGroup;
-  };
+    scene.add(buggyGroup);
+    g.vehicle.mesh = buggyGroup;
 
-  // C-130 Airplane
-  const buildC130Airplane = (scene: THREE.Scene, g: any) => {
+    // 5. C-130 Airplane
     const plane = new THREE.Group();
     plane.position.set(0, 120, -250);
 
-    const metalMat = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 0.4, metalness: 0.7 });
-    const wingMat = new THREE.MeshStandardMaterial({ color: '#4b5563', roughness: 0.5, metalness: 0.6 });
+    const fuselage = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.2, 3.2, 28, 12),
+      new THREE.MeshStandardMaterial({ color: '#2b3644', roughness: 0.6 })
+    );
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.castShadow = true;
+    plane.add(fuselage);
 
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 38, 16), metalMat);
-    body.rotation.x = Math.PI / 2;
-    body.castShadow = true;
-    plane.add(body);
-
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(52, 0.6, 7.5), wingMat);
-    wing.position.set(0, 1.2, 4);
-    wing.castShadow = true;
-    plane.add(wing);
+    const wings = new THREE.Mesh(
+      new THREE.BoxGeometry(42, 0.45, 5.5),
+      new THREE.MeshStandardMaterial({ color: '#1c2530' })
+    );
+    wings.position.set(0, 0.6, 2);
+    plane.add(wings);
 
     scene.add(plane);
     g.airplane.mesh = plane;
+    g.airplane.position.copy(plane.position);
   };
 
-  // Safe Zone 3D Hologram
+  // Safe Zone Storm Mesh
   const buildSafeZoneStorm = (scene: THREE.Scene, g: any) => {
-    const stormWallGeo = new THREE.CylinderGeometry(220, 220, 90, 64, 1, true);
+    const stormWallGeo = new THREE.CylinderGeometry(220, 220, 90, 48, 1, true);
     const stormWallMat = new THREE.MeshBasicMaterial({
-      color: '#0066ff',
+      color: '#00f0ff',
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.32,
       side: THREE.DoubleSide,
-      depthWrite: false,
+      wireframe: false,
     });
     const stormWall = new THREE.Mesh(stormWallGeo, stormWallMat);
-    stormWall.position.y = 45;
+    stormWall.position.set(0, 45, 0);
     scene.add(stormWall);
     g.safeZone.stormRingMesh = stormWall;
   };
 
-  // Player Operative Rig
+  // Player Operative Rig in Battlefield
   const buildPlayerOperative = (scene: THREE.Scene, g: any) => {
-    const playerGroup = new THREE.Group();
-    playerGroup.position.set(0, 120, -200);
-
-    const camoMat = new THREE.MeshStandardMaterial({ color: '#2e3d2a', roughness: 0.8 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: '#111418', roughness: 0.7 });
-    const visorMat = new THREE.MeshStandardMaterial({ color: '#00f0ff', emissive: '#00e5ff', roughness: 0.2 });
-    const gunMat = new THREE.MeshStandardMaterial({ color: '#0c0e12', roughness: 0.3, metalness: 0.9 });
-
-    // Torso
-    const torso = new THREE.Group();
-    torso.position.y = 1.35;
-    playerGroup.add(torso);
-    g.player.torsoGroup = torso;
-
-    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.95, 0.52), camoMat);
-    shirt.castShadow = true;
-    torso.add(shirt);
-
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.52, 0.5), darkMat);
-    head.position.y = 0.8;
-    head.castShadow = true;
-    torso.add(head);
-
-    const goggles = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.16, 0.16), visorMat);
-    goggles.position.set(0, 0.85, 0.26);
-    torso.add(goggles);
-
-    // Parachute
-    const chuteGroup = new THREE.Group();
-    chuteGroup.position.set(0, 4.5, 0);
-    const canopy = new THREE.Mesh(
-      new THREE.SphereGeometry(4.2, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45),
-      new THREE.MeshStandardMaterial({ color: '#1e3a24', side: THREE.DoubleSide })
-    );
-    canopy.rotation.x = Math.PI;
-    chuteGroup.add(canopy);
-    chuteGroup.visible = false;
-    playerGroup.add(chuteGroup);
-    g.player.parachuteGroup = chuteGroup;
-
-    // Legs
-    const legLGroup = new THREE.Group();
-    legLGroup.position.set(-0.24, 0.95, 0);
-    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.95, 0.32), camoMat);
-    legL.position.y = -0.45;
-    legL.castShadow = true;
-    legLGroup.add(legL);
-    playerGroup.add(legLGroup);
-    g.player.legL = legLGroup;
-
-    const legRGroup = new THREE.Group();
-    legRGroup.position.set(0.24, 0.95, 0);
-    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.95, 0.32), camoMat);
-    legR.position.y = -0.45;
-    legR.castShadow = true;
-    legRGroup.add(legR);
-    playerGroup.add(legRGroup);
-    g.player.legR = legRGroup;
-
-    // Gun
-    const gunGroup = new THREE.Group();
-    gunGroup.position.set(0.42, 1.25, 0.4);
-    const gunMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.95), gunMat);
-    gunMesh.castShadow = true;
-    gunGroup.add(gunMesh);
-    const mLight = new THREE.PointLight('#ffe066', 0, 10);
-    mLight.position.set(0, 0.05, 1.0);
-    gunGroup.add(mLight);
-    playerGroup.add(gunGroup);
-    g.player.gunGroup = gunGroup;
-
-    scene.add(playerGroup);
-    g.player.mesh = playerGroup;
+    const rig = buildRealisticHumanRig(appearance, false);
+    rig.root.position.set(0, 120, -200);
+    scene.add(rig.root);
+    g.playerRig = rig;
   };
 
   // Loot Items
   const spawnMapLoot = (scene: THREE.Scene, g: any) => {
-    const lootSpawns = [
-      { pos: new THREE.Vector3(45, 0, -45), type: 'WEAPON' as const, wType: 'SNIPER' as const, name: 'AWM COVERT .338' },
-      { pos: new THREE.Vector3(68, 0, -68), type: 'WEAPON' as const, wType: 'SMG' as const, name: 'VECTOR SUB-9' },
-      { pos: new THREE.Vector3(-85, 0, -65), type: 'WEAPON' as const, wType: 'CARBINE' as const, name: 'M4A1 TACTICAL' },
-      { pos: new THREE.Vector3(15, 0, 18), type: 'MEDKIT' as const, name: 'MILITARY MEDKIT (+75 HP)' },
-      { pos: new THREE.Vector3(70, 0, 95), type: 'ARMOR' as const, name: 'LEVEL 3 PLATE ARMOR (+100 AP)' },
-      { pos: new THREE.Vector3(-15, 0, -10), type: 'AMMO' as const, name: '5.56mm HIGH CAPACITY BOX (+60)' },
+    const lootSpawns: {
+      pos: THREE.Vector3;
+      type: 'WEAPON' | 'MEDKIT' | 'ARMOR' | 'AMMO';
+      wType?: WeaponType;
+      name: string;
+    }[] = [
+      { pos: new THREE.Vector3(35, 0, -35), type: 'WEAPON', wType: 'SNIPER', name: 'AWM COVERT .338 (SNIPER)' },
+      { pos: new THREE.Vector3(55, 0, -60), type: 'WEAPON', wType: 'SMG', name: 'VECTOR SUB-9 (SMG)' },
+      { pos: new THREE.Vector3(-70, 0, -50), type: 'WEAPON', wType: 'SHOTGUN', name: 'SPAS-12 BREACHER (SHOTGUN)' },
+      { pos: new THREE.Vector3(-40, 0, 30), type: 'WEAPON', wType: 'CARBINE', name: 'M4A1 TACTICAL (ASSAULT)' },
+      { pos: new THREE.Vector3(15, 0, 18), type: 'MEDKIT', name: 'MILITARY MEDKIT (+75 HP)' },
+      { pos: new THREE.Vector3(70, 0, 85), type: 'ARMOR', name: 'LEVEL 3 PLATE ARMOR (+100 AP)' },
+      { pos: new THREE.Vector3(-15, 0, -10), type: 'AMMO', name: '5.56mm HIGH CAPACITY CRATE (+90)' },
     ];
 
     const items: LootItem[] = [];
@@ -1323,14 +2155,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     g.lootItems = items;
   };
 
-  // Hostile Bots
+  // Hostile Bots (19 Living Bots)
   const spawnHostileBots = (scene: THREE.Scene, g: any) => {
-    const botCount = 19; // 19 bots + 1 player = 20 total
-    const enemyMat = new THREE.MeshStandardMaterial({ color: '#7f1d1d', roughness: 0.6 });
-    const beretMat = new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.5 });
-    const gunMat = new THREE.MeshStandardMaterial({ color: '#1a1f26', roughness: 0.3, metalness: 0.8 });
-
+    const botCount = 19;
     const bots: EnemyBot[] = [];
+
+    const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
+
     for (let i = 0; i < botCount; i++) {
       const angle = (i / botCount) * Math.PI * 2;
       const dist = 55 + (i % 4) * 35;
@@ -1338,30 +2169,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const bz = Math.sin(angle) * dist - 30;
       const by = getTerrainHeight(bx, bz, g.mapId);
 
-      const bGroup = new THREE.Group();
-      bGroup.position.set(bx, by, bz);
+      const botWeapon = weaponsList[i % weaponsList.length];
 
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.1, 0.55), enemyMat);
-      torso.position.y = 1.35;
-      torso.castShadow = true;
-      bGroup.add(torso);
+      // Build High-Quality Human Rig for Enemy
+      const botAppearance: CharacterAppearance = {
+        gender: i % 3 === 0 ? 'FEMALE' : 'MALE',
+        outfit: 'URBAN',
+        headgear: i % 2 === 0 ? 'BERET' : 'HELMET',
+        backpack: 'LVL2',
+        lobbyWeapon: botWeapon,
+      };
 
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), enemyMat);
-      head.position.y = 2.1;
-      head.castShadow = true;
-      bGroup.add(head);
-
-      const beret = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.34, 0.22, 8), beretMat);
-      beret.position.set(0.08, 2.4, 0);
-      bGroup.add(beret);
-
-      const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.85), gunMat);
-      rifle.position.set(0.4, 1.25, 0.35);
-      bGroup.add(rifle);
+      const rig = buildRealisticHumanRig(botAppearance, true, i + 1);
+      rig.root.position.set(bx, by, bz);
 
       const mLight = new THREE.PointLight('#ff3300', 0, 7);
       mLight.position.set(0.4, 1.25, 0.8);
-      bGroup.add(mLight);
+      rig.root.add(mLight);
 
       // Floating HP Bar
       const hpBar = new THREE.Mesh(
@@ -1369,22 +2193,24 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         new THREE.MeshBasicMaterial({ color: '#ff0033', side: THREE.DoubleSide })
       );
       hpBar.position.set(0, 2.7, 0);
-      bGroup.add(hpBar);
+      rig.root.add(hpBar);
+      rig.hpBarMesh = hpBar;
 
-      scene.add(bGroup);
+      scene.add(rig.root);
 
       bots.push({
         id: i + 1,
         name: `Opponent_${String(i + 1).padStart(2, '0')}`,
-        mesh: bGroup,
-        position: bGroup.position,
+        rig,
+        position: rig.root.position,
         velocity: new THREE.Vector3(),
         hp: 100,
         maxHp: 100,
-        weapon: 'CARBINE',
+        weapon: botWeapon,
         state: 'PATROL',
         patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 40, by, bz + (Math.random() - 0.5) * 40),
         shootCooldown: 1.2 + Math.random(),
+        walkCycle: 0,
         isDead: false,
         muzzleLight: mLight,
         hpBarMesh: hpBar,
@@ -1435,198 +2261,205 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const g = gameRef.current;
     if (g.phase !== 'FREEFALL') return;
 
-    g.player.parachuteOpen = true;
-    if (g.player.parachuteGroup) g.player.parachuteGroup.visible = true;
-    brAudio.playParachuteDeploy();
-
-    g.player.velocity.y = -8.5;
     g.phase = 'PARACHUTE';
     setPhase('PARACHUTE');
+    brAudio.playParachuteDeploy();
+
+    if (g.playerRig) {
+      g.playerRig.parachuteGroup.visible = true;
+    }
   };
 
-  const updateAirborneDescent = (dt: number, g: any) => {
+  const updateFreefallAndParachute = (dt: number, g: any) => {
     const p = g.player;
-    if (!p.mesh) return;
-
-    const forward = new THREE.Vector3(-Math.sin(g.mouseLook.yaw), 0, -Math.cos(g.mouseLook.yaw));
-    const right = new THREE.Vector3(Math.cos(g.mouseLook.yaw), 0, -Math.sin(g.mouseLook.yaw));
-
-    const steer = new THREE.Vector3();
-    if (g.keys.w) steer.add(forward);
-    if (g.keys.s) steer.sub(forward);
-    if (g.keys.d) steer.add(right);
-    if (g.keys.a) steer.sub(right);
-    if (steer.lengthSq() > 0.01) steer.normalize();
-
+    const yaw = g.mouseLook.yaw;
     const glideSpeed = g.phase === 'PARACHUTE' ? 14 : 26;
-    p.velocity.x = steer.x * glideSpeed;
-    p.velocity.z = steer.z * glideSpeed;
+    const terminalVelocity = g.phase === 'PARACHUTE' ? -7.5 : -42;
 
+    p.velocity.y = Math.max(terminalVelocity, p.velocity.y - 12 * dt);
     if (g.phase === 'FREEFALL') {
-      p.velocity.y = Math.max(-48, p.velocity.y - 18 * dt);
+      if (g.keys.w) {
+        p.velocity.x = Math.sin(yaw) * glideSpeed;
+        p.velocity.z = Math.cos(yaw) * glideSpeed;
+      }
     } else {
-      p.velocity.y = -7.5;
+      // Steerable Gliding
+      const steerX = Math.sin(yaw) * glideSpeed;
+      const steerZ = Math.cos(yaw) * glideSpeed;
+      p.velocity.x += (steerX - p.velocity.x) * 0.1;
+      p.velocity.z += (steerZ - p.velocity.z) * 0.1;
     }
 
     p.position.add(p.velocity.clone().multiplyScalar(dt));
-    p.mesh.position.copy(p.position);
-    p.mesh.rotation.y = g.mouseLook.yaw;
 
-    const groundH = getTerrainHeight(p.position.x, p.position.z, g.mapId);
-    setAltitudeMeters(Math.max(0, Math.round((p.position.y - groundH) * 10)));
-    setDescentSpeedKmh(Math.round(Math.abs(p.velocity.y) * 4.2));
+    if (g.playerRig) {
+      g.playerRig.root.position.copy(p.position);
+      g.playerRig.root.rotation.y = yaw;
+    }
 
+    const camOffset = g.phase === 'PARACHUTE' ? 11 : 6;
     if (g.camera) {
-      const camOffset = g.phase === 'PARACHUTE' ? 11 : 6;
       g.camera.position.set(
-        p.position.x + Math.sin(g.mouseLook.yaw) * camOffset,
+        p.position.x - Math.sin(yaw) * camOffset,
         p.position.y + 4.5,
-        p.position.z + Math.cos(g.mouseLook.yaw) * camOffset
+        p.position.z - Math.cos(yaw) * camOffset
       );
       g.camera.lookAt(p.position);
     }
 
-    if (p.position.y <= groundH + 0.5) {
-      p.position.y = groundH;
+    setAltitudeMeters(Math.max(0, Math.round(p.position.y * 10)));
+    setDescentSpeedKmh(Math.round(Math.abs(p.velocity.y) * 7.5));
+
+    const groundY = getTerrainHeight(p.position.x, p.position.z, g.mapId);
+    if (p.position.y <= groundY + 0.3) {
+      p.position.y = groundY;
       p.velocity.set(0, 0, 0);
       p.onGround = true;
-      p.parachuteOpen = false;
-      if (p.parachuteGroup) p.parachuteGroup.visible = false;
 
-      brAudio.playFootstep();
+      if (g.playerRig) {
+        g.playerRig.parachuteGroup.visible = false;
+      }
+
       g.phase = 'PLAYING';
       setPhase('PLAYING');
-      pushKillFeed(`DEPLOYED: Touchdown on ${FOUR_MAPS[g.mapId as MapId].name}!`);
+      pushKillFeed('TOUCHDOWN CONFIRMED: Gear up and survive!');
     }
   };
 
   // ============================================================================
-  // GROUND GAMEPLAY: MOVEMENT, COMBAT & ELIMINATION
+  // THIRD-PERSON PLAYER MOVEMENT & ANIMATIONS
   // ============================================================================
-  const updateGroundGameplay = (dt: number, g: any) => {
+  const updatePlayerMovement = (dt: number, g: any) => {
     const p = g.player;
-    if (!p.mesh || p.inVehicle) return;
+    const yaw = g.mouseLook.yaw;
+    const pitch = g.mouseLook.pitch;
 
-    const forward = new THREE.Vector3(-Math.sin(g.mouseLook.yaw), 0, -Math.cos(g.mouseLook.yaw));
-    const right = new THREE.Vector3(Math.cos(g.mouseLook.yaw), 0, -Math.sin(g.mouseLook.yaw));
-
-    const move = new THREE.Vector3();
-    if (g.keys.w) move.add(forward);
-    if (g.keys.s) move.sub(forward);
-    if (g.keys.d) move.add(right);
-    if (g.keys.a) move.sub(right);
-
-    const isMoving = move.lengthSq() > 0.01;
-    if (isMoving) move.normalize();
-
-    const speed = g.keys.shift && !g.mouseLook.isAiming ? 13.5 : g.mouseLook.isAiming ? 5.2 : 8.0;
-    p.velocity.x = move.x * speed;
-    p.velocity.z = move.z * speed;
-
-    if (g.keys.space && p.onGround) {
-      p.velocity.y = 9.8;
-      p.onGround = false;
-      brAudio.playFootstep();
-    }
-
-    p.velocity.y -= 24 * dt;
-
-    const nextPos = p.position.clone().add(p.velocity.clone().multiplyScalar(dt));
-    const groundY = getTerrainHeight(nextPos.x, nextPos.z, g.mapId);
-
-    if (nextPos.y <= groundY) {
-      nextPos.y = groundY;
-      p.velocity.y = 0;
-      p.onGround = true;
-    }
-
-    p.position.copy(nextPos);
-    p.mesh.position.copy(p.position);
-    p.mesh.rotation.y = g.mouseLook.yaw;
-
-    if (isMoving && p.onGround) {
-      p.walkCycle += dt * (g.keys.shift ? 16 : 10);
-      const stride = Math.sin(p.walkCycle) * (g.keys.shift ? 0.72 : 0.5);
-      if (p.legL) p.legL.rotation.x = stride;
-      if (p.legR) p.legR.rotation.x = -stride;
-    }
-
-    // Third-person camera follow
-    if (g.camera) {
-      const camDist = g.mouseLook.isAiming ? 2.0 : 3.8;
-      const camHeight = g.mouseLook.isAiming ? 1.6 : 2.2;
-      const shoulderX = g.mouseLook.isAiming ? 0.65 : 0.85;
-
-      const camX = p.position.x + Math.sin(g.mouseLook.yaw) * camDist + Math.cos(g.mouseLook.yaw) * shoulderX;
-      const camZ = p.position.z + Math.cos(g.mouseLook.yaw) * camDist - Math.sin(g.mouseLook.yaw) * shoulderX;
-      let camY = p.position.y + camHeight + Math.sin(g.mouseLook.pitch) * 2.5;
-
-      const camGroundH = getTerrainHeight(camX, camZ, g.mapId);
-      camY = Math.max(camGroundH + 0.6, camY);
-
-      g.camera.position.set(camX, camY, camZ);
-      const lookTarget = p.position.clone().add(
-        new THREE.Vector3(
-          -Math.sin(g.mouseLook.yaw) * 30,
-          1.6 + Math.sin(g.mouseLook.pitch) * 14,
-          -Math.cos(g.mouseLook.yaw) * 30
-        )
-      );
-      g.camera.lookAt(lookTarget);
-    }
-
-    checkInteractions(g);
-  };
-
-  const checkInteractions = (g: any) => {
-    const p = g.player;
-
-    // Vehicle
-    if (p.position.distanceTo(g.vehicle.position) < 3.8 && !p.inVehicle) {
-      setInteractPrompt(`[E] ENTER ${FOUR_MAPS[g.mapId as MapId].vehicleName}`);
-      if (g.keys.e) {
-        enterVehicle(g);
-        g.keys.e = false;
-      }
+    if (p.inVehicle) {
+      updateVehicleDriving(dt, g);
       return;
     }
 
-    // Loot
-    let nearLoot: LootItem | null = null;
-    for (let item of g.lootItems) {
-      if (!item.pickedUp && p.position.distanceTo(item.position) < 2.5) {
-        nearLoot = item;
-        break;
+    const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const moveDir = new THREE.Vector3();
+
+    if (g.keys.w) moveDir.add(fwd);
+    if (g.keys.s) moveDir.sub(fwd);
+    if (g.keys.d) moveDir.add(right);
+    if (g.keys.a) moveDir.sub(right);
+
+    const isMoving = moveDir.lengthSq() > 0;
+    if (isMoving) moveDir.normalize();
+
+    const speed = g.keys.shift ? 9.5 : 5.8;
+    p.velocity.x = moveDir.x * speed;
+    p.velocity.z = moveDir.z * speed;
+
+    p.position.add(p.velocity.clone().multiplyScalar(dt));
+    p.position.y = getTerrainHeight(p.position.x, p.position.z, g.mapId);
+
+    // Update 3D Human Rig Kinematics
+    if (g.playerRig) {
+      const rig = g.playerRig;
+      rig.root.position.copy(p.position);
+      rig.root.rotation.y = yaw;
+
+      // Realistic Walking Stride Kinematics
+      if (isMoving) {
+        p.walkCycle += dt * (g.keys.shift ? 16 : 10);
+        const stride = Math.sin(p.walkCycle) * 0.7;
+        rig.legLGroup.rotation.x = stride;
+        rig.legRGroup.rotation.x = -stride;
+
+        rig.armLGroup.rotation.x = -stride * 0.6;
+        rig.armRGroup.rotation.x = 0.5 + stride * 0.2;
+
+        rig.torsoGroup.position.y = 1.15 + Math.abs(Math.sin(p.walkCycle)) * 0.04;
+      } else {
+        // Natural Idle Breathing
+        const breath = Math.sin(g.elapsedTime * 2.5) * 0.015;
+        rig.torsoGroup.position.y = 1.15 + breath;
+        rig.legLGroup.rotation.x = 0;
+        rig.legRGroup.rotation.x = 0;
+
+        // Weapon Holding Stance
+        if (g.mouseLook.isAiming) {
+          rig.armRGroup.rotation.x = 0.95;
+          rig.armLGroup.rotation.x = 0.85;
+        } else {
+          rig.armRGroup.rotation.x = 0.45;
+          rig.armLGroup.rotation.x = 0.35;
+        }
       }
     }
 
-    if (nearLoot) {
-      setInteractPrompt(`[E] PICK UP ${nearLoot.name}`);
-      if (g.keys.e) {
-        nearLoot.pickedUp = true;
-        nearLoot.mesh.visible = false;
-        brAudio.playLootPickup();
-        if (nearLoot.type === 'WEAPON' && nearLoot.weaponType) {
-          const nw = WEAPON_REGISTRY[nearLoot.weaponType];
-          g.player.currentWeapon = nw;
-          g.player.clip = nw.clipSize;
-          g.player.reserve = nw.reserveMax;
-          setCurrentWeapon(nw);
-          setAmmoClip(nw.clipSize);
-          setAmmoReserve(nw.reserveMax);
-          pushKillFeed(`EQUIPPED: ${nw.name}`);
-        } else if (nearLoot.type === 'MEDKIT') {
-          g.player.hp = Math.min(100, g.player.hp + 75);
-          setPlayerHp(g.player.hp);
-        } else if (nearLoot.type === 'ARMOR') {
-          g.player.armor = 100;
-          setPlayerArmor(100);
-        }
-        g.keys.e = false;
-      }
-    } else {
-      setInteractPrompt(null);
+    // Third-Person Over-the-Shoulder Camera with Aiming Zoom
+    if (g.camera) {
+      const targetFOV = g.mouseLook.isAiming ? p.currentWeapon.zoomFOV : 70;
+      g.camera.fov += (targetFOV - g.camera.fov) * 0.18;
+      g.camera.updateProjectionMatrix();
+
+      const shoulderDist = g.mouseLook.isAiming ? 1.8 : 3.6;
+      const shoulderHeight = g.mouseLook.isAiming ? 1.7 : 1.9;
+      const shoulderSide = 0.65;
+
+      const camX = p.position.x - Math.sin(yaw) * shoulderDist + Math.cos(yaw) * shoulderSide;
+      const camZ = p.position.z - Math.cos(yaw) * shoulderDist - Math.sin(yaw) * shoulderSide;
+      const camY = p.position.y + shoulderHeight + Math.sin(pitch) * 1.5;
+
+      g.camera.position.set(camX, camY, camZ);
+      g.camera.lookAt(
+        p.position.x + Math.sin(yaw) * 35,
+        p.position.y + 1.4 - pitch * 12,
+        p.position.z + Math.cos(yaw) * 35
+      );
     }
+
+    // Check Loot Crates Interaction Prompt
+    checkLootProximity(g);
+  };
+
+  // ============================================================================
+  // WEAPON MANAGEMENT, FUNCTIONAL SWITCHING & FIRING (REQUIREMENT 2)
+  // ============================================================================
+  const switchWeapon = (newType: WeaponType) => {
+    const g = gameRef.current;
+    const p = g.player;
+    if (p.reloading || p.currentWeapon.id === newType) return;
+
+    // Save previous weapon's ammo
+    const prevType = p.currentWeapon.id;
+    const updatedInventory = {
+      ...weaponsInventory,
+      [prevType]: { clip: p.clip, reserve: p.reserve },
+    };
+
+    // Load new weapon's stats and ammo
+    const newDef = WEAPON_REGISTRY[newType];
+    const newAmmo = updatedInventory[newType] || { clip: newDef.clipSize, reserve: newDef.reserveMax };
+
+    p.currentWeapon = newDef;
+    p.clip = newAmmo.clip;
+    p.reserve = newAmmo.reserve;
+
+    setCurrentWeapon(newDef);
+    setAmmoClip(newAmmo.clip);
+    setAmmoReserve(newAmmo.reserve);
+    setWeaponsInventory(updatedInventory);
+
+    // Update 3D Weapon Model attached to character's hand!
+    if (g.playerRig) {
+      const rig = g.playerRig;
+      if (rig.currentWeaponMesh) {
+        rig.weaponAnchor.remove(rig.currentWeaponMesh);
+      }
+      const newMesh = build3DWeaponMesh(newType);
+      rig.currentWeaponMesh = newMesh;
+      rig.weaponAnchor.add(newMesh);
+    }
+
+    brAudio.playWeaponSwitch();
+    pushKillFeed(`EQUIPPED: [${newDef.slotNumber}] ${newDef.name}`);
   };
 
   const fireWeapon = () => {
@@ -1643,31 +2476,49 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     p.clip -= 1;
     setAmmoClip(p.clip);
+    setWeaponsInventory((prev) => ({
+      ...prev,
+      [p.currentWeapon.id]: { ...prev[p.currentWeapon.id], clip: p.clip },
+    }));
+
     brAudio.playGunshot(p.currentWeapon.id);
 
+    // Apply Recoil Kick
+    g.mouseLook.pitch -= p.currentWeapon.recoil;
+
     if (!g.camera || !g.scene) return;
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), g.camera);
 
-    const hits = raycaster.intersectObjects(g.scene.children, true);
-    let hitPoint = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(p.currentWeapon.range));
+    // Pellets raycast loop (1 for standard guns, 8 for Shotgun)
+    const pellets = p.currentWeapon.pelletCount;
+    for (let pel = 0; pel < pellets; pel++) {
+      const raycaster = new THREE.Raycaster();
+      const spreadX = (Math.random() - 0.5) * p.currentWeapon.spread;
+      const spreadY = (Math.random() - 0.5) * p.currentWeapon.spread;
 
-    if (hits.length > 0) {
-      for (let hit of hits) {
-        if (hit.object !== p.mesh && !isChildOfObject(hit.object, p.mesh)) {
-          hitPoint = hit.point;
-          const struckBot = findBotFromMesh(hit.object, g.bots);
-          if (struckBot && !struckBot.isDead) {
-            damageBot(struckBot, p.currentWeapon.damage, g);
-            setHitMarker(true);
-            setTimeout(() => setHitMarker(false), 90);
+      raycaster.setFromCamera(new THREE.Vector2(spreadX, spreadY), g.camera);
+
+      const hits = raycaster.intersectObjects(g.scene.children, true);
+      let hitPoint = raycaster.ray.origin
+        .clone()
+        .add(raycaster.ray.direction.clone().multiplyScalar(p.currentWeapon.range));
+
+      if (hits.length > 0) {
+        for (let hit of hits) {
+          if (hit.object !== g.playerRig?.root && !isChildOfObject(hit.object, g.playerRig?.root || null)) {
+            hitPoint = hit.point;
+            const struckBot = findBotFromMesh(hit.object, g.bots);
+            if (struckBot && !struckBot.isDead) {
+              damageBot(struckBot, p.currentWeapon.damage, g);
+              setHitMarker(true);
+              setTimeout(() => setHitMarker(false), 80);
+            }
+            break;
           }
-          break;
         }
       }
-    }
 
-    createTracer(p.position.clone().add(new THREE.Vector3(0, 1.3, 0)), hitPoint, g);
+      createTracer(p.position.clone().add(new THREE.Vector3(0, 1.35, 0)), hitPoint, g);
+    }
   };
 
   const isChildOfObject = (child: THREE.Object3D, parent: THREE.Object3D | null): boolean => {
@@ -1681,34 +2532,43 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
   const findBotFromMesh = (obj: THREE.Object3D, bots: EnemyBot[]): EnemyBot | null => {
     for (let b of bots) {
-      if (isChildOfObject(obj, b.mesh)) return b;
+      if (isChildOfObject(obj, b.rig.root)) return b;
     }
     return null;
   };
 
-  // MANDATORY ENEMY ELIMINATION HUD TRIGGER (PHASE 10)
   const damageBot = (bot: EnemyBot, dmg: number, g: any) => {
+    if (bot.isDead) return;
     bot.hp = Math.max(0, bot.hp - dmg);
     g.damageDealt += dmg;
-    bot.hpBarMesh.scale.x = Math.max(0.01, bot.hp / bot.maxHp);
+    if (bot.hpBarMesh) {
+      bot.hpBarMesh.scale.x = Math.max(0.01, bot.hp / bot.maxHp);
+    }
 
+    // Enemy Eliminated by Player
     if (bot.hp <= 0 && !bot.isDead) {
       bot.isDead = true;
       bot.state = 'DEAD';
-      bot.mesh.rotation.x = Math.PI / 2;
-      bot.mesh.position.y = 0.2;
+      bot.velocity.set(0, 0, 0);
+
+      // Trigger Realistic Death Collapse Animation
+      if (bot.rig) {
+        bot.rig.root.rotation.x = Math.PI / 2;
+        bot.rig.root.position.y = 0.2;
+      }
+      if (bot.muzzleLight) bot.muzzleLight.intensity = 0;
 
       g.eliminationCount += 1;
       const newKills = g.eliminationCount;
       setKillsCount(newKills);
 
-      const remaining = g.bots.filter((b: any) => !b.isDead).length + 1;
+      const remaining = g.bots.filter((b: EnemyBot) => !b.isDead).length + 1;
       setAliveCount(remaining);
 
       // Play mandatory elimination chime
       brAudio.playEliminationBannerChime();
 
-      // Show Mandatory Elimination HUD Banner (Phase 10)
+      // Show Mandatory Elimination HUD Banner
       setEliminationBanner({
         visible: true,
         victimName: bot.name,
@@ -1722,7 +2582,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       pushKillFeed(`OPERATOR eliminated ${bot.name} [${g.player.currentWeapon.name}]`);
 
-      // Victory Condition
+      // Victory Condition: Last Player Alive!
       if (remaining === 1 && g.player.hp > 0) {
         triggerVictory(g);
       }
@@ -1744,6 +2604,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     p.reloading = true;
     setIsReloading(true);
+    brAudio.playReload();
 
     setTimeout(() => {
       const needed = p.currentWeapon.clipSize - p.clip;
@@ -1753,89 +2614,24 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       p.reloading = false;
       setAmmoClip(p.clip);
       setAmmoReserve(p.reserve);
+      setWeaponsInventory((prev) => ({
+        ...prev,
+        [p.currentWeapon.id]: { clip: p.clip, reserve: p.reserve },
+      }));
       setIsReloading(false);
-    }, 1600);
+    }, p.currentWeapon.reloadTime * 1000);
   };
 
   // ============================================================================
-  // VEHICLE DRIVING
+  // RELIABLE SAFE-ZONE STORM SYSTEM (REQUIREMENT 1 FIX)
   // ============================================================================
-  const enterVehicle = (g: any) => {
-    g.player.inVehicle = true;
-    g.vehicle.occupied = true;
-    setIsDriving(true);
-    brAudio.setVehicleEngine(true, 0);
-    pushKillFeed(`ENTERED: ${FOUR_MAPS[g.mapId as MapId].vehicleName}`);
-  };
-
-  const exitVehicle = () => {
-    const g = gameRef.current;
-    if (!g.player.inVehicle) return;
-    g.player.inVehicle = false;
-    g.vehicle.occupied = false;
-    g.player.position.set(
-      g.vehicle.position.x + 2.5,
-      getTerrainHeight(g.vehicle.position.x + 2.5, g.vehicle.position.z, g.mapId),
-      g.vehicle.position.z
-    );
-    setIsDriving(false);
-    setVehicleSpeedKmh(0);
-    brAudio.setVehicleEngine(false);
-  };
-
-  const updateVehiclePhysics = (dt: number, g: any) => {
-    const v = g.vehicle;
-    if (!v.mesh || !v.occupied) return;
-
-    let throttle = 0;
-    if (g.keys.w) throttle = 1;
-    if (g.keys.s) throttle = -0.5;
-
-    let steer = 0;
-    if (g.keys.a) steer = 1;
-    if (g.keys.d) steer = -1;
-
-    v.speed += throttle * 28 * dt;
-    v.speed *= 0.94;
-    v.yaw += steer * (v.speed * 0.08) * dt;
-
-    const fwd = new THREE.Vector3(-Math.sin(v.yaw), 0, -Math.cos(v.yaw));
-    v.position.add(fwd.multiplyScalar(v.speed * dt));
-
-    const groundY = getTerrainHeight(v.position.x, v.position.z, g.mapId);
-    v.position.y = groundY + 0.4;
-    v.mesh.position.copy(v.position);
-    v.mesh.rotation.y = v.yaw;
-
-    g.player.position.copy(v.position);
-
-    const speedKmh = Math.round(Math.abs(v.speed) * 3.6);
-    setVehicleSpeedKmh(speedKmh);
-    brAudio.setVehicleEngine(true, Math.min(1.0, speedKmh / 75));
-
-    if (g.camera) {
-      g.camera.position.set(v.position.x + Math.sin(v.yaw) * 8.5, v.position.y + 4.2, v.position.z + Math.cos(v.yaw) * 8.5);
-      g.camera.lookAt(v.position);
-    }
-
-    // Roadkill bot impacts
-    if (Math.abs(v.speed) > 5) {
-      for (let b of g.bots) {
-        if (!b.isDead && b.position.distanceTo(v.position) < 3.2) {
-          damageBot(b, 100, g);
-        }
-      }
-    }
-  };
-
-  // Safe Zone
   const updateSafeZoneStorm = (dt: number, g: any) => {
     const sz = g.safeZone;
     sz.shrinkTimer -= dt;
     setSafeZoneTime(Math.max(0, Math.round(sz.shrinkTimer)));
 
     if (sz.radius > sz.targetRadius) {
-      sz.radius -= dt * 2.2;
+      sz.radius -= dt * 2.4;
       sz.center.lerp(sz.targetCenter, 0.005);
     }
 
@@ -1843,30 +2639,93 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       sz.currentStage += 1;
       setSafeZonePhase(sz.currentStage);
       sz.shrinkTimer = 60;
-      sz.targetRadius = Math.max(20, sz.targetRadius * 0.55);
-      sz.targetCenter.set((Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60);
+      sz.targetRadius = Math.max(25, sz.targetRadius * 0.55);
+      sz.targetCenter.set((Math.random() - 0.5) * 65, (Math.random() - 0.5) * 65);
       brAudio.playStormWarning();
-      pushKillFeed(`WARNING: Safe Zone contracting to Phase ${sz.currentStage}!`);
+      pushKillFeed(`⚠️ STORM CONTRACTING: Safe Zone contracting to Phase ${sz.currentStage}!`);
     }
 
+    // Update 3D Visual Storm Mesh
     if (sz.stormRingMesh) {
       sz.stormRingMesh.position.set(sz.center.x, 45, sz.center.y);
       sz.stormRingMesh.scale.set(sz.radius / 220, 1, sz.radius / 220);
     }
 
-    const distToCenter = new THREE.Vector2(g.player.position.x, g.player.position.z).distanceTo(sz.center);
-    const outside = distToCenter > sz.radius;
-    setIsOutsideSafeZone(outside);
+    // Configurable Safe-Zone Damage Rate (Phase scaled)
+    const currentDPS = sz.baseDPS + (sz.currentStage - 1) * 4;
 
-    if (outside) {
-      g.player.hp -= 4.5 * dt;
-      setPlayerHp(Math.max(0, Math.round(g.player.hp)));
+    // Reliable Periodic Damage Tick Accumulator (every 1.0s)
+    sz.damageTickTimer += dt;
+    const isTick = sz.damageTickTimer >= 1.0;
+    if (isTick) {
+      sz.damageTickTimer = 0;
+    }
+
+    // 1. Player Safe Zone Evaluation
+    const playerDist = new THREE.Vector2(g.player.position.x, g.player.position.z).distanceTo(sz.center);
+    const playerOutside = playerDist > sz.radius;
+    setIsOutsideSafeZone(playerOutside);
+
+    if (playerOutside && isTick) {
+      if (g.player.armor > 0) {
+        g.player.armor = Math.max(0, g.player.armor - currentDPS * 0.65);
+        setPlayerArmor(Math.round(g.player.armor));
+      } else {
+        g.player.hp = Math.max(0, g.player.hp - currentDPS);
+        setPlayerHp(Math.round(g.player.hp));
+      }
       setDamageFlash(true);
-      setTimeout(() => setDamageFlash(false), 80);
+      setTimeout(() => setDamageFlash(false), 100);
 
       if (g.player.hp <= 0) {
         triggerDefeat(g, 'Fell to the Storm Barrier');
+        return;
       }
+    }
+
+    // 2. Hostile Bot Safe Zone Evaluation (Fix for Requirement 1)
+    if (isTick) {
+      g.bots.forEach((b: EnemyBot) => {
+        if (b.isDead) return;
+
+        const botDist = new THREE.Vector2(b.position.x, b.position.z).distanceTo(sz.center);
+        const botOutside = botDist > sz.radius;
+
+        // Inside safe-zone: DO NOT receive zone damage!
+        if (!botOutside) return;
+
+        // Outside safe-zone: apply damage periodically until health reaches 0
+        b.hp = Math.max(0, b.hp - currentDPS);
+        if (b.hpBarMesh) {
+          b.hpBarMesh.scale.x = Math.max(0.01, b.hp / b.maxHp);
+        }
+
+        // Eliminate bot immediately when health reaches zero
+        if (b.hp <= 0 && !b.isDead) {
+          b.isDead = true;
+          b.state = 'DEAD';
+          b.velocity.set(0, 0, 0);
+
+          // Collapse bot and remove from combat
+          if (b.rig) {
+            b.rig.root.rotation.x = Math.PI / 2;
+            b.rig.root.position.y = 0.2;
+          }
+          if (b.muzzleLight) b.muzzleLight.intensity = 0;
+
+          // Decrement remaining alive counter
+          const remaining = g.bots.filter((bot: EnemyBot) => !bot.isDead).length + 1;
+          setAliveCount(remaining);
+
+          // Notify elimination in killfeed
+          pushKillFeed(`☣️ ${b.name} was eliminated by the Storm Barrier!`);
+
+          // Victory condition check
+          if (remaining === 1 && g.player.hp > 0) {
+            triggerVictory(g);
+          }
+        }
+      });
     }
   };
 
@@ -1879,10 +2738,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       if (distToPlayer < 45 && !p.inVehicle) {
         b.state = 'ATTACK';
-        b.mesh.lookAt(p.position.x, b.position.y, p.position.z);
+        b.rig.root.lookAt(p.position.x, b.position.y, p.position.z);
         b.shootCooldown -= dt;
         if (b.shootCooldown <= 0) {
-          b.shootCooldown = 1.2 + Math.random() * 0.8;
+          b.shootCooldown = 1.1 + Math.random() * 0.8;
           brAudio.playEnemyGunshot();
 
           b.muzzleLight.intensity = 4.0;
@@ -1909,13 +2768,22 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         b.state = 'PATROL';
         const toTarget = b.patrolTarget.clone().sub(b.position);
         if (toTarget.length() < 2.0) {
-          b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 50, 0, b.position.z + (Math.random() - 0.5) * 50);
+          b.patrolTarget.set(
+            b.position.x + (Math.random() - 0.5) * 50,
+            0,
+            b.position.z + (Math.random() - 0.5) * 50
+          );
         } else {
           toTarget.normalize();
           b.position.add(toTarget.multiplyScalar(3.2 * dt));
           b.position.y = getTerrainHeight(b.position.x, b.position.z, g.mapId);
-          b.mesh.position.copy(b.position);
-          b.mesh.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+          b.rig.root.position.copy(b.position);
+          b.rig.root.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+
+          // Stride kinematics for bots
+          b.walkCycle += dt * 8;
+          b.rig.legLGroup.rotation.x = Math.sin(b.walkCycle) * 0.6;
+          b.rig.legRGroup.rotation.x = -Math.sin(b.walkCycle) * 0.6;
         }
       }
     });
@@ -1938,44 +2806,139 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const ctx = cvs.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, 140, 140);
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, 140, 140);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    const cx = cvs.width / 2;
+    const cy = cvs.height / 2;
+    const mapScale = 0.28;
 
-    const mapScale = 140 / 500;
-    const cx = 70;
-    const cy = 70;
+    // Radar Background
+    ctx.fillStyle = '#08101a';
+    ctx.beginPath();
+    ctx.arc(cx, cy, cx - 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-    // Safe Zone
+    // Safe Zone Ring
     const sx = cx + g.safeZone.center.x * mapScale;
     const sy = cy + g.safeZone.center.y * mapScale;
     const sr = g.safeZone.radius * mapScale;
-    ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.arc(sx, sy, Math.max(4, sr), 0, Math.PI * 2);
     ctx.stroke();
 
-    // Bots
-    ctx.fillStyle = '#ef4444';
+    // Hostile Bots Dots
+    ctx.fillStyle = '#ff3344';
     g.bots.forEach((b: EnemyBot) => {
-      if (!b.isDead) {
-        ctx.fillRect(cx + b.position.x * mapScale - 2, cy + b.position.z * mapScale - 2, 4, 4);
+      if (b.isDead) return;
+      const bx = cx + (b.position.x - g.player.position.x) * mapScale;
+      const by = cy + (b.position.z - g.player.position.z) * mapScale;
+      if (Math.hypot(bx - cx, by - cy) < cx - 6) {
+        ctx.beginPath();
+        ctx.arc(bx, by, 3, 0, Math.PI * 2);
+        ctx.fill();
       }
     });
 
-    // Player
-    ctx.save();
-    ctx.translate(cx + g.player.position.x * mapScale, cy + g.player.position.z * mapScale);
-    ctx.rotate(g.mouseLook.yaw);
-    ctx.fillStyle = '#22c55e';
+    // Player Marker
+    ctx.fillStyle = '#00f0ff';
     ctx.beginPath();
-    ctx.moveTo(0, -5);
-    ctx.lineTo(3, 4);
-    ctx.lineTo(-3, 4);
-    ctx.closePath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  };
+
+  const checkLootProximity = (g: any) => {
+    let nearLoot: LootItem | null = null;
+    for (let item of g.lootItems) {
+      if (!item.pickedUp && item.position.distanceTo(g.player.position) < 3.2) {
+        nearLoot = item;
+        break;
+      }
+    }
+
+    if (nearLoot) {
+      setInteractPrompt(`[E] PICK UP ${nearLoot.name}`);
+      if (g.keys.e) {
+        nearLoot.pickedUp = true;
+        g.scene.remove(nearLoot.mesh);
+        brAudio.playLootPickup();
+        pushKillFeed(`ACQUIRED: ${nearLoot.name}`);
+
+        if (nearLoot.type === 'WEAPON' && nearLoot.weaponType) {
+          switchWeapon(nearLoot.weaponType);
+        } else if (nearLoot.type === 'MEDKIT') {
+          g.player.hp = Math.min(100, g.player.hp + 75);
+          setPlayerHp(g.player.hp);
+        } else if (nearLoot.type === 'ARMOR') {
+          g.player.armor = 100;
+          setPlayerArmor(100);
+        } else if (nearLoot.type === 'AMMO') {
+          g.player.reserve += 90;
+          setAmmoReserve(g.player.reserve);
+        }
+        g.keys.e = false;
+      }
+    } else {
+      setInteractPrompt(null);
+    }
+  };
+
+  const updateVehicleDriving = (dt: number, g: any) => {
+    const v = g.vehicle;
+    const accel = 22;
+    if (g.keys.w) v.speed = Math.min(110, v.speed + accel * dt);
+    else if (g.keys.s) v.speed = Math.max(-30, v.speed - accel * dt);
+    else v.speed *= 0.95;
+
+    if (g.keys.a) v.yaw += 1.8 * dt;
+    if (g.keys.d) v.yaw -= 1.8 * dt;
+
+    const fwd = new THREE.Vector3(Math.sin(v.yaw), 0, Math.cos(v.yaw));
+    v.position.add(fwd.multiplyScalar(v.speed * 0.28 * dt));
+    v.position.y = getTerrainHeight(v.position.x, v.position.z, g.mapId) + 0.4;
+
+    if (v.mesh) {
+      v.mesh.position.copy(v.position);
+      v.mesh.rotation.y = v.yaw;
+    }
+
+    g.player.position.copy(v.position);
+    if (g.playerRig) g.playerRig.root.position.copy(v.position);
+
+    setVehicleSpeedKmh(Math.round(Math.abs(v.speed)));
+    brAudio.setVehicleEngine(true, Math.abs(v.speed) / 110);
+
+    if (g.camera) {
+      g.camera.position.set(
+        v.position.x - Math.sin(v.yaw) * 6.5,
+        v.position.y + 3.2,
+        v.position.z - Math.cos(v.yaw) * 6.5
+      );
+      g.camera.lookAt(v.position);
+    }
+
+    if (g.keys.e) exitVehicle();
+  };
+
+  const exitVehicle = () => {
+    const g = gameRef.current;
+    if (!g.player.inVehicle) return;
+    g.player.inVehicle = false;
+    g.vehicle.occupied = false;
+    g.player.position.set(
+      g.vehicle.position.x + 2.5,
+      getTerrainHeight(g.vehicle.position.x + 2.5, g.vehicle.position.z, g.mapId),
+      g.vehicle.position.z
+    );
+    setIsDriving(false);
+    brAudio.setVehicleEngine(false);
+    g.keys.e = false;
   };
 
   // Match End Handlers
@@ -1984,7 +2947,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setPhase('VICTORY');
     brAudio.playVictoryFanfare();
 
-    const xpEarned = 750 + g.eliminationCount * 100;
+    const xpEarned = 750 + g.eliminationCount * 120;
     const stats: MatchHistoryEntry = {
       id: Date.now().toString(),
       mapName: FOUR_MAPS[g.mapId as MapId].name,
@@ -2009,8 +2972,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setPhase('GAMEOVER');
     brAudio.playDefeatChord();
 
-    const remaining = g.bots.filter((b: any) => !b.isDead).length + 1;
-    const xpEarned = 150 + g.eliminationCount * 50;
+    const remaining = g.bots.filter((b: EnemyBot) => !b.isDead).length + 1;
+    const xpEarned = 150 + g.eliminationCount * 60;
 
     const stats: MatchHistoryEntry = {
       id: Date.now().toString(),
@@ -2036,6 +2999,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setKillFeed((prev) => [msg, ...prev.slice(0, 4)]);
   };
 
+  // ============================================================================
+  // INPUT CONTROLS SETUP
+  // ============================================================================
   const setupInputEvents = (canvas: HTMLCanvasElement, g: any) => {
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
@@ -2048,10 +3014,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         e.preventDefault();
         g.keys.space = true;
         if (g.phase === 'AIRPLANE') jumpFromAircraft();
+        else if (g.phase === 'FREEFALL') deployParachute();
       }
       if (k === 'e') g.keys.e = true;
       if (k === 'r') reloadWeapon();
       if (k === 'm') setShowFullMap((m) => !m);
+
+      // Weapon Switching via Number Keys 1 - 5
+      if (k === '1') switchWeapon('CARBINE');
+      if (k === '2') switchWeapon('SMG');
+      if (k === '3') switchWeapon('SHOTGUN');
+      if (k === '4') switchWeapon('SNIPER');
+      if (k === '5') switchWeapon('PISTOL');
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -2066,30 +3040,58 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     };
 
     const onMouseDown = (e: MouseEvent) => {
-      if (g.phase === 'PLAYING') {
+      if (g.phase === 'LOBBY') {
+        isDraggingLobbyRef.current = true;
+        lastMouseXRef.current = e.clientX;
+      } else if (g.phase === 'PLAYING') {
         if (!document.pointerLockElement) canvas.requestPointerLock?.();
-        if (e.button === 0) fireWeapon();
-        else if (e.button === 2) {
+        if (e.button === 0) {
+          g.isFiring = true;
+          fireWeapon();
+        } else if (e.button === 2) {
           g.mouseLook.isAiming = !g.mouseLook.isAiming;
           setIsAiming(g.mouseLook.isAiming);
         }
       }
     };
 
+    const onMouseUp = (e: MouseEvent) => {
+      if (g.phase === 'LOBBY') {
+        isDraggingLobbyRef.current = false;
+      } else if (g.phase === 'PLAYING') {
+        if (e.button === 0) g.isFiring = false;
+      }
+    };
+
     const onMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement === canvas) {
-        g.mouseLook.yaw -= e.movementX * 0.0022;
-        g.mouseLook.pitch -= e.movementY * 0.0022;
-        g.mouseLook.pitch = Math.max(-0.6, Math.min(0.85, g.mouseLook.pitch));
+      if (g.phase === 'LOBBY' && isDraggingLobbyRef.current) {
+        const deltaX = e.clientX - lastMouseXRef.current;
+        lastMouseXRef.current = e.clientX;
+        lobbyRotationRef.current += deltaX * 0.012;
+      } else if (g.phase === 'PLAYING') {
+        if (document.pointerLockElement === canvas) {
+          g.mouseLook.yaw -= e.movementX * 0.0022;
+          g.mouseLook.pitch -= e.movementY * 0.0022;
+          g.mouseLook.pitch = Math.max(-0.6, Math.min(0.85, g.mouseLook.pitch));
+        }
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (g.phase === 'LOBBY') {
+        lobbyZoomRef.current = Math.max(2.8, Math.min(6.5, lobbyZoomRef.current + e.deltaY * 0.003));
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('wheel', onWheel);
   };
 
+  // Match Flow Transitions
   const startMatchDeployment = () => {
     const g = gameRef.current;
     g.phase = 'AIRPLANE';
@@ -2106,12 +3108,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     brAudio.startAirplaneDrone();
   };
 
-  // ============================================================================
-  // RENDER INTERFACE
-  // ============================================================================
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar hidden />
 
       {/* 3D WebGL Canvas */}
       <View style={styles.canvasContainer}>
@@ -2123,20 +3122,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             position: 'absolute',
             top: 0,
             left: 0,
-            overflow: 'hidden',
-            cursor: phase === 'PLAYING' ? 'crosshair' : 'default',
+            cursor: phase === 'PLAYING' ? 'crosshair' : phase === 'LOBBY' ? 'grab' : 'default',
           }}
         />
 
-        {damageFlash && <View style={styles.damageFlash} pointerEvents="none" />}
+        {/* Damage Red Screen Flash */}
+        {damageFlash && <View style={styles.damageFlashOverlay} pointerEvents="none" />}
+
+        {/* Storm Purple Vignette */}
         {isOutsideSafeZone && <View style={styles.stormVignette} pointerEvents="none" />}
 
-        {/* ==================================================================== */}
-        {/* PHASE 10 MANDATORY: ENEMY ELIMINATION HUD BANNER */}
-        {/* ==================================================================== */}
+        {/* Elimination Banner HUD */}
         {eliminationBanner.visible && (
           <View style={styles.eliminationBannerContainer} pointerEvents="none">
-            <View style={styles.eliminationBannerGlow}>
+            <View style={styles.eliminationBannerCard}>
               <Text style={styles.eliminationTitle}>🔥 ENEMY ELIMINATED 🔥</Text>
               <Text style={styles.eliminationVictim}>{eliminationBanner.victimName}</Text>
               <View style={styles.eliminationTelemetryRow}>
@@ -2149,62 +3148,295 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         )}
 
         {/* ==================================================================== */}
-        {/* SCREEN 1: AAA MAIN MENU */}
+        {/* PUBG-INSPIRED 3D CHARACTER LOBBY SCREEN (PHASE: LOBBY) */}
         {/* ==================================================================== */}
-        {phase === 'MENU' && (
-          <View style={styles.menuContainer}>
-            <View style={styles.menuCard}>
-              <View style={styles.menuBadge}>
-                <Text style={styles.menuBadgeText}>★ AAA BATTLE ROYALE ★</Text>
-              </View>
-              <Text style={styles.menuTitle}>SHADOW STRIKE</Text>
-              <Text style={styles.menuSubTitle}>PUBG & FREE FIRE INSPIRED 3D SURVIVAL</Text>
-
-              <View style={styles.menuStatsRow}>
-                <Text style={styles.menuStatLabel}>
-                  CALLSIGN: <Text style={{ color: '#00f0ff', fontWeight: '900' }}>{dashboard.callsign}</Text>
-                </Text>
-                <Text style={styles.menuStatLabel}>
-                  RANK: <Text style={{ color: '#ffd700', fontWeight: '900' }}>{dashboard.rankTitle}</Text>
-                </Text>
-                <Text style={styles.menuStatLabel}>
-                  LEVEL: <Text style={{ color: '#00ff66', fontWeight: '900' }}>LVL {dashboard.level}</Text>
-                </Text>
+        {phase === 'LOBBY' && (
+          <View style={styles.lobbyOverlay} pointerEvents="box-none">
+            {/* Top Navigation Bar & Profile */}
+            <View style={styles.lobbyHeader}>
+              <View style={styles.profileBadge}>
+                <View style={styles.profileAvatarCircle}>
+                  <Text style={styles.profileAvatarText}>🎖</Text>
+                </View>
+                <View>
+                  <Text style={styles.profileCallsign}>{dashboard.callsign}</Text>
+                  <Text style={styles.profileRank}>
+                    {dashboard.rankTitle} • LVL {dashboard.level}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.menuActions}>
-                <TouchableOpacity style={styles.primaryBtn} onPress={startMatchDeployment} activeOpacity={0.85}>
-                  <Text style={styles.primaryBtnText}>▶ DEPLOY QUICK MATCH (AIRPLANE DROP)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('MAP_SELECT')}>
-                  <Text style={styles.secondaryBtnText}>🗺 SELECT MAP ({FOUR_MAPS[selectedMapId].name})</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('DASHBOARD')}>
-                  <Text style={styles.secondaryBtnText}>📊 PERSONAL PLAYER DASHBOARD</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.secondaryBtn}
-                  onPress={() => {
-                    const next = graphicsPreset === 'HIGH' ? 'MED' : graphicsPreset === 'MED' ? 'LOW' : 'HIGH';
-                    setGraphicsPreset(next);
-                  }}
-                >
-                  <Text style={styles.secondaryBtnText}>GRAPHICS PRESET: {graphicsPreset} (PRO MAX)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation?.navigate?.('Home')}>
-                  <Text style={styles.secondaryBtnText}>‹ RETURN TO ARCADE HUB</Text>
-                </TouchableOpacity>
+              {/* Lobby Tabs */}
+              <View style={styles.lobbyTabsRow}>
+                {(['PLAY', 'CUSTOMIZE', 'ARSENAL', 'DASHBOARD', 'SETTINGS'] as const).map((tab) => (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.lobbyTabBtn, lobbyTab === tab && styles.lobbyTabBtnActive]}
+                    onPress={() => setLobbyTab(tab)}
+                  >
+                    <Text style={[styles.lobbyTabBtnText, lobbyTab === tab && styles.lobbyTabBtnTextActive]}>
+                      {tab === 'PLAY'
+                        ? '⚔️ BATTLE'
+                        : tab === 'CUSTOMIZE'
+                        ? '👤 OPERATOR'
+                        : tab === 'ARSENAL'
+                        ? '🔫 ARSENAL'
+                        : tab === 'DASHBOARD'
+                        ? '📊 CAREER'
+                        : '⚙️ SETTINGS'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+
+              <TouchableOpacity style={styles.exitToHubBtn} onPress={() => navigation?.navigate?.('Home')}>
+                <Text style={styles.exitToHubBtnText}>‹ HUB</Text>
+              </TouchableOpacity>
             </View>
+
+            {/* TAB 1: BATTLE READY & DEPLOYMENT */}
+            {lobbyTab === 'PLAY' && (
+              <View style={styles.lobbyBottomPanel}>
+                <View style={styles.lobbyMatchConfigCard}>
+                  <Text style={styles.lobbySectionTitle}>BATTLEGROUND & MODE</Text>
+                  <View style={styles.lobbyMapPreviewRow}>
+                    <TouchableOpacity
+                      style={styles.selectedMapBadge}
+                      onPress={() => setPhase('MAP_SELECT')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.selectedMapLabel}>THEATRE MAP:</Text>
+                      <Text style={styles.selectedMapName}>🗺 {FOUR_MAPS[selectedMapId].name}</Text>
+                      <Text style={styles.selectedMapSub}>[CLICK TO CHANGE MAP]</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.selectedModeBadge}
+                      onPress={() => setGameMode((m) => (m === 'SOLO_BR' ? 'RANKED_TAC' : 'SOLO_BR'))}
+                    >
+                      <Text style={styles.selectedMapLabel}>MODE:</Text>
+                      <Text style={styles.selectedModeName}>
+                        {gameMode === 'SOLO_BR' ? '★ SOLO BATTLE ROYALE' : '★ RANKED HARDCORE'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.deployMatchBtn}
+                    onPress={startMatchDeployment}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.deployMatchBtnText}>▶ START MATCH (AIRPLANE DROP)</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.lobbyRotationHint}>
+                  <Text style={styles.lobbyRotationHintText}>
+                    💡 DRAG WITH MOUSE TO ROTATE CHARACTER 360° | SCROLL TO ZOOM
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* TAB 2: 3D CHARACTER CUSTOMIZATION STUDIO */}
+            {lobbyTab === 'CUSTOMIZE' && (
+              <View style={styles.customizationStudioCard}>
+                <Text style={styles.studioHeaderTitle}>TACTICAL OPERATOR CUSTOMIZATION</Text>
+
+                <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                  {/* Gender Selector */}
+                  <Text style={styles.studioCategoryTitle}>OPERATOR GENDER</Text>
+                  <View style={styles.pillSelectorRow}>
+                    {(['MALE', 'FEMALE'] as const).map((g) => (
+                      <TouchableOpacity
+                        key={g}
+                        style={[styles.pillBtn, appearance.gender === g && styles.pillBtnActive]}
+                        onPress={() => updateAppearance({ gender: g })}
+                      >
+                        <Text style={[styles.pillBtnText, appearance.gender === g && styles.pillBtnTextActive]}>
+                          {g === 'MALE' ? '♂ MALE OPERATOR' : '♀ FEMALE OPERATOR'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Outfits Selector */}
+                  <Text style={styles.studioCategoryTitle}>TACTICAL UNIFORM</Text>
+                  <View style={styles.gridOptionsContainer}>
+                    {Object.entries(OUTFIT_DEFINITIONS).map(([id, o]) => {
+                      const isSel = appearance.outfit === id;
+                      return (
+                        <TouchableOpacity
+                          key={id}
+                          style={[styles.optionCard, isSel && styles.optionCardActive]}
+                          onPress={() => updateAppearance({ outfit: id as OutfitId })}
+                        >
+                          <Text style={[styles.optionCardTitle, isSel && { color: o.accentColor }]}>{o.name}</Text>
+                          <Text style={styles.optionCardTag}>{o.tag}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Headgear Selector */}
+                  <Text style={styles.studioCategoryTitle}>BALLISTIC HEADGEAR</Text>
+                  <View style={styles.gridOptionsContainer}>
+                    {Object.entries(HEADGEAR_DEFINITIONS).map(([id, h]) => {
+                      const isSel = appearance.headgear === id;
+                      return (
+                        <TouchableOpacity
+                          key={id}
+                          style={[styles.optionCard, isSel && styles.optionCardActive]}
+                          onPress={() => updateAppearance({ headgear: id as HeadgearId })}
+                        >
+                          <Text style={[styles.optionCardTitle, isSel && { color: '#00f0ff' }]}>{h.name}</Text>
+                          <Text style={styles.optionCardTag}>{h.tag}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Backpack Selector */}
+                  <Text style={styles.studioCategoryTitle}>TACTICAL BACKPACK</Text>
+                  <View style={styles.gridOptionsContainer}>
+                    {Object.entries(BACKPACK_DEFINITIONS).map(([id, b]) => {
+                      const isSel = appearance.backpack === id;
+                      return (
+                        <TouchableOpacity
+                          key={id}
+                          style={[styles.optionCard, isSel && styles.optionCardActive]}
+                          onPress={() => updateAppearance({ backpack: id as BackpackId })}
+                        >
+                          <Text style={[styles.optionCardTitle, isSel && { color: '#ffd700' }]}>{b.name}</Text>
+                          <Text style={styles.optionCardTag}>{b.capacity}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
+            {/* TAB 3: 5 FUNCTIONAL WEAPONS ARSENAL */}
+            {lobbyTab === 'ARSENAL' && (
+              <View style={styles.customizationStudioCard}>
+                <Text style={styles.studioHeaderTitle}>ARMORY: 5 FUNCTIONAL WEAPONS</Text>
+                <Text style={styles.studioHeaderSub}>
+                  Select weapon to preview in operator's hands & review ballistic telemetry
+                </Text>
+
+                <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                  {Object.values(WEAPON_REGISTRY).map((w) => {
+                    const isSel = appearance.lobbyWeapon === w.id;
+                    return (
+                      <TouchableOpacity
+                        key={w.id}
+                        style={[styles.arsenalCard, isSel && { borderColor: w.color, backgroundColor: 'rgba(255,255,255,0.06)' }]}
+                        onPress={() => {
+                          updateAppearance({ lobbyWeapon: w.id });
+                          switchWeapon(w.id);
+                        }}
+                      >
+                        <View style={styles.arsenalCardHeader}>
+                          <Text style={[styles.arsenalSlotPill, { backgroundColor: w.color }]}>
+                            SLOT [{w.slotNumber}]
+                          </Text>
+                          <Text style={styles.arsenalCategoryText}>{w.category}</Text>
+                        </View>
+                        <Text style={[styles.arsenalName, { color: isSel ? w.color : '#fff' }]}>{w.name}</Text>
+                        <Text style={styles.arsenalDesc}>{w.desc}</Text>
+
+                        <View style={styles.arsenalStatsRow}>
+                          <Text style={styles.arsenalStat}>DMG: <Text style={{ color: '#ff3344' }}>{w.damage}</Text></Text>
+                          <Text style={styles.arsenalStat}>MAG: <Text style={{ color: '#00f0ff' }}>{w.clipSize}</Text></Text>
+                          <Text style={styles.arsenalStat}>RATE: <Text style={{ color: '#ffd700' }}>{w.fireRate}s</Text></Text>
+                          <Text style={styles.arsenalStat}>RANGE: <Text style={{ color: '#a855f7' }}>{w.range}m</Text></Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* TAB 4: CAREER DASHBOARD */}
+            {lobbyTab === 'DASHBOARD' && (
+              <View style={styles.customizationStudioCard}>
+                <Text style={styles.studioHeaderTitle}>CAREER PROFILE & STATS</Text>
+
+                <View style={styles.dashboardGrid}>
+                  <View style={styles.dashMetric}>
+                    <Text style={styles.dashMetricVal}>{dashboard.totalMatches}</Text>
+                    <Text style={styles.dashMetricLbl}>MATCHES</Text>
+                  </View>
+                  <View style={styles.dashMetric}>
+                    <Text style={[styles.dashMetricVal, { color: '#ffd700' }]}>{dashboard.totalWins}</Text>
+                    <Text style={styles.dashMetricLbl}>VICTORIES</Text>
+                  </View>
+                  <View style={styles.dashMetric}>
+                    <Text style={[styles.dashMetricVal, { color: '#ff3344' }]}>{dashboard.totalKills}</Text>
+                    <Text style={styles.dashMetricLbl}>TOTAL KILLS</Text>
+                  </View>
+                  <View style={styles.dashMetric}>
+                    <Text style={[styles.dashMetricVal, { color: '#00f0ff' }]}>
+                      {(dashboard.totalKills / Math.max(1, dashboard.totalDeaths)).toFixed(2)}
+                    </Text>
+                    <Text style={styles.dashMetricLbl}>K/D RATIO</Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.studioCategoryTitle, { marginTop: 16 }]}>RECENT MATCH HISTORY</Text>
+                <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
+                  {dashboard.recentMatches.map((m, idx) => (
+                    <View key={idx} style={styles.historyRow}>
+                      <Text style={[styles.historyPlace, { color: m.won ? '#ffd700' : '#fff' }]}>
+                        #{m.placement}
+                      </Text>
+                      <Text style={styles.historyMap}>{m.mapName}</Text>
+                      <Text style={styles.historyKills}>🔥 {m.kills} KILLS</Text>
+                      <Text style={styles.historyTime}>⏱ {Math.floor(m.survivalTimeSec / 60)}m</Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* TAB 5: GRAPHICS & AUDIO SETTINGS */}
+            {lobbyTab === 'SETTINGS' && (
+              <View style={styles.customizationStudioCard}>
+                <Text style={styles.studioHeaderTitle}>SYSTEM CONFIGURATION</Text>
+
+                <Text style={styles.studioCategoryTitle}>GRAPHICS PRESET</Text>
+                <View style={styles.pillSelectorRow}>
+                  {(['LOW', 'MED', 'HIGH'] as const).map((g) => (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.pillBtn, graphicsPreset === g && styles.pillBtnActive]}
+                      onPress={() => setGraphicsPreset(g)}
+                    >
+                      <Text style={[styles.pillBtnText, graphicsPreset === g && styles.pillBtnTextActive]}>
+                        {g} PERFORMANCE
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.studioCategoryTitle}>AUDIO CONTROLS</Text>
+                <TouchableOpacity
+                  style={[styles.pillBtn, { marginTop: 8 }]}
+                  onPress={() => (brAudio.enabled = !brAudio.enabled)}
+                >
+                  <Text style={styles.pillBtnText}>
+                    SOUND EFFECTS: {brAudio.enabled ? '🔊 ENABLED' : '🔇 MUTED'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
         {/* ==================================================================== */}
-        {/* SCREEN 2: FOUR LARGE, DISTINCT MAPS SELECTOR (PHASE 3 & 12) */}
+        {/* FOUR LARGE MAPS SELECTOR MODAL */}
         {/* ==================================================================== */}
         {phase === 'MAP_SELECT' && (
           <View style={styles.menuContainer}>
@@ -2245,360 +3477,212 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 })}
               </ScrollView>
 
-              <TouchableOpacity style={styles.primaryBtn} onPress={startMatchDeployment}>
-                <Text style={styles.primaryBtnText}>▶ DEPLOY TO {FOUR_MAPS[selectedMapId].name}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('MENU')}>
-                <Text style={styles.secondaryBtnText}>‹ BACK TO MAIN MENU</Text>
+              <TouchableOpacity style={styles.primaryBtn} onPress={() => setPhase('LOBBY')}>
+                <Text style={styles.primaryBtnText}>✓ CONFIRM THEATRE ({FOUR_MAPS[selectedMapId].name})</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {/* ==================================================================== */}
-        {/* SCREEN 3: PERSONAL PLAYER DASHBOARD (PHASE 14) */}
-        {/* ==================================================================== */}
-        {phase === 'DASHBOARD' && (
-          <View style={styles.menuContainer}>
-            <View style={[styles.menuCard, { maxWidth: 700 }]}>
-              <Text style={styles.menuBadgeText}>OPERATOR PROFILE & CAREER</Text>
-              <Text style={styles.menuTitle}>PERSONAL DASHBOARD</Text>
-              <Text style={styles.menuSubTitle}>LIFETIME COMBAT TELEMETRY & STATS</Text>
-
-              {/* Profile Card */}
-              <View style={styles.dashHeaderRow}>
-                <View>
-                  <Text style={styles.dashCallsign}>{dashboard.callsign}</Text>
-                  <Text style={styles.dashRank}>{dashboard.rankTitle} • LEVEL {dashboard.level}</Text>
-                </View>
-                <View style={styles.dashXpBox}>
-                  <Text style={styles.dashXpLabel}>TOTAL XP</Text>
-                  <Text style={styles.dashXpVal}>{dashboard.xp} PTS</Text>
-                </View>
-              </View>
-
-              {/* Stats Grid */}
-              <View style={styles.statsGrid}>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>MATCHES</Text>
-                  <Text style={styles.statGridVal}>{dashboard.totalMatches}</Text>
-                </View>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>WINS</Text>
-                  <Text style={[styles.statGridVal, { color: '#ffd700' }]}>{dashboard.totalWins}</Text>
-                </View>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>WIN RATE</Text>
-                  <Text style={[styles.statGridVal, { color: '#00ff66' }]}>
-                    {dashboard.totalMatches > 0
-                      ? `${Math.round((dashboard.totalWins / dashboard.totalMatches) * 100)}%`
-                      : '0%'}
-                  </Text>
-                </View>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>KILLS</Text>
-                  <Text style={[styles.statGridVal, { color: '#ef4444' }]}>{dashboard.totalKills}</Text>
-                </View>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>K/D RATIO</Text>
-                  <Text style={[styles.statGridVal, { color: '#00f0ff' }]}>
-                    {dashboard.totalDeaths > 0
-                      ? (dashboard.totalKills / dashboard.totalDeaths).toFixed(2)
-                      : dashboard.totalKills.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.statGridItem}>
-                  <Text style={styles.statGridLabel}>BEST TIME</Text>
-                  <Text style={styles.statGridVal}>{dashboard.bestSurvivalSec}s</Text>
-                </View>
-              </View>
-
-              {/* Recent Match History */}
-              <Text style={styles.historySectionTitle}>RECENT MATCH HISTORY</Text>
-              <ScrollView style={{ maxHeight: 160, width: '100%', marginBottom: 12 }}>
-                {dashboard.recentMatches.length === 0 ? (
-                  <Text style={styles.emptyHistoryText}>No matches recorded yet. Deploy to start logging stats!</Text>
-                ) : (
-                  dashboard.recentMatches.map((m, idx) => (
-                    <View key={idx} style={styles.historyRow}>
-                      <Text style={[styles.historyBadge, { color: m.won ? '#ffd700' : '#cbd5e1' }]}>
-                        {m.won ? '🏆 WINNER' : `#${m.placement}`}
-                      </Text>
-                      <Text style={styles.historyMap}>{m.mapName}</Text>
-                      <Text style={styles.historyKills}>⚔ {m.kills} Kills</Text>
-                      <Text style={styles.historyTime}>⏱ {m.survivalTimeSec}s</Text>
-                      <Text style={styles.historyXp}>+{m.xpEarned} XP</Text>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-
-              <TouchableOpacity style={styles.primaryBtn} onPress={startMatchDeployment}>
-                <Text style={styles.primaryBtnText}>▶ DEPLOY NEW MATCH</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('MENU')}>
-                <Text style={styles.secondaryBtnText}>‹ RETURN TO MAIN MENU</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* ==================================================================== */}
-        {/* AIRPLANE & FREEFALL INSERTION (PHASE 4) */}
+        {/* AIRPLANE & FREEFALL INSERTION OVERLAY */}
         {/* ==================================================================== */}
         {(phase === 'AIRPLANE' || phase === 'FREEFALL' || phase === 'PARACHUTE') && (
           <View style={styles.airborneOverlay} pointerEvents="box-none">
-            <View style={styles.airborneTelemetry}>
-              <Text style={styles.telemetryTag}>AIRBORNE INSERTION • {FOUR_MAPS[selectedMapId].name}</Text>
-              <Text style={styles.telemetryMain}>ALTITUDE: {altitudeMeters}m</Text>
-              <Text style={styles.telemetrySub}>AIRSPEED: {descentSpeedKmh} KM/H</Text>
+            <View style={styles.altimeterCard}>
+              <Text style={styles.altimeterTitle}>ALTIMETER TELEMETRY</Text>
+              <Text style={styles.altitudeText}>{altitudeMeters}m</Text>
+              <Text style={styles.descentSpeedText}>DESCENT: {descentSpeedKmh} KM/H</Text>
             </View>
 
             {phase === 'AIRPLANE' && (
               <TouchableOpacity style={styles.jumpBtn} onPress={jumpFromAircraft} activeOpacity={0.85}>
-                <Text style={styles.jumpBtnText}>🪂 JUMP FROM AIRCRAFT [SPACE]</Text>
+                <Text style={styles.jumpBtnText}>🪂 PRESS [SPACE] TO JUMP FROM PLANE</Text>
               </TouchableOpacity>
             )}
 
             {phase === 'FREEFALL' && (
-              <TouchableOpacity style={styles.chuteBtn} onPress={deployParachute} activeOpacity={0.85}>
-                <Text style={styles.chuteBtnText}>DEPLOY PARACHUTE [TAP]</Text>
+              <TouchableOpacity style={styles.jumpBtn} onPress={deployParachute} activeOpacity={0.85}>
+                <Text style={styles.jumpBtnText}>🪂 PRESS [SPACE] TO DEPLOY PARACHUTE</Text>
               </TouchableOpacity>
+            )}
+
+            {phase === 'PARACHUTE' && (
+              <View style={styles.glidingBanner}>
+                <Text style={styles.glidingBannerText}>
+                  STEERING PARACHUTE GLIDE TO GROUND LZ... [WASD TO STEER]
+                </Text>
+              </View>
             )}
           </View>
         )}
 
         {/* ==================================================================== */}
-        {/* IN-GAME HUD (PHASE 15) */}
+        {/* IN-GAME COMBAT HUD (PHASE: PLAYING) */}
         {/* ==================================================================== */}
         {phase === 'PLAYING' && (
-          <View style={styles.hudContainer} pointerEvents="box-none">
-            {/* Top Bar */}
-            <View style={styles.hudTopRow} pointerEvents="box-none">
-              <View style={styles.gaugesContainer}>
-                <View style={styles.gaugeLine}>
-                  <Text style={styles.hpLabel}>HP</Text>
-                  <View style={styles.gaugeTrack}>
-                    <View
-                      style={[
-                        styles.gaugeBar,
-                        { width: `${playerHp}%`, backgroundColor: playerHp > 40 ? '#00ff66' : '#ef4444' },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.gaugeVal}>{playerHp}</Text>
-                </View>
-
-                <View style={styles.gaugeLine}>
-                  <Text style={[styles.hpLabel, { color: '#00f0ff' }]}>AP</Text>
-                  <View style={styles.gaugeTrack}>
-                    <View style={[styles.gaugeBar, { width: `${playerArmor}%`, backgroundColor: '#00f0ff' }]} />
-                  </View>
-                  <Text style={[styles.gaugeVal, { color: '#00f0ff' }]}>{playerArmor}</Text>
+          <View style={styles.hudOverlay} pointerEvents="box-none">
+            {/* Top Bar: Compass, Storm Timer, Alive Count */}
+            <View style={styles.hudTopRow}>
+              <View style={styles.hudLeftStats}>
+                <View style={styles.hudAliveBadge}>
+                  <Text style={styles.hudAliveText}>ALIVE: {aliveCount}</Text>
+                  <Text style={styles.hudKillsText}>KILLS: {killsCount}</Text>
                 </View>
               </View>
 
               <View style={styles.safeZoneBanner}>
-                <View style={styles.alivePill}>
-                  <Text style={styles.aliveLabel}>ALIVE: {aliveCount}/20</Text>
-                  <Text style={styles.killsLabel}>KILLS: {killsCount}</Text>
-                </View>
-                <Text style={styles.zoneClock}>
+                <Text style={styles.safeZonePhaseText}>
                   STORM: {Math.floor(safeZoneTime / 60)}:{String(safeZoneTime % 60).padStart(2, '0')} (PHASE {safeZonePhase})
                 </Text>
+                {isOutsideSafeZone && (
+                  <Text style={styles.safeZoneWarningText}>⚠️ OUTSIDE SAFE ZONE! TAKING DAMAGE!</Text>
+                )}
               </View>
 
-              <View style={styles.minimapWrapper}>
-                <canvas ref={minimapCanvasRef} width={140} height={140} style={{ borderRadius: 10 }} />
-                <TouchableOpacity style={styles.mapToggleBtn} onPress={() => setShowFullMap(true)}>
-                  <Text style={styles.mapToggleText}>🗺 MAP [M]</Text>
-                </TouchableOpacity>
+              <View style={styles.minimapContainer}>
+                <canvas
+                  ref={minimapCanvasRef}
+                  width={140}
+                  height={140}
+                  style={{ width: 140, height: 140, borderRadius: 70 }}
+                />
               </View>
             </View>
 
-            {/* Crosshair */}
-            <View style={styles.crosshair} pointerEvents="none">
-              <View style={styles.crosshairCenter} />
-              <View style={[styles.crosshairArm, { top: -10, left: -1, width: 2, height: 8 }]} />
-              <View style={[styles.crosshairArm, { bottom: -10, left: -1, width: 2, height: 8 }]} />
-              <View style={[styles.crosshairArm, { left: -10, top: -1, width: 8, height: 2 }]} />
-              <View style={[styles.crosshairArm, { right: -10, top: -1, width: 8, height: 2 }]} />
-              {hitMarker && <Text style={styles.hitMarkerSymbol}>✕</Text>}
-            </View>
-
-            {interactPrompt && (
-              <View style={styles.promptBox} pointerEvents="none">
-                <Text style={styles.promptText}>{interactPrompt}</Text>
-              </View>
-            )}
-
-            <View style={styles.killFeedContainer} pointerEvents="none">
-              {killFeed.map((kf, i) => (
-                <Text key={i} style={styles.killFeedText}>
-                  {kf}
+            {/* Kill Feed Notification Box */}
+            <View style={styles.killFeedBox} pointerEvents="none">
+              {killFeed.map((msg, idx) => (
+                <Text key={idx} style={styles.killFeedText}>
+                  {msg}
                 </Text>
               ))}
             </View>
 
-            {isDriving && (
-              <View style={styles.speedometerContainer}>
-                <Text style={styles.speedText}>{vehicleSpeedKmh} KM/H</Text>
-                <TouchableOpacity style={styles.exitVehBtn} onPress={exitVehicle}>
-                  <Text style={styles.exitVehText}>EXIT VEHICLE [E]</Text>
-                </TouchableOpacity>
+            {/* Reticle / Sniper Scope Overlay */}
+            {isAiming && currentWeapon.id === 'SNIPER' ? (
+              <View style={styles.sniperScopeOverlay} pointerEvents="none">
+                <View style={styles.scopeCrosshairV} />
+                <View style={styles.scopeCrosshairH} />
+                <View style={styles.scopeCenterDot} />
+              </View>
+            ) : (
+              <View style={styles.reticleContainer} pointerEvents="none">
+                <View style={[styles.reticleDot, hitMarker && styles.reticleHit]} />
               </View>
             )}
 
-            {/* Bottom Controls */}
-            <View style={styles.hudBottomRow} pointerEvents="box-none">
-              <View style={styles.dpad} pointerEvents="auto">
-                <TouchableOpacity
-                  style={styles.dpadBtn}
-                  onPressIn={() => (gameRef.current.keys.w = true)}
-                  onPressOut={() => (gameRef.current.keys.w = false)}
-                >
-                  <Text style={styles.dpadArrow}>▲</Text>
-                </TouchableOpacity>
-                <View style={styles.dpadMid}>
-                  <TouchableOpacity
-                    style={styles.dpadBtn}
-                    onPressIn={() => (gameRef.current.keys.a = true)}
-                    onPressOut={() => (gameRef.current.keys.a = false)}
-                  >
-                    <Text style={styles.dpadArrow}>◀</Text>
-                  </TouchableOpacity>
-                  <View style={styles.dpadCenter} />
-                  <TouchableOpacity
-                    style={styles.dpadBtn}
-                    onPressIn={() => (gameRef.current.keys.d = true)}
-                    onPressOut={() => (gameRef.current.keys.d = false)}
-                  >
-                    <Text style={styles.dpadArrow}>▶</Text>
-                  </TouchableOpacity>
+            {/* Interaction Prompt */}
+            {interactPrompt && (
+              <View style={styles.interactContainer} pointerEvents="none">
+                <Text style={styles.interactText}>{interactPrompt}</Text>
+              </View>
+            )}
+
+            {/* Driving Telemetry */}
+            {isDriving && (
+              <View style={styles.drivingTelemetryCard}>
+                <Text style={styles.drivingSpeedText}>{vehicleSpeedKmh} KM/H</Text>
+                <Text style={styles.drivingHintText}>[E] EXIT VEHICLE | [WASD] DRIVE</Text>
+              </View>
+            )}
+
+            {/* Bottom HUD: Health, Armor, Weapon Slots & Ammo */}
+            <View style={styles.hudBottomRow}>
+              {/* Health & Armor Bars */}
+              <View style={styles.vitalsCard}>
+                <View style={styles.vitalBarRow}>
+                  <Text style={styles.vitalLabel}>HP</Text>
+                  <View style={styles.vitalTrack}>
+                    <View style={[styles.vitalFill, { width: `${playerHp}%`, backgroundColor: '#ff3344' }]} />
+                  </View>
+                  <Text style={styles.vitalVal}>{playerHp}</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.dpadBtn}
-                  onPressIn={() => (gameRef.current.keys.s = true)}
-                  onPressOut={() => (gameRef.current.keys.s = false)}
-                >
-                  <Text style={styles.dpadArrow}>▼</Text>
-                </TouchableOpacity>
+
+                <View style={styles.vitalBarRow}>
+                  <Text style={styles.vitalLabel}>AP</Text>
+                  <View style={styles.vitalTrack}>
+                    <View style={[styles.vitalFill, { width: `${playerArmor}%`, backgroundColor: '#00f0ff' }]} />
+                  </View>
+                  <Text style={styles.vitalVal}>{playerArmor}</Text>
+                </View>
               </View>
 
-              <View style={styles.combatCluster} pointerEvents="auto">
-                <View style={styles.tacticalRow}>
-                  <TouchableOpacity
-                    style={[styles.smallActionBtn, isAiming && styles.btnActive]}
-                    onPress={() => {
-                      const next = !gameRef.current.mouseLook.isAiming;
-                      gameRef.current.mouseLook.isAiming = next;
-                      setIsAiming(next);
-                    }}
-                  >
-                    <Text style={styles.actionIcon}>🎯</Text>
-                    <Text style={styles.actionLabel}>AIM</Text>
-                  </TouchableOpacity>
+              {/* 5 Weapon Slots Quick-Select Switcher */}
+              <View style={styles.weaponSlotsContainer}>
+                {Object.values(WEAPON_REGISTRY).map((w) => {
+                  const isCurrent = currentWeapon.id === w.id;
+                  const ammo = weaponsInventory[w.id];
+                  return (
+                    <TouchableOpacity
+                      key={w.id}
+                      style={[styles.weaponSlotBtn, isCurrent && { borderColor: w.color, backgroundColor: 'rgba(255,255,255,0.14)' }]}
+                      onPress={() => switchWeapon(w.id)}
+                    >
+                      <Text style={[styles.weaponSlotNum, isCurrent && { color: w.color }]}>[{w.slotNumber}]</Text>
+                      <Text style={[styles.weaponSlotName, isCurrent && { color: '#fff' }]}>{w.name.split(' ')[0]}</Text>
+                      <Text style={styles.weaponSlotAmmo}>
+                        {ammo ? `${ammo.clip}/${ammo.reserve}` : '--'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-                  <TouchableOpacity style={styles.smallActionBtn} onPress={reloadWeapon}>
-                    <Text style={styles.actionIcon}>🔄</Text>
-                    <Text style={styles.actionLabel}>RELOAD</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.smallActionBtn}
-                    onPress={() => {
-                      if (gameRef.current.player.onGround) {
-                        gameRef.current.player.velocity.y = 9.8;
-                        gameRef.current.player.onGround = false;
-                        brAudio.playFootstep();
-                      }
-                    }}
-                  >
-                    <Text style={styles.actionIcon}>🦘</Text>
-                    <Text style={styles.actionLabel}>JUMP</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.smallActionBtn, { borderColor: '#ffd700' }]}
-                    onPress={() => {
-                      gameRef.current.keys.e = true;
-                      setTimeout(() => (gameRef.current.keys.e = false), 200);
-                    }}
-                  >
-                    <Text style={styles.actionIcon}>✋</Text>
-                    <Text style={[styles.actionLabel, { color: '#ffd700' }]}>ACTION</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.fireRow}>
-                  <View style={styles.weaponInfo}>
-                    <Text style={styles.weaponName}>{currentWeapon.name}</Text>
-                    <Text style={styles.ammoText}>
-                      {isReloading ? 'RELOAD...' : `${ammoClip} / ${ammoReserve}`}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.bigFireBtn}
-                    onPress={fireWeapon}
-                    onPressIn={fireWeapon}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.fireEmoji}>🔥</Text>
-                    <Text style={styles.fireLabel}>FIRE</Text>
-                  </TouchableOpacity>
-                </View>
+              {/* Active Weapon Ammo & Status */}
+              <View style={styles.ammoCard}>
+                <Text style={styles.ammoWeaponCategory}>{currentWeapon.category}</Text>
+                <Text style={[styles.ammoWeaponName, { color: currentWeapon.color }]}>
+                  {currentWeapon.name}
+                </Text>
+                <Text style={styles.ammoNumbers}>
+                  {ammoClip} <Text style={styles.ammoReserveText}>/ {ammoReserve}</Text>
+                </Text>
+                {isReloading && <Text style={styles.reloadingText}>RELOADING...</Text>}
               </View>
             </View>
           </View>
         )}
 
-        {/* FULL MAP MODAL */}
-        <Modal visible={showFullMap} transparent animationType="fade">
-          <View style={styles.mapModalBackdrop}>
-            <View style={styles.mapModalCard}>
-              <View style={styles.mapHeader}>
-                <Text style={styles.mapTitle}>{FOUR_MAPS[selectedMapId].name} — FULL TACTICAL MAP</Text>
-                <TouchableOpacity style={styles.closeMapBtn} onPress={() => setShowFullMap(false)}>
-                  <Text style={styles.closeMapText}>✕ CLOSE</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.mapDescText}>{FOUR_MAPS[selectedMapId].desc}</Text>
-              <Text style={styles.mapCoordHint}>
-                Safe Zone Center: X: {Math.round(gameRef.current.safeZone.center.x)}, Z:{' '}
-                {Math.round(gameRef.current.safeZone.center.y)} | Radius: {Math.round(gameRef.current.safeZone.radius)}m
-              </Text>
-            </View>
-          </View>
-        </Modal>
-
+        {/* ==================================================================== */}
+        {/* MATCH END MODALS: VICTORY & DEFEAT (REQUIREMENT 6) */}
+        {/* ==================================================================== */}
         {/* VICTORY MODAL */}
         <Modal visible={phase === 'VICTORY'} transparent animationType="slide">
-          <View style={styles.endModalBackdrop}>
-            <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
-              <Text style={{ fontSize: 52, textAlign: 'center' }}>🍗</Text>
-              <Text style={styles.victoryTitle}>WINNER WINNER CHICKEN DINNER!</Text>
-              <Text style={styles.victorySubtitle}>#1 / 20 • CHAMPION OF {endMatchStats.mapName}</Text>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { borderColor: '#ffd700' }]}>
+              <Text style={[styles.modalTitle, { color: '#ffd700' }]}>🏆 WINNER WINNER 🏆</Text>
+              <Text style={styles.modalSubTitle}>CHICKEN DINNER!</Text>
+              <Text style={styles.modalMapName}>MAP: {endMatchStats.mapName}</Text>
 
-              <View style={styles.endStatsTable}>
-                <Text style={styles.endStatLine}>Eliminations: {endMatchStats.kills} OPPONENTS</Text>
-                <Text style={styles.endStatLine}>Damage Dealt: {endMatchStats.damage} HP</Text>
-                <Text style={styles.endStatLine}>Survival Time: {endMatchStats.timeSec} SECONDS</Text>
-                <Text style={[styles.endStatLine, { color: '#ffd700' }]}>XP Earned: +{endMatchStats.xpEarned} PTS</Text>
+              <View style={styles.endStatsGrid}>
+                <View style={styles.endStatBox}>
+                  <Text style={styles.endStatVal}>#1</Text>
+                  <Text style={styles.endStatLbl}>PLACEMENT</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={[styles.endStatVal, { color: '#ffd700' }]}>{endMatchStats.kills}</Text>
+                  <Text style={styles.endStatLbl}>ELIMINATIONS</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={styles.endStatVal}>{endMatchStats.damage}</Text>
+                  <Text style={styles.endStatLbl}>DAMAGE</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={[styles.endStatVal, { color: '#00ff66' }]}>+{endMatchStats.xpEarned}</Text>
+                  <Text style={styles.endStatLbl}>XP EARNED</Text>
+                </View>
               </View>
 
-              <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: '#ffd700' }]} onPress={startMatchDeployment}>
-                <Text style={[styles.primaryBtnText, { color: '#000' }]}>PLAY AGAIN ▶</Text>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: '#ffd700' }]}
+                onPress={startMatchDeployment}
+              >
+                <Text style={[styles.primaryBtnText, { color: '#000' }]}>PLAY AGAIN ↻</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('DASHBOARD')}>
-                <Text style={styles.secondaryBtnText}>📊 VIEW PERSONAL DASHBOARD</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('MAP_SELECT')}>
-                <Text style={styles.secondaryBtnText}>🗺 SELECT ANOTHER MAP</Text>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('LOBBY')}>
+                <Text style={styles.secondaryBtnText}>‹ RETURN TO LOBBY</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2606,28 +3690,37 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
         {/* DEFEAT MODAL */}
         <Modal visible={phase === 'GAMEOVER'} transparent animationType="fade">
-          <View style={styles.endModalBackdrop}>
-            <View style={[styles.endModalCard, { borderColor: '#ef4444' }]}>
-              <Text style={{ fontSize: 52, textAlign: 'center' }}>💀</Text>
-              <Text style={[styles.victoryTitle, { color: '#ef4444' }]}>BETTER LUCK NEXT TIME</Text>
-              <Text style={styles.victorySubtitle}>PLACED #{endMatchStats.placement} OF 20 ON {endMatchStats.mapName}</Text>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalCard, { borderColor: '#ff3344' }]}>
+              <Text style={[styles.modalTitle, { color: '#ff3344' }]}>BETTER LUCK NEXT TIME</Text>
+              <Text style={styles.modalSubTitle}>ELIMINATED IN BATTLE</Text>
+              <Text style={styles.modalMapName}>MAP: {endMatchStats.mapName}</Text>
 
-              <View style={styles.endStatsTable}>
-                <Text style={styles.endStatLine}>Eliminations: {endMatchStats.kills}</Text>
-                <Text style={styles.endStatLine}>Damage Dealt: {endMatchStats.damage}</Text>
-                <Text style={styles.endStatLine}>Survival Time: {endMatchStats.timeSec}s</Text>
+              <View style={styles.endStatsGrid}>
+                <View style={styles.endStatBox}>
+                  <Text style={styles.endStatVal}>#{endMatchStats.placement}</Text>
+                  <Text style={styles.endStatLbl}>RANK</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={[styles.endStatVal, { color: '#ff3344' }]}>{endMatchStats.kills}</Text>
+                  <Text style={styles.endStatLbl}>KILLS</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={styles.endStatVal}>{endMatchStats.damage}</Text>
+                  <Text style={styles.endStatLbl}>DAMAGE</Text>
+                </View>
+                <View style={styles.endStatBox}>
+                  <Text style={[styles.endStatVal, { color: '#00ff66' }]}>+{endMatchStats.xpEarned}</Text>
+                  <Text style={styles.endStatLbl}>XP EARNED</Text>
+                </View>
               </View>
 
               <TouchableOpacity style={styles.primaryBtn} onPress={startMatchDeployment}>
-                <Text style={styles.primaryBtnText}>RETRY MATCH ▶</Text>
+                <Text style={styles.primaryBtnText}>RETRY MATCH ↻</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('DASHBOARD')}>
-                <Text style={styles.secondaryBtnText}>📊 VIEW PERSONAL DASHBOARD</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('MENU')}>
-                <Text style={styles.secondaryBtnText}>RETURN TO MAIN MENU</Text>
+              <TouchableOpacity style={styles.secondaryBtn} onPress={() => setPhase('LOBBY')}>
+                <Text style={styles.secondaryBtnText}>‹ RETURN TO LOBBY</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2638,334 +3731,555 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 }
 
 // ============================================================================
-// STYLES
+// STYLESHEET
 // ============================================================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#050711' },
-  canvasContainer: { flex: 1, position: 'relative', overflow: 'hidden' },
-  damageFlash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(239, 68, 68, 0.45)', zIndex: 10 },
+  canvasContainer: { flex: 1, position: 'relative', width: '100%', height: '100%' },
+
+  // Screen Overlays
+  damageFlashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(239, 68, 68, 0.45)',
+    zIndex: 40,
+  },
   stormVignette: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 20,
-    borderColor: 'rgba(0, 102, 255, 0.75)',
-    backgroundColor: 'rgba(0, 102, 255, 0.25)',
-    zIndex: 11,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 26,
+    borderColor: 'rgba(168, 85, 247, 0.65)',
+    zIndex: 35,
   },
 
-  // ELIMINATION BANNER (PHASE 10 MANDATORY)
+  // Elimination Banner HUD
   eliminationBannerContainer: {
     position: 'absolute',
     top: 75,
-    left: '50%',
-    transform: [{ translateX: -180 }],
-    width: 360,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    zIndex: 35,
+    zIndex: 50,
   },
-  eliminationBannerGlow: {
+  eliminationBannerCard: {
+    width: 380,
     backgroundColor: 'rgba(10, 18, 32, 0.95)',
     borderWidth: 2,
-    borderColor: '#ef4444',
+    borderColor: '#ff3344',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
-    boxShadow: '0 0 28px rgba(239, 68, 68, 0.85)',
-    width: '100%',
+    shadowColor: '#ff3344',
+    shadowRadius: 24,
+    shadowOpacity: 0.8,
   },
-  eliminationTitle: { color: '#ef4444', fontSize: 15, fontWeight: '900', letterSpacing: 1.5 },
-  eliminationVictim: { color: '#ffffff', fontSize: 18, fontWeight: '900', marginTop: 2 },
-  eliminationTelemetryRow: { flexDirection: 'row', gap: 10, marginTop: 4, alignItems: 'center' },
+  eliminationTitle: { color: '#ff3344', fontSize: 14, fontWeight: '900', letterSpacing: 1.5 },
+  eliminationVictim: { color: '#fff', fontSize: 18, fontWeight: '900', marginTop: 2 },
+  eliminationTelemetryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
   eliminationKillsText: { color: '#ffd700', fontSize: 12, fontWeight: '800' },
-  eliminationDivider: { color: '#64748b', fontSize: 12 },
+  eliminationDivider: { color: 'rgba(255,255,255,0.3)', fontSize: 12 },
   eliminationRemainingText: { color: '#00f0ff', fontSize: 12, fontWeight: '800' },
 
-  // MENU OVERLAYS
-  menuContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(5, 10, 20, 0.82)',
+  // PUBG 3D Character Lobby Styles
+  lobbyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 20,
+    justifyContent: 'space-between',
     zIndex: 20,
-    padding: 16,
   },
-  menuCard: {
-    width: '100%',
-    maxWidth: 520,
-    backgroundColor: 'rgba(10, 18, 32, 0.96)',
-    borderWidth: 1.5,
-    borderColor: '#00f0ff',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    boxShadow: '0 0 24px rgba(0, 240, 255, 0.35)',
-  },
-  menuBadge: { backgroundColor: '#00f0ff', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 8, marginBottom: 8 },
-  menuBadgeText: { color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  menuTitle: { color: '#ffffff', fontSize: 30, fontWeight: '900', letterSpacing: 1.5, textAlign: 'center' },
-  menuSubTitle: { color: '#94a3b8', fontSize: 12, fontWeight: '700', marginBottom: 14, textAlign: 'center' },
-  menuStatsRow: {
+  lobbyHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 18, 32, 0.85)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 240, 255, 0.3)',
   },
-  menuStatLabel: { color: '#cbd5e1', fontSize: 11, fontWeight: '700' },
-  menuActions: { width: '100%' },
-  primaryBtn: {
+  profileBadge: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profileAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0, 240, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#00f0ff',
+  },
+  profileAvatarText: { fontSize: 18 },
+  profileCallsign: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
+  profileRank: { color: '#ffd700', fontSize: 11, fontWeight: '700' },
+
+  lobbyTabsRow: { flexDirection: 'row', gap: 6 },
+  lobbyTabBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  lobbyTabBtnActive: {
+    backgroundColor: '#00f0ff',
+  },
+  lobbyTabBtnText: { color: '#a0aec0', fontSize: 12, fontWeight: '800' },
+  lobbyTabBtnTextActive: { color: '#000', fontWeight: '900' },
+
+  exitToHubBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  exitToHubBtnText: { color: '#ef4444', fontSize: 12, fontWeight: '800' },
+
+  lobbyBottomPanel: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  lobbyMatchConfigCard: {
+    width: '100%',
+    maxWidth: 620,
+    backgroundColor: 'rgba(10, 18, 32, 0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  lobbySectionTitle: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+  lobbyMapPreviewRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginVertical: 12,
+  },
+  selectedMapBadge: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: '#00f0ff',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  selectedModeBadge: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: '#ffd700',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  selectedMapLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' },
+  selectedMapName: { color: '#00f0ff', fontSize: 14, fontWeight: '900', marginTop: 2 },
+  selectedMapSub: { color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 2 },
+  selectedModeName: { color: '#ffd700', fontSize: 14, fontWeight: '900', marginTop: 2 },
+
+  deployMatchBtn: {
+    width: '100%',
     backgroundColor: '#00f0ff',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
-    marginVertical: 5,
-    boxShadow: '0 0 16px rgba(0, 240, 255, 0.5)',
+    shadowColor: '#00f0ff',
+    shadowRadius: 16,
+    shadowOpacity: 0.6,
   },
-  primaryBtnText: { color: '#000', fontSize: 14, fontWeight: '900' },
-  secondaryBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  secondaryBtnText: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
+  deployMatchBtnText: { color: '#000', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
 
-  // MAP SELECTION CARDS (PHASE 3)
-  mapOptionCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  lobbyRotationHint: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  lobbyRotationHintText: { color: '#00f0ff', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+
+  // Customization Studio Card
+  customizationStudioCard: {
+    position: 'absolute',
+    right: 20,
+    top: 85,
+    width: 380,
+    backgroundColor: 'rgba(10, 18, 32, 0.94)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    padding: 14,
-    marginVertical: 6,
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    borderRadius: 16,
+    padding: 16,
+    zIndex: 25,
   },
-  mapCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  mapBadgePill: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 6 },
-  mapBadgeText: { color: '#000', fontSize: 9, fontWeight: '900' },
-  mapDurationText: { color: '#94a3b8', fontSize: 11, fontWeight: 'bold' },
-  mapCardTitle: { fontSize: 18, fontWeight: '900' },
-  mapCardTagline: { color: '#cbd5e1', fontSize: 11, fontWeight: '800', marginBottom: 4 },
-  mapCardDesc: { color: '#94a3b8', fontSize: 11, lineHeight: 16 },
-  mapCardVehicle: { fontSize: 11, fontWeight: '800', marginTop: 6 },
-
-  // DASHBOARD STYLES (PHASE 14)
-  dashHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  dashCallsign: { color: '#00f0ff', fontSize: 20, fontWeight: '900' },
-  dashRank: { color: '#ffd700', fontSize: 12, fontWeight: '800', marginTop: 2 },
-  dashXpBox: { alignItems: 'flex-end' },
-  dashXpLabel: { color: '#94a3b8', fontSize: 10, fontWeight: 'bold' },
-  dashXpVal: { color: '#fff', fontSize: 18, fontWeight: '900' },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    width: '100%',
-    marginBottom: 14,
-    justifyContent: 'space-between',
-  },
-  statGridItem: {
-    width: '31%',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    padding: 10,
+  studioHeaderTitle: { color: '#00f0ff', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
+  studioHeaderSub: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2, marginBottom: 10 },
+  studioCategoryTitle: { color: '#ffd700', fontSize: 12, fontWeight: '800', letterSpacing: 1, marginTop: 12, marginBottom: 6 },
+  pillSelectorRow: { flexDirection: 'row', gap: 8 },
+  pillBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  statGridLabel: { color: '#94a3b8', fontSize: 9, fontWeight: 'bold' },
-  statGridVal: { color: '#ffffff', fontSize: 16, fontWeight: '900', marginTop: 2 },
-  historySectionTitle: { color: '#00f0ff', fontSize: 12, fontWeight: '900', letterSpacing: 1.2, alignSelf: 'flex-start', marginBottom: 6 },
-  emptyHistoryText: { color: '#64748b', fontSize: 11, textAlign: 'center', padding: 12 },
+  pillBtnActive: { borderColor: '#00f0ff', backgroundColor: 'rgba(0, 240, 255, 0.15)' },
+  pillBtnText: { color: '#a0aec0', fontSize: 11, fontWeight: '800' },
+  pillBtnTextActive: { color: '#00f0ff' },
+
+  gridOptionsContainer: { gap: 6 },
+  optionCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    padding: 10,
+  },
+  optionCardActive: { borderColor: '#00f0ff', backgroundColor: 'rgba(0, 240, 255, 0.12)' },
+  optionCardTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  optionCardTag: { color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 2 },
+
+  // Arsenal Cards
+  arsenalCard: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  arsenalCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  arsenalSlotPill: { color: '#000', fontSize: 10, fontWeight: '900', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  arsenalCategoryText: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700' },
+  arsenalName: { fontSize: 14, fontWeight: '900', marginTop: 4 },
+  arsenalDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginVertical: 4 },
+  arsenalStatsRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  arsenalStat: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '800' },
+
+  // Dashboard Grid
+  dashboardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  dashMetric: {
+    width: '48%',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  dashMetricVal: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  dashMetricLbl: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800', marginTop: 2 },
+
   historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 8,
     borderRadius: 6,
-    marginVertical: 2,
-    alignItems: 'center',
+    marginBottom: 4,
   },
-  historyBadge: { fontSize: 11, fontWeight: '900', width: 70 },
-  historyMap: { color: '#cbd5e1', fontSize: 11, flex: 1 },
-  historyKills: { color: '#ef4444', fontSize: 11, fontWeight: 'bold', width: 60 },
-  historyTime: { color: '#94a3b8', fontSize: 11, width: 45 },
-  historyXp: { color: '#ffd700', fontSize: 11, fontWeight: 'bold', width: 55, textAlign: 'right' },
+  historyPlace: { fontSize: 12, fontWeight: '900' },
+  historyMap: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+  historyKills: { color: '#ff3344', fontSize: 11, fontWeight: '700' },
+  historyTime: { color: 'rgba(255,255,255,0.5)', fontSize: 11 },
 
-  // AIRBORNE OVERLAY
-  airborneOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 24, zIndex: 15 },
-  airborneTelemetry: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(10, 18, 32, 0.88)',
+  // Airborne Overlay
+  airborneOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 24,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 25,
+  },
+  altimeterCard: {
+    backgroundColor: 'rgba(10, 18, 32, 0.85)',
     borderWidth: 1.5,
     borderColor: '#00f0ff',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     alignItems: 'center',
   },
-  telemetryTag: { color: '#00f0ff', fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  telemetryMain: { color: '#ffffff', fontSize: 22, fontWeight: '900', marginTop: 4 },
-  telemetrySub: { color: '#ffd700', fontSize: 14, fontWeight: '800' },
+  altimeterTitle: { color: '#00f0ff', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+  altitudeText: { color: '#fff', fontSize: 36, fontWeight: '900', marginTop: 4 },
+  descentSpeedText: { color: '#ffd700', fontSize: 13, fontWeight: '800', marginTop: 2 },
   jumpBtn: {
-    alignSelf: 'center',
     backgroundColor: '#00f0ff',
     paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 14,
-    boxShadow: '0 0 24px rgba(0, 240, 255, 0.7)',
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    shadowColor: '#00f0ff',
+    shadowRadius: 20,
+    shadowOpacity: 0.8,
   },
-  jumpBtnText: { color: '#000', fontSize: 16, fontWeight: '900' },
-  chuteBtn: {
-    alignSelf: 'center',
-    backgroundColor: '#00ff66',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 14,
-    boxShadow: '0 0 24px rgba(0, 255, 102, 0.7)',
-  },
-  chuteBtnText: { color: '#000', fontSize: 16, fontWeight: '900' },
+  jumpBtnText: { color: '#000', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  glidingBanner: { backgroundColor: 'rgba(0,0,0,0.7)', padding: 12, borderRadius: 10 },
+  glidingBannerText: { color: '#00ff88', fontSize: 13, fontWeight: '800' },
 
-  // IN-GAME HUD
-  hudContainer: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 14, zIndex: 10 },
+  // In-Game Combat HUD Styles
+  hudOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 16,
+    justifyContent: 'space-between',
+    zIndex: 15,
+  },
   hudTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  gaugesContainer: {
+  hudLeftStats: { gap: 6 },
+  hudAliveBadge: {
     backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.45)',
+    borderColor: '#00f0ff',
     borderRadius: 10,
     padding: 10,
-    minWidth: 170,
+    minWidth: 140,
   },
-  gaugeLine: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
-  hpLabel: { color: '#00ff66', fontSize: 11, fontWeight: '900', width: 24 },
-  gaugeTrack: { flex: 1, height: 8, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 4, overflow: 'hidden', marginHorizontal: 8 },
-  gaugeBar: { height: '100%', borderRadius: 4 },
-  gaugeVal: { color: '#ffffff', fontSize: 12, fontWeight: '800', width: 28, textAlign: 'right' },
-  safeZoneBanner: { backgroundColor: 'rgba(10, 18, 32, 0.88)', borderWidth: 1.5, borderColor: '#ffd700', borderRadius: 10, padding: 10, alignItems: 'center' },
-  alivePill: { flexDirection: 'row', gap: 12 },
-  aliveLabel: { color: '#ffffff', fontSize: 13, fontWeight: '900' },
-  killsLabel: { color: '#ffd700', fontSize: 13, fontWeight: '900' },
-  zoneClock: { color: '#00f0ff', fontSize: 11, fontWeight: '800', marginTop: 4 },
-  minimapWrapper: { position: 'relative', borderWidth: 1.5, borderColor: '#00f0ff', borderRadius: 12, overflow: 'hidden' },
-  mapToggleBtn: { position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0, 0, 0, 0.8)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 },
-  mapToggleText: { color: '#00f0ff', fontSize: 10, fontWeight: 'bold' },
+  hudAliveText: { color: '#00f0ff', fontSize: 16, fontWeight: '900' },
+  hudKillsText: { color: '#ffd700', fontSize: 13, fontWeight: '800', marginTop: 2 },
 
-  crosshair: { position: 'absolute', top: '50%', left: '50%', width: 24, height: 24, marginLeft: -12, marginTop: -12, alignItems: 'center', justifyContent: 'center' },
-  crosshairCenter: { width: 4, height: 4, backgroundColor: '#00f0ff', borderRadius: 2 },
-  crosshairArm: { position: 'absolute', backgroundColor: '#00f0ff' },
-  hitMarkerSymbol: { color: '#ef4444', fontSize: 26, fontWeight: '900' },
-
-  promptBox: {
-    position: 'absolute',
-    bottom: 130,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0, 240, 255, 0.3)',
-    borderWidth: 1.5,
-    borderColor: '#00f0ff',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  promptText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
-  killFeedContainer: { position: 'absolute', top: 90, left: 14, maxWidth: 320 },
-  killFeedText: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 11, fontWeight: '700', marginVertical: 1, textShadowColor: '#000', textShadowRadius: 3 },
-  speedometerContainer: {
-    position: 'absolute',
-    bottom: 130,
-    right: 30,
-    backgroundColor: 'rgba(10, 18, 32, 0.9)',
+  safeZoneBanner: {
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 1.5,
     borderColor: '#ffd700',
     borderRadius: 10,
     padding: 10,
     alignItems: 'center',
   },
-  speedText: { color: '#ffd700', fontSize: 18, fontWeight: '900' },
-  exitVehBtn: { marginTop: 6, backgroundColor: '#dc2626', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
-  exitVehText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  safeZonePhaseText: { color: '#ffd700', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+  safeZoneWarningText: { color: '#ff3344', fontSize: 11, fontWeight: '900', marginTop: 2 },
+  minimapContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#00f0ff',
+  },
 
-  hudBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  dpad: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center' },
-  dpadBtn: {
-    width: 44,
-    height: 44,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.6)',
-    borderRadius: 10,
+  killFeedBox: { position: 'absolute', top: 180, right: 16, gap: 4, width: 280 },
+  killFeedText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+
+  // Reticle & Scope
+  reticleContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 10,
+    height: 10,
+    marginLeft: -5,
+    marginTop: -5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dpadArrow: { color: '#00f0ff', fontSize: 16, fontWeight: 'bold' },
-  dpadMid: { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
-  dpadCenter: { width: 44, height: 44 },
+  reticleDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#00f0ff' },
+  reticleHit: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ff3344' },
 
-  combatCluster: { alignItems: 'flex-end' },
-  tacticalRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  smallActionBtn: {
-    width: 52,
-    height: 52,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(0, 240, 255, 0.5)',
-    borderRadius: 10,
+  sniperScopeOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  btnActive: { backgroundColor: '#00f0ff', borderColor: '#00f0ff' },
-  actionIcon: { fontSize: 18 },
-  actionLabel: { color: '#00f0ff', fontSize: 8, fontWeight: '900', marginTop: 1 },
-  fireRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  weaponInfo: {
+  scopeCrosshairV: { width: 2, height: '100%', backgroundColor: '#00f0ff', opacity: 0.75 },
+  scopeCrosshairH: { position: 'absolute', width: '100%', height: 2, backgroundColor: '#00f0ff', opacity: 0.75 },
+  scopeCenterDot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#ff3344' },
+
+  interactContainer: {
+    position: 'absolute',
+    bottom: 140,
+    alignSelf: 'center',
     backgroundColor: 'rgba(10, 18, 32, 0.9)',
+    borderWidth: 1.5,
+    borderColor: '#00ff88',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  interactText: { color: '#00ff88', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+
+  drivingTelemetryCard: {
+    position: 'absolute',
+    bottom: 140,
+    right: 16,
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 1.5,
     borderColor: '#00f0ff',
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    padding: 10,
+    alignItems: 'center',
+  },
+  drivingSpeedText: { color: '#00f0ff', fontSize: 20, fontWeight: '900' },
+  drivingHintText: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 2 },
+
+  // Bottom HUD: Health, Slots, Ammo
+  hudBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
+  vitalsCard: {
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    borderRadius: 12,
+    padding: 12,
+    width: 220,
+    gap: 6,
+  },
+  vitalBarRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  vitalLabel: { color: '#fff', fontSize: 11, fontWeight: '900', width: 22 },
+  vitalTrack: { flex: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 5, overflow: 'hidden' },
+  vitalFill: { height: '100%', borderRadius: 5 },
+  vitalVal: { color: '#fff', fontSize: 11, fontWeight: '900', width: 28, textAlign: 'right' },
+
+  weaponSlotsContainer: { flexDirection: 'row', gap: 6 },
+  weaponSlotBtn: {
+    backgroundColor: 'rgba(10, 18, 32, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    minWidth: 54,
+  },
+  weaponSlotNum: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '900' },
+  weaponSlotName: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '800', marginTop: 1 },
+  weaponSlotAmmo: { color: '#00f0ff', fontSize: 9, fontWeight: '700', marginTop: 2 },
+
+  ammoCard: {
+    backgroundColor: 'rgba(10, 18, 32, 0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 240, 255, 0.4)',
+    borderRadius: 12,
+    padding: 12,
+    width: 170,
     alignItems: 'flex-end',
   },
-  weaponName: { color: '#00f0ff', fontSize: 12, fontWeight: '900' },
-  ammoText: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
-  bigFireBtn: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: '#dc2626',
-    borderWidth: 3,
-    borderColor: '#ef4444',
+  ammoWeaponCategory: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800' },
+  ammoWeaponName: { fontSize: 14, fontWeight: '900', marginTop: 1 },
+  ammoNumbers: { color: '#fff', fontSize: 24, fontWeight: '900', marginTop: 2 },
+  ammoReserveText: { color: 'rgba(255,255,255,0.5)', fontSize: 14 },
+  reloadingText: { color: '#ffd700', fontSize: 10, fontWeight: '900', marginTop: 2 },
+
+  // Menu Cards & General Modals
+  menuContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(5, 7, 17, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 0 24px rgba(220, 38, 38, 0.8)',
+    padding: 20,
+    zIndex: 30,
   },
-  fireEmoji: { fontSize: 24 },
-  fireLabel: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
+  menuCard: {
+    width: '100%',
+    backgroundColor: 'rgba(10, 18, 32, 0.95)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 240, 255, 0.5)',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#00f0ff',
+    shadowRadius: 28,
+    shadowOpacity: 0.5,
+  },
+  menuBadgeText: { color: '#00f0ff', fontSize: 12, fontWeight: '900', letterSpacing: 2 },
+  menuTitle: { color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: 1.5, marginTop: 4 },
+  menuSubTitle: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600', marginBottom: 14 },
 
-  // MODALS
-  mapModalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  mapModalCard: { width: '100%', maxWidth: 600, backgroundColor: '#0b1528', borderWidth: 2, borderColor: '#00f0ff', borderRadius: 16, padding: 20 },
-  mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  mapTitle: { color: '#00f0ff', fontSize: 16, fontWeight: '900' },
-  closeMapBtn: { backgroundColor: '#ef4444', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 6 },
-  closeMapText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  mapDescText: { color: '#cbd5e1', fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  mapCoordHint: { color: '#94a3b8', fontSize: 11, textAlign: 'center' },
+  mapOptionCard: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  mapCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mapBadgePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  mapBadgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
+  mapDurationText: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700' },
+  mapCardTitle: { fontSize: 16, fontWeight: '900', marginTop: 4 },
+  mapCardTagline: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' },
+  mapCardDesc: { color: 'rgba(255,255,255,0.7)', fontSize: 11, marginVertical: 4 },
+  mapCardVehicle: { fontSize: 11, fontWeight: '800' },
 
-  endModalBackdrop: { flex: 1, backgroundColor: 'rgba(5, 10, 20, 0.92)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  endModalCard: { width: '100%', maxWidth: 480, backgroundColor: '#0d182b', borderWidth: 2, borderRadius: 18, padding: 26, alignItems: 'center' },
-  victoryTitle: { color: '#ffd700', fontSize: 24, fontWeight: '900', marginTop: 8, textAlign: 'center' },
-  victorySubtitle: { color: '#cbd5e1', fontSize: 13, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
-  endStatsTable: { width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: 14, borderRadius: 12, marginBottom: 18 },
-  endStatLine: { color: '#f1f5f9', fontSize: 13, fontWeight: '700', marginVertical: 4 },
+  primaryBtn: {
+    width: '100%',
+    backgroundColor: '#00f0ff',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  primaryBtnText: { color: '#000', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
+  secondaryBtn: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  secondaryBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+
+  // Match Results Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#0a1220',
+    borderWidth: 2,
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalTitle: { fontSize: 24, fontWeight: '900', letterSpacing: 1.5 },
+  modalSubTitle: { color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '700', marginTop: 2 },
+  modalMapName: { color: '#00f0ff', fontSize: 12, fontWeight: '800', marginTop: 4 },
+  endStatsGrid: { flexDirection: 'row', width: '100%', gap: 10, marginVertical: 18 },
+  endStatBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  endStatVal: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  endStatLbl: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800', marginTop: 2 },
 });
