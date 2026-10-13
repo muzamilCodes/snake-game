@@ -805,7 +805,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const handleGameVictory = () => {
+    const g = gameRef.current;
+    g.phase = 'VICTORY';
     setPhase('VICTORY');
+    g.isFiring = false;
+    if (typeof document !== 'undefined' && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
     setTotalDinners((prev) => {
       const next = prev + 1;
       AsyncStorage.setItem('BGMI_SHADOW_DINNERS', next.toString()).catch(() => {});
@@ -826,7 +832,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const handleGameOver = () => {
+    const g = gameRef.current;
+    g.phase = 'GAMEOVER';
     setPhase('GAMEOVER');
+    g.isFiring = false;
+    if (typeof document !== 'undefined' && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
     setMatchesPlayed((prev) => {
       const next = prev + 1;
       AsyncStorage.setItem('BGMI_SHADOW_MATCHES', next.toString()).catch(() => {});
@@ -839,6 +851,29 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
       return prev;
     });
+  };
+
+  const returnToLobby = () => {
+    const g = gameRef.current;
+    g.phase = 'LOBBY';
+    setPhase('LOBBY');
+    g.isFiring = false;
+    g.mouseLook.isAiming = false;
+    setIsAiming(false);
+    setShowFullMap(false);
+    setFloatingDamage(null);
+    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 100 });
+    g.player.hp = 100;
+    g.player.armor = 100;
+    setPlayerHp(100);
+    setPlayerArmor(100);
+    g.eliminationCount = 0;
+    setKillsCount(0);
+    g.totalAlive = 100;
+    setAliveCount(100);
+    if (typeof document !== 'undefined' && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
   };
 
   // Web Audio Context & Synthesizer for Realistic Sound Effects
@@ -1002,6 +1037,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (Platform.OS !== 'web' || !mountRef.current) return;
 
     const g = gameRef.current;
+    g.phase = phase;
     g.mapId = selectedMapId;
     const width = mountRef.current.clientWidth || winWidth;
     const height = mountRef.current.clientHeight || winHeight;
@@ -1801,7 +1837,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const fireWeapon = () => {
     const g = gameRef.current;
     const p = g.player;
-    if (g.phase !== 'PLAYING' || p.reloading || p.clip <= 0) return;
+    if (g.phase !== 'PLAYING') return;
+    if (p.reloading) return;
+
+    // Auto-reload if clip is empty
+    if (p.clip <= 0) {
+      reloadWeapon();
+      return;
+    }
 
     const now = g.elapsedTime;
     if (now - p.lastShotTime < p.currentWeapon.fireRate) return;
@@ -1867,7 +1910,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     }
 
-    // Dynamic Visual Bullet Tracer
+    // Dynamic Visual Fire: Muzzle Flame + 3D Glowing Tracer + Target Sparks + Weapon Kick
     try {
       const yaw = g.mouseLook?.yaw || 0;
       const muzzleStart = new THREE.Vector3(
@@ -1875,15 +1918,70 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         p.position.y + 1.25,
         p.position.z + Math.cos(yaw) * 0.45 - Math.sin(yaw) * 0.25
       );
-      const tracerGeo = new THREE.BufferGeometry().setFromPoints([muzzleStart, targetHitPoint]);
-      const tracerMat = new THREE.LineBasicMaterial({ color: '#00f0ff', linewidth: 2 });
-      const tracerLine = new THREE.Line(tracerGeo, tracerMat);
-      if (g.scene) g.scene.add(tracerLine);
+
+      // Weapon Kickback Recoil
+      if (g.playerRig && g.playerRig.weaponAnchor) {
+        g.playerRig.weaponAnchor.position.z -= 0.12;
+        setTimeout(() => {
+          if (g.playerRig && g.playerRig.weaponAnchor) {
+            g.playerRig.weaponAnchor.position.z += 0.12;
+          }
+        }, 60);
+      }
+
+      // 1. Bright Glowing Muzzle Flame & PointLight
+      const flashGeo = new THREE.SphereGeometry(0.18, 8, 8);
+      const flashMat = new THREE.MeshBasicMaterial({ color: '#fffb00' });
+      const flashMesh = new THREE.Mesh(flashGeo, flashMat);
+      flashMesh.position.copy(muzzleStart);
+      g.scene.add(flashMesh);
+
+      const flashLight = new THREE.PointLight('#ff9900', 7, 8);
+      flashLight.position.copy(muzzleStart);
+      g.scene.add(flashLight);
+
       setTimeout(() => {
-        if (g.scene) g.scene.remove(tracerLine);
-        tracerGeo.dispose();
-        tracerMat.dispose();
+        if (g.scene) {
+          g.scene.remove(flashMesh);
+          g.scene.remove(flashLight);
+        }
+        flashGeo.dispose();
+        flashMat.dispose();
       }, 65);
+
+      // 2. Thick Glowing 3D Cylinder Tracer Round
+      const dir = targetHitPoint.clone().sub(muzzleStart);
+      const dist = dir.length();
+      if (dist > 0.4) {
+        dir.normalize();
+        const tracerLen = Math.min(dist, 40);
+        const tracerGeo = new THREE.CylinderGeometry(0.045, 0.045, tracerLen, 6);
+        const tracerMat = new THREE.MeshBasicMaterial({ color: p.currentWeapon.color || '#ffea00' });
+        const tracerMesh = new THREE.Mesh(tracerGeo, tracerMat);
+
+        const centerPos = muzzleStart.clone().addScaledVector(dir, tracerLen / 2);
+        tracerMesh.position.copy(centerPos);
+        tracerMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+
+        g.scene.add(tracerMesh);
+        setTimeout(() => {
+          if (g.scene) g.scene.remove(tracerMesh);
+          tracerGeo.dispose();
+          tracerMat.dispose();
+        }, 75);
+      }
+
+      // 3. Impact Spark Burst at Target Hit Point
+      const sparkGeo = new THREE.SphereGeometry(0.22, 6, 6);
+      const sparkMat = new THREE.MeshBasicMaterial({ color: '#ff3b30' });
+      const sparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
+      sparkMesh.position.copy(targetHitPoint);
+      g.scene.add(sparkMesh);
+      setTimeout(() => {
+        if (g.scene) g.scene.remove(sparkMesh);
+        sparkGeo.dispose();
+        sparkMat.dispose();
+      }, 70);
     } catch (e) {}
   };
 
@@ -2576,6 +2674,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
               <TouchableOpacity
                 onPress={() => fireWeapon()}
+                onPressIn={() => {
+                  const g = gameRef.current;
+                  g.isFiring = true;
+                  fireWeapon();
+                }}
+                onPressOut={() => {
+                  const g = gameRef.current;
+                  g.isFiring = false;
+                }}
                 activeOpacity={0.6}
                 style={styles.virtualFireBtn}
               >
@@ -2683,14 +2790,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
                 <Text style={styles.victorySub}>CHICKEN DINNER!</Text>
                 <Text style={styles.victoryMap}>MAP: ERANGEL 8x8 • RANK #1</Text>
-                <TouchableOpacity onPress={() => setPhase('LOBBY')} activeOpacity={0.85}>
-                  <LinearGradient
-                    colors={['#ffe000', '#f59e0b', '#d97706']}
-                    style={styles.bgmiStartBtn}
-                  >
-                    <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                  <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
+                    <LinearGradient
+                      colors={['#ef4444', '#dc2626', '#991b1b']}
+                      style={styles.bgmiStartBtn}
+                    >
+                      <Text style={styles.bgmiStartBtnText}>⚡ PLAY AGAIN</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={returnToLobby} activeOpacity={0.85}>
+                    <LinearGradient
+                      colors={['#ffe000', '#f59e0b', '#d97706']}
+                      style={styles.bgmiStartBtn}
+                    >
+                      <Text style={styles.bgmiStartBtnText}>🏠 LOBBY</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
             </BlurView>
           </View>
@@ -2703,14 +2821,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               <View style={[styles.endModalCard, { borderColor: '#ef4444' }]}>
                 <Text style={styles.defeatTitle}>BETTER LUCK NEXT TIME</Text>
                 <Text style={styles.victoryMap}>MAP: ERANGEL 8x8</Text>
-                <TouchableOpacity onPress={() => setPhase('LOBBY')} activeOpacity={0.85}>
-                  <LinearGradient
-                    colors={['#ffe000', '#f59e0b', '#d97706']}
-                    style={styles.bgmiStartBtn}
-                  >
-                    <Text style={styles.bgmiStartBtnText}>RETURN TO LOBBY</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                  <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
+                    <LinearGradient
+                      colors={['#ef4444', '#dc2626', '#991b1b']}
+                      style={styles.bgmiStartBtn}
+                    >
+                      <Text style={styles.bgmiStartBtnText}>⚡ PLAY AGAIN</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={returnToLobby} activeOpacity={0.85}>
+                    <LinearGradient
+                      colors={['#ffe000', '#f59e0b', '#d97706']}
+                      style={styles.bgmiStartBtn}
+                    >
+                      <Text style={styles.bgmiStartBtnText}>🏠 LOBBY</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
               </View>
             </BlurView>
           </View>
