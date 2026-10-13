@@ -375,6 +375,7 @@ export interface EnemyBot {
   isDead: boolean;
   muzzleLight: THREE.PointLight | null;
   hpBarMesh: THREE.Mesh;
+  markerGroup?: THREE.Group;
 }
 
 // Builds the Glacier M416 (Translucent crystalline ice model with glowing blue frost shaders)
@@ -739,6 +740,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [isReloading, setIsReloading] = useState<boolean>(false);
   const [isAiming, setIsAiming] = useState<boolean>(false);
 
+  // BGMI Medkit Healing & Death Loot Crates
+  const [medkitCount, setMedkitCount] = useState<number>(3);
+  const [isHealing, setIsHealing] = useState<boolean>(false);
+  const [healProgress, setHealProgress] = useState<number>(0);
+  const [nearbyLootCrate, setNearbyLootCrate] = useState<any>(null);
+  const [compassHeading, setCompassHeading] = useState<number>(0);
+  const [nearbyEnemyBearings, setNearbyEnemyBearings] = useState<{ id: number; dist: number; angleDiff: number }[]>([]);
+
   // Erangel Safe Zone Telemetry
   const [safeZoneTime, setSafeZoneTime] = useState<number>(120);
   const [safeZonePhase, setSafeZonePhase] = useState<number>(1);
@@ -958,6 +967,43 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     } catch (e) {}
   };
 
+  const playMedkitSound = () => {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + idx * 0.12 + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + idx * 0.12);
+        osc.stop(ctx.currentTime + idx * 0.12 + 0.22);
+      });
+    } catch (e) {}
+  };
+
+  const playLootPickupSound = () => {
+    try {
+      const ctx = getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.14);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.16);
+    } catch (e) {}
+  };
+
   // Mutable Game Loop State
   const gameRef = useRef({
     phase: 'LOBBY' as GameFlowPhase,
@@ -1025,6 +1071,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     },
 
     bots: [] as EnemyBot[],
+    lootCrates: [] as {
+      id: number;
+      position: THREE.Vector3;
+      mesh: THREE.Group;
+      looted: boolean;
+      botName: string;
+      beamMesh?: THREE.Mesh;
+    }[],
+    medkits: 3,
+    isHealing: false,
     bulletTracers: [] as { line: THREE.Line; life: number }[],
     damageDealt: 0,
     eliminationCount: 0,
@@ -1379,20 +1435,86 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     });
 
     // 4. Hot-Drop POI Landmarks (Pochinki & Military Base)
-    // Pochinki Town (Center: 0, 0)
+    // Realistic Pochinki Town 2-Story Houses with pitched roofs
+    const brickMat = new THREE.MeshStandardMaterial({ color: '#b91c1c', roughness: 0.8 });
+    const plasterMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.6 });
+    const roofBlueMat = new THREE.MeshStandardMaterial({ color: '#0284c7', roughness: 0.5 });
+    const roofRedMat = new THREE.MeshStandardMaterial({ color: '#991b1b', roughness: 0.5 });
+
     for (let c = 0; c < 16; c++) {
-      const hx = (c % 4) * 22 - 33;
-      const hz = Math.floor(c / 4) * 22 - 33;
-      const house = new THREE.Mesh(
-        new THREE.BoxGeometry(14, 8, 16),
-        new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.7 })
+      const hx = (c % 4) * 26 - 39;
+      const hz = Math.floor(c / 4) * 26 - 78;
+      const groundY = getErangelTerrainHeight(hx, hz);
+
+      const houseGroup = new THREE.Group();
+      houseGroup.position.set(hx, groundY, hz);
+
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(14, 8, 14),
+        c % 2 === 0 ? brickMat : plasterMat
       );
-      house.position.set(hx, getErangelTerrainHeight(hx, hz) + 4, hz);
-      house.castShadow = true;
-      scene.add(house);
+      body.position.y = 4;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      houseGroup.add(body);
+
+      const roof = new THREE.Mesh(
+        new THREE.ConeGeometry(11, 4.5, 4),
+        c % 2 === 0 ? roofBlueMat : roofRedMat
+      );
+      roof.position.y = 10.2;
+      roof.rotation.y = Math.PI / 4;
+      roof.castShadow = true;
+      houseGroup.add(roof);
+
+      scene.add(houseGroup);
     }
 
-    // Sosnovka Military Base Radar Dome & C-Buildings (South Island: 0, -180)
+    // Military Watchtower at Pochinki
+    [-28, 28].forEach((tx) => {
+      const tz = -50;
+      const ty = getErangelTerrainHeight(tx, tz);
+      const towerGroup = new THREE.Group();
+      towerGroup.position.set(tx, ty, tz);
+
+      const legs = new THREE.Mesh(new THREE.BoxGeometry(6, 12, 6), new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.7 }));
+      legs.position.y = 6;
+      towerGroup.add(legs);
+
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 8), new THREE.MeshStandardMaterial({ color: '#78350f' }));
+      deck.position.y = 12.3;
+      towerGroup.add(deck);
+
+      const troof = new THREE.Mesh(new THREE.BoxGeometry(8.6, 0.4, 8.6), new THREE.MeshStandardMaterial({ color: '#0369a1' }));
+      troof.position.y = 14.8;
+      towerGroup.add(troof);
+
+      scene.add(towerGroup);
+    });
+
+    // Erangel Pine Trees around Combat Area
+    for (let tr = 0; tr < 20; tr++) {
+      const angle = (tr / 20) * Math.PI * 2;
+      const r = 50 + (tr % 3) * 20;
+      const tx = Math.sin(angle) * r;
+      const tz = Math.cos(angle) * r - 40;
+      const ty = getErangelTerrainHeight(tx, tz);
+
+      const tree = new THREE.Group();
+      tree.position.set(tx, ty, tz);
+
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 4, 6), new THREE.MeshStandardMaterial({ color: '#451a03' }));
+      trunk.position.y = 2;
+      tree.add(trunk);
+
+      const foliage = new THREE.Mesh(new THREE.ConeGeometry(3.2, 8, 7), new THREE.MeshStandardMaterial({ color: '#166534', roughness: 0.8 }));
+      foliage.position.y = 6.5;
+      tree.add(foliage);
+
+      scene.add(tree);
+    }
+
+    // Sosnovka Military Base Radar Dome (South Island: 0, -180)
     const dome = new THREE.Mesh(
       new THREE.SphereGeometry(12, 16, 16),
       new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.4 })
@@ -1441,13 +1563,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
-    const activeCount = 14; // High-performance active bot squad in player sector
+    const activeCount = 14;
     const bots: EnemyBot[] = [];
     const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
 
     for (let i = 0; i < activeCount; i++) {
       const angle = (i / activeCount) * Math.PI * 2;
-      const dist = 40 + (i % 4) * 30;
+      // Close & Medium tactical combat ranges around Pochinki (16m to 65m)
+      const dist = 16 + (i % 5) * 11;
       const bx = Math.cos(angle) * dist;
       const bz = Math.sin(angle) * dist - 40;
       const by = getErangelTerrainHeight(bx, bz);
@@ -1455,12 +1578,48 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const rig = buildTheFoolJokerRig(SKIN_DEFINITIONS.TACTICAL_BLACK, true);
       rig.root.position.set(bx, by, bz);
 
-      const hpBar = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.2, 0.16),
-        new THREE.MeshBasicMaterial({ color: '#ff0033', side: THREE.DoubleSide })
+      // High-Visibility Red Enemy Combat Helmet
+      const helmet = new THREE.Mesh(
+        new THREE.SphereGeometry(0.34, 12, 12),
+        new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.3, metalness: 0.6 })
       );
-      hpBar.position.set(0, 2.7, 0);
-      rig.root.add(hpBar);
+      helmet.position.set(0, 1.88, 0);
+      rig.root.add(helmet);
+
+      // Overhead Billboard Group (Faces Player Camera)
+      const markerGroup = new THREE.Group();
+      markerGroup.position.set(0, 2.6, 0);
+
+      // Inverted Glowing Red Target Diamond (🔻)
+      const diamondGeo = new THREE.ConeGeometry(0.24, 0.45, 4);
+      const diamondMat = new THREE.MeshBasicMaterial({ color: '#ff2200' });
+      const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+      diamond.rotation.x = Math.PI;
+      diamond.position.y = 0.5;
+      markerGroup.add(diamond);
+
+      // Background Bar (Black border)
+      const barBg = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.4, 0.22),
+        new THREE.MeshBasicMaterial({ color: '#000000', side: THREE.DoubleSide })
+      );
+      barBg.position.y = 0.12;
+      markerGroup.add(barBg);
+
+      // Foreground Red Health Fill
+      const hpBar = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.34, 0.16),
+        new THREE.MeshBasicMaterial({ color: '#ef4444', side: THREE.DoubleSide })
+      );
+      hpBar.position.set(0, 0.12, 0.01);
+      markerGroup.add(hpBar);
+
+      // Red Enemy Beacon Light on Body
+      const beaconLight = new THREE.PointLight('#ff2200', 3.0, 8);
+      beaconLight.position.set(0, 1.4, 0.3);
+      rig.root.add(beaconLight);
+
+      rig.root.add(markerGroup);
       rig.hpBarMesh = hpBar;
 
       scene.add(rig.root);
@@ -1475,12 +1634,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         maxHp: 100,
         weapon: weaponsList[i % weaponsList.length],
         state: 'PATROL',
-        patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 45, by, bz + (Math.random() - 0.5) * 45),
+        patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 35, by, bz + (Math.random() - 0.5) * 35),
         shootCooldown: 1.2 + Math.random(),
         walkCycle: 0,
         isDead: false,
         muzzleLight: null,
         hpBarMesh: hpBar,
+        markerGroup,
       });
     }
 
@@ -1627,6 +1787,19 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       fireWeapon();
     }
 
+    // Nearby Loot Crate Proximity Check
+    let closestCrate: any = null;
+    let closestDist = 999;
+    g.lootCrates.forEach((crate: any) => {
+      if (crate.looted) return;
+      const d = p.position.distanceTo(crate.position);
+      if (d < 3.5 && d < closestDist) {
+        closestDist = d;
+        closestCrate = crate;
+      }
+    });
+    setNearbyLootCrate(closestCrate);
+
     // Safe Zone & AI
     updateErangelSafeZone(dt, g);
     updateErangelBotAI(dt, g);
@@ -1694,10 +1867,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           if (b.hp <= 0 && !b.isDead) {
             b.isDead = true;
             b.state = 'DEAD';
+            if (b.markerGroup) b.markerGroup.visible = false;
             if (b.rig) {
               b.rig.root.rotation.x = Math.PI / 2;
               b.rig.root.position.y = 0.2;
             }
+            spawnDeathLootCrate(b.position.clone(), b.name, g);
             g.totalAlive = Math.max(1, g.totalAlive - 1);
             setAliveCount(g.totalAlive);
             pushKillFeed(`☣️ ${b.name} fell to the Playzone`);
@@ -1710,9 +1885,26 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
   const updateErangelBotAI = (dt: number, g: any) => {
     const p = g.player;
+    const yaw = g.mouseLook?.yaw || 0;
+    const bearings: { id: number; dist: number; angleDiff: number }[] = [];
+
     g.bots.forEach((b: EnemyBot) => {
       if (b.isDead) return;
+
+      // Always billboard overhead marker to directly face camera
+      if (b.markerGroup && g.camera) {
+        b.markerGroup.quaternion.copy(g.camera.quaternion);
+      }
+
       const dist = b.position.distanceTo(p.position);
+      if (dist < 140) {
+        const targetAngle = Math.atan2(b.position.x - p.position.x, b.position.z - p.position.z);
+        let diff = targetAngle - yaw;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        bearings.push({ id: b.id, dist: Math.round(dist), angleDiff: diff });
+      }
+
       if (dist < 45) {
         b.state = 'ATTACK';
         b.rig.root.lookAt(p.position.x, b.position.y, p.position.z);
@@ -1721,8 +1913,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           b.shootCooldown = 1.0 + Math.random() * 0.8;
           playGunshotSound(b.weapon);
 
-          if (dist < 35 && Math.random() < 0.5) {
-            const dmg = 14;
+          if (dist < 35 && Math.random() < 0.45) {
+            const dmg = 12;
             p.hp = Math.max(0, p.hp - dmg);
             setPlayerHp(p.hp);
             setDamageFlash(true);
@@ -1734,7 +1926,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         b.state = 'PATROL';
         const toTarget = b.patrolTarget.clone().sub(b.position);
         if (toTarget.length() < 2) {
-          b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 45, 0, b.position.z + (Math.random() - 0.5) * 45);
+          b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 35, 0, b.position.z + (Math.random() - 0.5) * 35);
         } else {
           toTarget.normalize();
           b.position.add(toTarget.multiplyScalar(3.2 * dt));
@@ -1744,6 +1936,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }
       }
     });
+
+    setNearbyEnemyBearings(bearings.sort((a, b) => a.dist - b.dist).slice(0, 4));
+
+    let deg = Math.round((yaw * 180 / Math.PI) % 360);
+    if (deg < 0) deg += 360;
+    setCompassHeading(deg);
   };
 
   const renderErangelRadar = (g: any) => {
@@ -1887,10 +2085,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         if (struckBot.hp <= 0 && !struckBot.isDead) {
           struckBot.isDead = true;
           struckBot.state = 'DEAD';
+          if (struckBot.markerGroup) struckBot.markerGroup.visible = false;
           if (struckBot.rig) {
             struckBot.rig.root.rotation.x = Math.PI / 2;
             struckBot.rig.root.position.y = 0.2;
           }
+          spawnDeathLootCrate(struckBot.position.clone(), struckBot.name, g);
           g.eliminationCount++;
           setKillsCount(g.eliminationCount);
           g.totalAlive = Math.max(1, g.totalAlive - 1);
@@ -2022,6 +2222,115 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
   };
 
+  const spawnDeathLootCrate = (pos: THREE.Vector3, botName: string, g: any) => {
+    if (!g.scene) return;
+    const crateGroup = new THREE.Group();
+    crateGroup.position.set(pos.x, getErangelTerrainHeight(pos.x, pos.z) + 0.35, pos.z);
+
+    // Military Green / Wooden Supply Box
+    const boxGeo = new THREE.BoxGeometry(1.2, 0.7, 0.8);
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: '#15803d',
+      roughness: 0.35,
+      metalness: 0.3,
+    });
+    const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+    boxMesh.castShadow = true;
+    crateGroup.add(boxMesh);
+
+    // Gold Rim Latch
+    const rim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.24, 0.08, 0.84),
+      new THREE.MeshBasicMaterial({ color: '#facc15' })
+    );
+    rim.position.y = 0.25;
+    crateGroup.add(rim);
+
+    // Iconic BGMI Vertical Green Light Beam
+    const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, 16, 12);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: '#22c55e',
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide,
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.position.y = 8;
+    crateGroup.add(beam);
+
+    // Pulsing Green Glow Light
+    const pLight = new THREE.PointLight('#22c55e', 3.5, 9);
+    pLight.position.y = 1.0;
+    crateGroup.add(pLight);
+
+    g.scene.add(crateGroup);
+    g.lootCrates.push({
+      id: Date.now() + Math.random(),
+      position: crateGroup.position,
+      mesh: crateGroup,
+      looted: false,
+      botName,
+      beamMesh: beam,
+    });
+  };
+
+  const useMedkit = () => {
+    const g = gameRef.current;
+    const p = g.player;
+    if (g.phase !== 'PLAYING') return;
+    if (p.hp >= 100) {
+      pushKillFeed('⚠️ Health already full (100 HP)!');
+      return;
+    }
+    if (g.medkits <= 0) {
+      pushKillFeed('❌ No Medkits! Loot enemy death crates.');
+      return;
+    }
+    if (g.isHealing) return;
+
+    g.isHealing = true;
+    setIsHealing(true);
+    setHealProgress(0);
+    playMedkitSound();
+    pushKillFeed('🩹 Applying First Aid Medkit...');
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 0.25;
+      setHealProgress(Math.min(1, progress));
+      if (progress >= 1.0) {
+        clearInterval(interval);
+        g.isHealing = false;
+        setIsHealing(false);
+        g.medkits = Math.max(0, g.medkits - 1);
+        setMedkitCount(g.medkits);
+        g.player.hp = 100;
+        setPlayerHp(100);
+        pushKillFeed('💚 FULL HP RESTORED (100 HP)!');
+      }
+    }, 400);
+  };
+
+  const lootCrate = (crate: any) => {
+    const g = gameRef.current;
+    if (!crate || crate.looted) return;
+    crate.looted = true;
+    if (crate.beamMesh) crate.mesh.remove(crate.beamMesh);
+
+    g.medkits += 1;
+    setMedkitCount(g.medkits);
+
+    g.player.reserve += 60;
+    setAmmoReserve(g.player.reserve);
+
+    g.player.armor = Math.min(100, g.player.armor + 40);
+    setPlayerArmor(g.player.armor);
+
+    setNearbyLootCrate(null);
+    playLootPickupSound();
+    pushKillFeed(`📦 LOOTED: +1 Medkit, +60 Ammo, +40 Armor from ${crate.botName}'s Crate!`);
+  };
+
   const setupInputControls = (canvas: HTMLCanvasElement, g: any) => {
     let isCombatMouseDown = false;
     let lastCombatMouseX = 0;
@@ -2047,7 +2356,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           setPhase('PARACHUTE');
         }
       }
-      if (k === 'm') setShowFullMap((m) => !m);
+      if (k === 'e' && nearbyLootCrate) lootCrate(nearbyLootCrate);
+      if (k === 'h' || k === '6') useMedkit();
       if (k === '1') switchWeapon('CARBINE');
       if (k === '2') switchWeapon('SMG');
       if (k === '3') switchWeapon('SHOTGUN');
@@ -2561,6 +2871,27 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <Text style={styles.hudKillsText}>KILLS: {killsCount}</Text>
               </BlurView>
 
+              {/* Top Compass Radar Ribbon with Realtime Enemy Direction & Distance */}
+              <View style={styles.topCompassContainer} pointerEvents="none">
+                <BlurView intensity={50} tint="dark" style={styles.topCompassBlur}>
+                  <View style={styles.compassCenterMarker} />
+                  <Text style={styles.compassHeadingText}>
+                    {compassHeading}° {compassHeading >= 338 || compassHeading < 23 ? 'N' : compassHeading < 68 ? 'NE' : compassHeading < 113 ? 'E' : compassHeading < 158 ? 'SE' : compassHeading < 203 ? 'S' : compassHeading < 248 ? 'SW' : compassHeading < 293 ? 'W' : 'NW'}
+                  </Text>
+                  {/* Active Enemy Direction Indicators */}
+                  <View style={styles.compassEnemyRow}>
+                    {nearbyEnemyBearings.map((b) => (
+                      <View key={b.id} style={styles.compassEnemyPill}>
+                        <Text style={styles.compassEnemyPillText}>🔻 {b.dist}m</Text>
+                      </View>
+                    ))}
+                    {nearbyEnemyBearings.length === 0 && (
+                      <Text style={styles.compassClearText}>ALL CLEAR (140m)</Text>
+                    )}
+                  </View>
+                </BlurView>
+              </View>
+
               <BlurView intensity={35} tint="dark" style={styles.hudStormCard}>
                 <Text style={styles.hudStormText}>
                   PLAYZONE: {Math.floor(safeZoneTime / 60)}:{String(safeZoneTime % 60).padStart(2, '0')}
@@ -2591,9 +2922,47 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               )}
             </View>
 
+            {/* Medkit First Aid Healing Channel Banner */}
+            {isHealing && (
+              <View style={styles.healingChannelBox} pointerEvents="none">
+                <BlurView intensity={65} tint="dark" style={styles.healingChannelInner}>
+                  <Text style={styles.healingChannelTitle}>🩹 APPLYING FIRST AID MEDKIT... {Math.round(healProgress * 100)}%</Text>
+                  <View style={styles.healProgressBarBg}>
+                    <View style={[styles.healProgressBarFill, { width: `${healProgress * 100}%` }]} />
+                  </View>
+                  <Text style={styles.healingChannelSub}>Restoring Full HP (100 HP)</Text>
+                </BlurView>
+              </View>
+            )}
+
+            {/* Nearby Enemy Death Loot Crate Pickup Banner */}
+            {nearbyLootCrate && (
+              <TouchableOpacity
+                style={styles.lootCratePromptContainer}
+                onPress={() => lootCrate(nearbyLootCrate)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['rgba(22, 101, 52, 0.95)', 'rgba(21, 128, 61, 0.98)', 'rgba(5, 150, 105, 0.95)']}
+                  style={styles.lootCratePromptInner}
+                >
+                  <View style={styles.lootCrateIconBox}>
+                    <Text style={styles.lootCrateIconText}>📦</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lootCratePromptTitle}>LOOT CRATE: {nearbyLootCrate.botName}</Text>
+                    <Text style={styles.lootCratePromptSub}>TAP OR PRESS [E] • +1 MEDKIT • +60 AMMO • +40 ARMOR</Text>
+                  </View>
+                  <View style={styles.lootActionPill}>
+                    <Text style={styles.lootActionPillText}>LOOT ALL [E]</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+
             {/* Bottom HUD: 5 Weapon Slots & Health */}
             <View style={styles.inGameBottomBar}>
-              {/* HP & Armor */}
+              {/* HP & Armor & Medkit Button */}
               <View style={styles.vitalsBox}>
                 <View style={styles.barRow}>
                   <Text style={styles.barLbl}>HP</Text>
@@ -2619,6 +2988,22 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   </View>
                   <Text style={styles.barVal}>{playerArmor}</Text>
                 </View>
+
+                {/* Medkit First Aid Quick Action */}
+                <TouchableOpacity
+                  style={[styles.medkitBarBtn, isHealing && { opacity: 0.5 }]}
+                  onPress={useMedkit}
+                  disabled={isHealing}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient colors={['#10b981', '#059669']} style={styles.medkitBarGrad}>
+                    <Text style={styles.medkitBarIcon}>🩹</Text>
+                    <View>
+                      <Text style={styles.medkitBarTitle}>MEDKIT ({medkitCount})</Text>
+                      <Text style={styles.medkitBarSub}>{isHealing ? 'HEALING...' : 'HEAL [H]'}</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
 
               {/* 5 Weapon Switcher */}
@@ -2652,6 +3037,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
             {/* Virtual On-Screen Combat Controls (Right Hand Action Cluster) */}
             <View style={styles.virtualCombatCluster} pointerEvents="box-none">
+              <TouchableOpacity
+                onPress={useMedkit}
+                disabled={isHealing}
+                activeOpacity={0.7}
+                style={[styles.virtualMedkitBtn, isHealing && { opacity: 0.5 }]}
+              >
+                <Text style={styles.virtualMedkitText}>🩹 MED ({medkitCount})</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={() => {
                   const g = gameRef.current;
@@ -2746,7 +3140,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             {/* In-Game Key Guide Bar */}
             <View style={styles.controlHintsBar} pointerEvents="none">
               <Text style={styles.controlHintText}>
-                🎮 WASD / Arrows: Move & Turn • Click or [🔥 FIRE]: Shoot • [🎯 SCOPE]: 4x ADS • [🔄]: Reload • 1-5: Guns • M: Map
+                🎮 WASD / Arrows: Move & Turn • Click or [🔥 FIRE]: Shoot • [🎯 SCOPE]: 4x ADS • [🔄]: Reload • [🩹 H]: Medkit ({medkitCount}) • [📦 E]: Loot • 1-5: Guns • M: Map
               </Text>
             </View>
           </View>
@@ -3711,4 +4105,210 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dpadBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
+
+  // Top Compass Radar Ribbon
+  topCompassContainer: {
+    flex: 1,
+    maxWidth: 420,
+    marginHorizontal: 12,
+    alignItems: 'center',
+  },
+  topCompassBlur: {
+    width: '100%',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.35)',
+    backgroundColor: 'rgba(5, 11, 20, 0.75)',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  compassCenterMarker: {
+    position: 'absolute',
+    top: 0,
+    width: 2,
+    height: 7,
+    backgroundColor: '#ffd700',
+  },
+  compassHeadingText: {
+    color: '#ffd700',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  compassEnemyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  compassEnemyPill: {
+    backgroundColor: 'rgba(220, 38, 38, 0.85)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ff4444',
+  },
+  compassEnemyPillText: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  compassClearText: {
+    color: '#64748b',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+
+  // Medkit First Aid Healing Channel Banner
+  healingChannelBox: {
+    position: 'absolute',
+    top: '38%',
+    alignSelf: 'center',
+    zIndex: 40,
+    minWidth: 280,
+  },
+  healingChannelInner: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(6, 78, 59, 0.88)',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  healingChannelTitle: {
+    color: '#34d399',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  healProgressBarBg: {
+    width: '100%',
+    height: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 5,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.4)',
+  },
+  healProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#10b981',
+    borderRadius: 5,
+  },
+  healingChannelSub: {
+    color: '#a7f3d0',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+
+  // Nearby Enemy Death Loot Crate Pickup Banner
+  lootCratePromptContainer: {
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
+    zIndex: 35,
+    maxWidth: 480,
+    width: '90%',
+  },
+  lootCratePromptInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#4ade80',
+    gap: 12,
+    shadowColor: '#22c55e',
+    shadowRadius: 14,
+    shadowOpacity: 0.6,
+  },
+  lootCrateIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lootCrateIconText: {
+    fontSize: 20,
+  },
+  lootCratePromptTitle: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  lootCratePromptSub: {
+    color: '#bbf7d0',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  lootActionPill: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  lootActionPillText: {
+    color: '#15803d',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+
+  // Medkit Bar Button in Vitals
+  medkitBarBtn: {
+    marginTop: 6,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  medkitBarGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  medkitBarIcon: {
+    fontSize: 16,
+  },
+  medkitBarTitle: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  medkitBarSub: {
+    color: '#d1fae5',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+
+  // Virtual Medkit Button in Action Cluster
+  virtualMedkitBtn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    borderWidth: 1.5,
+    borderColor: '#10b981',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  virtualMedkitText: {
+    color: '#34d399',
+    fontSize: 11,
+    fontWeight: '900',
+  },
 });
