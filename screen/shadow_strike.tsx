@@ -937,7 +937,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     totalAlive: 100,
     lastRadarRender: 0,
 
-    keys: { w: false, a: false, s: false, d: false, shift: false, space: false, e: false, r: false },
+    keys: {
+      w: false,
+      a: false,
+      s: false,
+      d: false,
+      shift: false,
+      space: false,
+      e: false,
+      r: false,
+      arrowLeft: false,
+      arrowRight: false,
+      arrowUp: false,
+      arrowDown: false,
+    },
     mouseLook: { yaw: 0, pitch: 0.15, isAiming: false },
 
     playerRig: null as HumanRig | null,
@@ -987,12 +1000,6 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   // ============================================================================
   useEffect(() => {
     if (Platform.OS !== 'web' || !mountRef.current) return;
-
-    // In 2D Lobby mode, do not run heavy 3D rendering to ensure absolute 0 lag
-    if (phase === 'LOBBY' && !is3DInspect) {
-      if (mountRef.current) mountRef.current.innerHTML = '';
-      return;
-    }
 
     const g = gameRef.current;
     g.mapId = selectedMapId;
@@ -1160,22 +1167,70 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(petBot);
     g.lobbyPetBot = petBot;
 
-    // 4. Spawn "The Fool" Joker Rig in the Center of Lobby
+    // 4. Hero Showcase Dais (Circular Stage Podium under Character)
+    const stageGeo = new THREE.CylinderGeometry(1.5, 1.7, 0.14, 32);
+    const stageMat = new THREE.MeshStandardMaterial({
+      color: '#1e293b',
+      roughness: 0.35,
+      metalness: 0.7,
+    });
+    const heroStage = new THREE.Mesh(stageGeo, stageMat);
+    heroStage.position.set(0, 0.07, 0);
+    heroStage.receiveShadow = true;
+    scene.add(heroStage);
+
+    const stageRimGeo = new THREE.TorusGeometry(1.52, 0.025, 8, 32);
+    const stageRimMat = new THREE.MeshBasicMaterial({ color: '#ffd700' });
+    const stageRim = new THREE.Mesh(stageRimGeo, stageRimMat);
+    stageRim.rotation.x = Math.PI / 2;
+    stageRim.position.set(0, 0.14, 0);
+    scene.add(stageRim);
+
+    // Dynamic Rim Lights for signature character edge glow
+    const cyanRimLight = new THREE.DirectionalLight('#00f0ff', 1.6);
+    cyanRimLight.position.set(-5, 6, -5);
+    scene.add(cyanRimLight);
+
+    const goldKeyLight = new THREE.DirectionalLight('#fbbf24', 1.8);
+    goldKeyLight.position.set(5, 5, 4);
+    scene.add(goldKeyLight);
+
+    // Floating Atmospheric Sparkles / Confetti
+    const sparkleGeo = new THREE.BufferGeometry();
+    const spCount = 50;
+    const spPos = new Float32Array(spCount * 3);
+    for (let i = 0; i < spCount * 3; i += 3) {
+      spPos[i] = (Math.random() - 0.5) * 6;
+      spPos[i + 1] = Math.random() * 3.2 + 0.3;
+      spPos[i + 2] = (Math.random() - 0.5) * 5;
+    }
+    sparkleGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
+    const sparkleMat = new THREE.PointsMaterial({
+      color: '#ffd700',
+      size: 0.045,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const sparkles = new THREE.Points(sparkleGeo, sparkleMat);
+    scene.add(sparkles);
+    g.lobbySparkles = sparkles;
+
+    // 5. Spawn "The Fool" Joker Rig in the Center of Lobby
     const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.THE_FOOL_JOKER;
     const rig = buildTheFoolJokerRig(skinDef, false);
-    rig.root.position.set(0, 0.05, 0);
+    rig.root.position.set(0, 0.14, 0);
     scene.add(rig.root);
     g.lobbyRig = rig;
 
     // Set Camera Facing Character (Matching Image 1 third-person viewpoint)
     if (g.camera) {
-      g.camera.position.set(0, 1.35, 3.4);
+      g.camera.position.set(0, 1.35, 3.2);
       g.camera.lookAt(0, 1.15, 0);
     }
   };
 
   const updateLobbyScene = (dt: number, g: any) => {
-    // Character Idle Breathing Animation
+    // Character Idle Breathing Animation & 360 Drag Rotation
     if (g.lobbyRig) {
       const breath = Math.sin(g.elapsedTime * 2.2) * 0.012;
       g.lobbyRig.torsoGroup.position.y = 1.15 + breath;
@@ -1193,6 +1248,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (g.lobbyPetBot) {
       g.lobbyPetBot.position.y = 0.38 + Math.sin(g.elapsedTime * 3.0) * 0.04;
       g.lobbyPetBot.rotation.y = Math.sin(g.elapsedTime * 1.5) * 0.3;
+    }
+
+    // Sparkles Rotation
+    if (g.lobbySparkles) {
+      g.lobbySparkles.rotation.y += dt * 0.1;
     }
   };
 
@@ -1465,6 +1525,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     const moveDir = new THREE.Vector3();
+
+    // Smooth Arrow Keys Camera Turning & Movement
+    if (g.keys.arrowLeft) g.mouseLook.yaw += 2.6 * dt;
+    if (g.keys.arrowRight) g.mouseLook.yaw -= 2.6 * dt;
+    if (g.keys.arrowUp) moveDir.add(fwd);
+    if (g.keys.arrowDown) moveDir.sub(fwd);
 
     if (g.keys.w) moveDir.add(fwd);
     if (g.keys.s) moveDir.sub(fwd);
@@ -1749,47 +1815,76 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(new THREE.Vector2(0, 0), g.camera);
 
-    const hits = ray.intersectObjects(g.scene.children, true);
+    const activeBots = g.bots.filter((b: EnemyBot) => !b.isDead);
+    const botRoots = activeBots.map((b: EnemyBot) => b.rig.root);
+    const hits = ray.intersectObjects(botRoots, true);
+
+    let targetHitPoint = ray.ray.at(120, new THREE.Vector3());
+
     if (hits.length > 0) {
-      for (let hit of hits) {
-        if (hit.object !== g.playerRig?.root) {
-          const struckBot = g.bots.find((b: EnemyBot) => b.rig.root === hit.object.parent?.parent?.parent || b.rig.root === hit.object.parent?.parent);
-          if (struckBot && !struckBot.isDead) {
-            struckBot.hp -= p.currentWeapon.damage;
-            playHitMarkerSound();
-            setHitMarker(true);
-            setTimeout(() => setHitMarker(false), 70);
-            setFloatingDamage({ text: `-${p.currentWeapon.damage}`, color: p.currentWeapon.color });
-            setTimeout(() => setFloatingDamage(null), 550);
+      targetHitPoint = hits[0].point;
+      let hitObj: THREE.Object3D | null = hits[0].object;
+      let struckBot: EnemyBot | undefined;
+      while (hitObj && !struckBot) {
+        struckBot = g.bots.find((b: EnemyBot) => b.rig?.root === hitObj);
+        hitObj = hitObj.parent;
+      }
 
-            if (struckBot.hp <= 0 && !struckBot.isDead) {
-              struckBot.isDead = true;
-              struckBot.state = 'DEAD';
-              if (struckBot.rig) {
-                struckBot.rig.root.rotation.x = Math.PI / 2;
-                struckBot.rig.root.position.y = 0.2;
-              }
-              g.eliminationCount++;
-              setKillsCount(g.eliminationCount);
-              g.totalAlive = Math.max(1, g.totalAlive - 1);
-              setAliveCount(g.totalAlive);
+      if (struckBot && !struckBot.isDead) {
+        struckBot.hp -= p.currentWeapon.damage;
+        if (struckBot.hpBarMesh) {
+          struckBot.hpBarMesh.scale.x = Math.max(0.01, struckBot.hp / struckBot.maxHp);
+        }
+        playHitMarkerSound();
+        setHitMarker(true);
+        setTimeout(() => setHitMarker(false), 80);
+        setFloatingDamage({ text: `-${p.currentWeapon.damage}`, color: p.currentWeapon.color });
+        setTimeout(() => setFloatingDamage(null), 550);
 
-              setEliminationBanner({
-                visible: true,
-                victimName: struckBot.name,
-                kills: g.eliminationCount,
-                remaining: g.totalAlive,
-              });
-              setTimeout(() => setEliminationBanner((prev) => ({ ...prev, visible: false })), 2600);
-              pushKillFeed(`SMxTHUG eliminated ${struckBot.name} with M416 Glacier`);
-
-              if (g.totalAlive === 1 && p.hp > 0) handleGameVictory();
-            }
+        if (struckBot.hp <= 0 && !struckBot.isDead) {
+          struckBot.isDead = true;
+          struckBot.state = 'DEAD';
+          if (struckBot.rig) {
+            struckBot.rig.root.rotation.x = Math.PI / 2;
+            struckBot.rig.root.position.y = 0.2;
           }
-          break;
+          g.eliminationCount++;
+          setKillsCount(g.eliminationCount);
+          g.totalAlive = Math.max(1, g.totalAlive - 1);
+          setAliveCount(g.totalAlive);
+
+          setEliminationBanner({
+            visible: true,
+            victimName: struckBot.name,
+            kills: g.eliminationCount,
+            remaining: g.totalAlive,
+          });
+          setTimeout(() => setEliminationBanner((prev) => ({ ...prev, visible: false })), 2600);
+          pushKillFeed(`SMxTHUG eliminated ${struckBot.name} with ${p.currentWeapon.name}`);
+
+          if (g.totalAlive === 1 && p.hp > 0) handleGameVictory();
         }
       }
     }
+
+    // Dynamic Visual Bullet Tracer
+    try {
+      const yaw = g.mouseLook?.yaw || 0;
+      const muzzleStart = new THREE.Vector3(
+        p.position.x + Math.sin(yaw) * 0.45 + Math.cos(yaw) * 0.25,
+        p.position.y + 1.25,
+        p.position.z + Math.cos(yaw) * 0.45 - Math.sin(yaw) * 0.25
+      );
+      const tracerGeo = new THREE.BufferGeometry().setFromPoints([muzzleStart, targetHitPoint]);
+      const tracerMat = new THREE.LineBasicMaterial({ color: '#00f0ff', linewidth: 2 });
+      const tracerLine = new THREE.Line(tracerGeo, tracerMat);
+      if (g.scene) g.scene.add(tracerLine);
+      setTimeout(() => {
+        if (g.scene) g.scene.remove(tracerLine);
+        tracerGeo.dispose();
+        tracerMat.dispose();
+      }, 65);
+    } catch (e) {}
   };
 
   const reloadWeapon = () => {
@@ -1830,12 +1925,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const setupInputControls = (canvas: HTMLCanvasElement, g: any) => {
+    let isCombatMouseDown = false;
+    let lastCombatMouseX = 0;
+    let lastCombatMouseY = 0;
+
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k === 'w') g.keys.w = true;
       if (k === 'a') g.keys.a = true;
       if (k === 's') g.keys.s = true;
       if (k === 'd') g.keys.d = true;
+      if (e.key === 'ArrowLeft') g.keys.arrowLeft = true;
+      if (e.key === 'ArrowRight') g.keys.arrowRight = true;
+      if (e.key === 'ArrowUp') g.keys.arrowUp = true;
+      if (e.key === 'ArrowDown') g.keys.arrowDown = true;
       if (e.key === 'Shift') g.keys.shift = true;
       if (k === 'r') reloadWeapon();
       if (e.key === ' ') {
@@ -1860,7 +1963,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       if (k === 'a') g.keys.a = false;
       if (k === 's') g.keys.s = false;
       if (k === 'd') g.keys.d = false;
+      if (e.key === 'ArrowLeft') g.keys.arrowLeft = false;
+      if (e.key === 'ArrowRight') g.keys.arrowRight = false;
+      if (e.key === 'ArrowUp') g.keys.arrowUp = false;
+      if (e.key === 'ArrowDown') g.keys.arrowDown = false;
       if (e.key === 'Shift') g.keys.shift = false;
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      return false;
     };
 
     const onMouseDown = (e: MouseEvent) => {
@@ -1868,11 +1980,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         isDraggingLobbyRef.current = true;
         lastMouseXRef.current = e.clientX;
       } else if (g.phase === 'PLAYING') {
-        if (!document.pointerLockElement) canvas.requestPointerLock?.();
+        isCombatMouseDown = true;
+        lastCombatMouseX = e.clientX;
+        lastCombatMouseY = e.clientY;
+
         if (e.button === 0) {
           g.isFiring = true;
           fireWeapon();
         } else if (e.button === 2) {
+          e.preventDefault();
           g.mouseLook.isAiming = !g.mouseLook.isAiming;
           setIsAiming(g.mouseLook.isAiming);
         }
@@ -1881,6 +1997,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     const onMouseUp = () => {
       isDraggingLobbyRef.current = false;
+      isCombatMouseDown = false;
       g.isFiring = false;
     };
 
@@ -1889,37 +2006,66 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         const deltaX = e.clientX - lastMouseXRef.current;
         lastMouseXRef.current = e.clientX;
         lobbyRotationRef.current += deltaX * 0.012;
-      } else if (g.phase === 'PLAYING' && document.pointerLockElement === canvas) {
-        g.mouseLook.yaw -= e.movementX * 0.0022;
-        g.mouseLook.pitch -= e.movementY * 0.0022;
+      } else if (g.phase === 'PLAYING') {
+        if (document.pointerLockElement === canvas) {
+          g.mouseLook.yaw -= e.movementX * 0.0024;
+          g.mouseLook.pitch -= e.movementY * 0.0024;
+        } else if (isCombatMouseDown) {
+          const deltaX = e.clientX - lastCombatMouseX;
+          const deltaY = e.clientY - lastCombatMouseY;
+          lastCombatMouseX = e.clientX;
+          lastCombatMouseY = e.clientY;
+          g.mouseLook.yaw -= deltaX * 0.0035;
+          g.mouseLook.pitch -= deltaY * 0.0035;
+        }
         g.mouseLook.pitch = Math.max(-0.6, Math.min(0.85, g.mouseLook.pitch));
       }
     };
 
+    const onCanvasClick = () => {
+      if (g.phase === 'PLAYING' && document.pointerLockElement !== canvas) {
+        try {
+          canvas.requestPointerLock?.();
+        } catch (e) {}
+      }
+    };
+
+    canvas.addEventListener('click', onCanvasClick);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     canvas.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('contextmenu', onContextMenu);
+    window.addEventListener('contextmenu', onContextMenu);
   };
 
   const pushKillFeed = (msg: string) => {
     setKillFeed((prev) => [msg, ...prev.slice(0, 4)]);
   };
 
-  const startErangelMatch = () => {
+  const startErangelMatch = (instantTouchdown: any = false) => {
     playStartMatchSound();
     const g = gameRef.current;
-    g.phase = 'AIRPLANE';
-    setPhase('AIRPLANE');
-    g.airplane.position.set(0, 180, -380);
-    g.airplane.hasJumped = false;
     g.player.hp = 100;
     g.player.armor = 100;
     setPlayerHp(100);
     setPlayerArmor(100);
     setKillsCount(0);
     setAliveCount(100);
+
+    if (instantTouchdown === true) {
+      g.phase = 'PLAYING';
+      setPhase('PLAYING');
+      g.player.position.set(0, getErangelTerrainHeight(0, -40), -40);
+      g.player.velocity.set(0, 0, 0);
+      pushKillFeed('⚔️ TOUCHDOWN POCHINKI: Combat Started! 100 Players Active!');
+    } else {
+      g.phase = 'AIRPLANE';
+      setPhase('AIRPLANE');
+      g.airplane.position.set(0, 180, -380);
+      g.airplane.hasJumped = false;
+    }
   };
 
   return (
@@ -1927,16 +2073,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       <StatusBar hidden />
 
       <View style={styles.canvasContainer}>
-        {/* Exact BGMI Lobby Backdrop Image from Image 1 */}
-        {phase === 'LOBBY' && !is3DInspect && (
-          <Image
-            source={{ uri: BGMI_LOBBY_BG_BASE64 }}
-            style={styles.bgmiLobbyBackdropImage}
-            resizeMode="cover"
-          />
-        )}
-
-        {/* 3D WebGL Canvas */}
+        {/* 3D WebGL Canvas for 100% Real 3D BGMI Lobby & Battleground */}
         <div
           ref={mountRef}
           style={{
@@ -1945,8 +2082,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             position: 'absolute',
             top: 0,
             left: 0,
-            display: (phase === 'LOBBY' && !is3DInspect) ? 'none' : 'block',
-            cursor: phase === 'PLAYING' ? 'crosshair' : 'default',
+            display: 'block',
+            cursor: phase === 'PLAYING' ? 'crosshair' : 'grab',
           }}
         />
 
@@ -1998,10 +2135,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               <View style={styles.centerIconsRow}>
                 <TouchableOpacity
                   style={styles.inspectModeToggleBtn}
-                  onPress={() => setIs3DInspect(!is3DInspect)}
+                  onPress={() => {
+                    lobbyRotationRef.current += Math.PI / 4;
+                  }}
                 >
                   <Text style={styles.inspectModeToggleText}>
-                    {is3DInspect ? '🎪 BGMI REAL LOBBY' : '🔄 3D INSPECT SKIN'}
+                    🔄 360° SPIN HERO
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🏠 HOME: Personal Space level 8')}>
@@ -2099,7 +2238,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
               {/* THE ICONIC YELLOW START BUTTON with LinearGradient */}
               <TouchableOpacity
-                onPress={startErangelMatch}
+                onPress={() => startErangelMatch(false)}
                 activeOpacity={0.85}
               >
                 <LinearGradient
@@ -2108,7 +2247,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   end={{ x: 1, y: 1 }}
                   style={styles.bgmiStartBtn}
                 >
-                  <Text style={styles.bgmiStartBtnText}>START</Text>
+                  <Text style={styles.bgmiStartBtnText}>START MATCH</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* FAST COMBAT INSTANT POCHINKI DROP */}
+              <TouchableOpacity
+                onPress={() => startErangelMatch(true)}
+                activeOpacity={0.85}
+                style={{ marginTop: 6 }}
+              >
+                <LinearGradient
+                  colors={['#ef4444', '#dc2626', '#991b1b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.bgmiStartBtn, { paddingVertical: 8, paddingHorizontal: 12 }]}
+                >
+                  <Text style={[styles.bgmiStartBtnText, { fontSize: 13 }]}>⚡ FAST COMBAT (POCHINKI)</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -2397,10 +2552,94 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
             </View>
 
+            {/* Virtual On-Screen Combat Controls (Right Hand Action Cluster) */}
+            <View style={styles.virtualCombatCluster} pointerEvents="box-none">
+              <TouchableOpacity
+                onPress={() => {
+                  const g = gameRef.current;
+                  g.mouseLook.isAiming = !g.mouseLook.isAiming;
+                  setIsAiming(g.mouseLook.isAiming);
+                }}
+                activeOpacity={0.7}
+                style={styles.virtualAdsBtn}
+              >
+                <Text style={styles.virtualAdsText}>{isAiming ? '🔍 4x ADS' : '🎯 SCOPE'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={reloadWeapon}
+                activeOpacity={0.7}
+                style={styles.virtualReloadBtn}
+              >
+                <Text style={styles.virtualReloadText}>🔄 RELOAD</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => fireWeapon()}
+                activeOpacity={0.6}
+                style={styles.virtualFireBtn}
+              >
+                <LinearGradient
+                  colors={['#ef4444', '#dc2626', '#991b1b']}
+                  style={styles.virtualFireGradient}
+                >
+                  <Text style={styles.virtualFireText}>🔥</Text>
+                  <Text style={styles.virtualFireSub}>FIRE</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            {/* Virtual Movement D-Pad (Left Hand Cluster) */}
+            <View style={styles.virtualDpadCluster} pointerEvents="box-none">
+              <View style={styles.dpadRow}>
+                <TouchableOpacity
+                  onPressIn={() => { gameRef.current.keys.w = true; }}
+                  onPressOut={() => { gameRef.current.keys.w = false; }}
+                  style={styles.dpadBtn}
+                >
+                  <Text style={styles.dpadBtnText}>▲</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.dpadRow}>
+                <TouchableOpacity
+                  onPressIn={() => { gameRef.current.keys.arrowLeft = true; }}
+                  onPressOut={() => { gameRef.current.keys.arrowLeft = false; }}
+                  style={styles.dpadBtn}
+                >
+                  <Text style={styles.dpadBtnText}>◀</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    const g = gameRef.current;
+                    g.keys.shift = !g.keys.shift;
+                  }}
+                  style={[styles.dpadBtn, { backgroundColor: 'rgba(0,240,255,0.25)', borderColor: '#00f0ff' }]}
+                >
+                  <Text style={[styles.dpadBtnText, { fontSize: 10, color: '#00f0ff' }]}>RUN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPressIn={() => { gameRef.current.keys.arrowRight = true; }}
+                  onPressOut={() => { gameRef.current.keys.arrowRight = false; }}
+                  style={styles.dpadBtn}
+                >
+                  <Text style={styles.dpadBtnText}>▶</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.dpadRow}>
+                <TouchableOpacity
+                  onPressIn={() => { gameRef.current.keys.s = true; }}
+                  onPressOut={() => { gameRef.current.keys.s = false; }}
+                  style={styles.dpadBtn}
+                >
+                  <Text style={styles.dpadBtnText}>▼</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* In-Game Key Guide Bar */}
             <View style={styles.controlHintsBar} pointerEvents="none">
               <Text style={styles.controlHintText}>
-                🎮 WASD: Move • SHIFT: Sprint • L-CLICK: Fire • R-CLICK: ADS Scope • R: Reload • 1-5: Guns • M: Map
+                🎮 WASD / Arrows: Move & Turn • Click or [🔥 FIRE]: Shoot • [🎯 SCOPE]: 4x ADS • [🔄]: Reload • 1-5: Guns • M: Map
               </Text>
             </View>
           </View>
@@ -2409,17 +2648,30 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* AIRPLANE DROP OVERLAY */}
         {phase === 'AIRPLANE' && (
           <View style={styles.airplaneOverlay} pointerEvents="box-none">
-            <Text style={styles.flightTitle}>C-130 HERCULES OVER ERANGEL</Text>
-            <TouchableOpacity onPress={jumpFromAirplane} activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#ef4444', '#dc2626', '#991b1b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.jumpActionBtn}
-              >
-                <Text style={styles.jumpActionBtnText}>🪂 PRESS [SPACE] TO JUMP (HOT DROP)</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+            <Text style={styles.flightTitle}>✈️ C-130 HERCULES OVER ERANGEL 8x8</Text>
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: 16 }}>
+              <TouchableOpacity onPress={jumpFromAirplane} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#f59e0b', '#d97706', '#b45309']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.jumpActionBtn}
+                >
+                  <Text style={styles.jumpActionBtnText}>🪂 PARACHUTE DROP [SPACE]</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#ef4444', '#dc2626', '#991b1b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.jumpActionBtn}
+                >
+                  <Text style={styles.jumpActionBtnText}>⚡ FAST POCHINKI TOUCHDOWN</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -3262,4 +3514,72 @@ const styles = StyleSheet.create({
   },
   rewardCardTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
   rewardCardStatus: { color: '#22c55e', fontSize: 10, fontWeight: '900' },
+
+  // Virtual On-Screen Combat Controls
+  virtualCombatCluster: {
+    position: 'absolute',
+    right: 20,
+    bottom: 95,
+    alignItems: 'center',
+    gap: 10,
+    zIndex: 25,
+  },
+  virtualFireBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    overflow: 'hidden',
+    shadowColor: '#ef4444',
+    shadowRadius: 14,
+    shadowOpacity: 0.8,
+  },
+  virtualFireGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  virtualFireText: { fontSize: 22 },
+  virtualFireSub: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  virtualAdsBtn: {
+    backgroundColor: 'rgba(0, 240, 255, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#00f0ff',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  virtualAdsText: { color: '#00f0ff', fontSize: 11, fontWeight: '900' },
+  virtualReloadBtn: {
+    backgroundColor: 'rgba(234, 179, 8, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#eab308',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  virtualReloadText: { color: '#eab308', fontSize: 11, fontWeight: '900' },
+
+  // Virtual Movement D-Pad
+  virtualDpadCluster: {
+    position: 'absolute',
+    left: 20,
+    bottom: 95,
+    alignItems: 'center',
+    zIndex: 25,
+  },
+  dpadRow: { flexDirection: 'row', gap: 5, marginVertical: 2 },
+  dpadBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dpadBtnText: { color: '#fff', fontSize: 16, fontWeight: '900' },
 });
