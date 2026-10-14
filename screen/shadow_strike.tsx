@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { ERANGEL_MAP_BASE64, BGMI_LOBBY_BG_BASE64 } from '../utils/erangel_assets';
+import { ERANGEL_MAP_BASE64 } from '../utils/erangel_assets';
 
 // ============================================================================
 // GAME FLOW & MAP DEFINITIONS (ERANGEL & THEMED MAPS)
@@ -54,9 +54,9 @@ export interface MapDefinition {
 export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   ERANGEL: {
     id: 'ERANGEL',
-    name: 'ERANGEL 8x8 (CLASSIC)',
-    tagline: 'MAINLAND & SOSNOVKA MILITARY ISLAND',
-    desc: 'The legendary 8x8 battleground featuring Pochinki, Sosnovka Military Base, Georgopol Shipping Docks, School, Rozhok, Yasnaya Polyana, and the twin ocean bridges.',
+    name: 'IRONHAVEN ISLE',
+    tagline: 'COASTAL CITIES & A FORGOTTEN NAVAL BASE',
+    desc: 'A sprawling coastal battleground with weathered towns, a naval installation, shipping docks, a hilltop academy, and two contested sea bridges.',
     duration: '25-30 MINS',
     badge: '★ SIGNATURE MAP ★',
     accentColor: '#ffd700',
@@ -69,9 +69,9 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   },
   DESERT_MIRAMAR: {
     id: 'DESERT_MIRAMAR',
-    name: 'MIRAMAR DESERT',
-    tagline: 'ARID BADLANDS & LOS LEONES',
-    desc: 'Vast scorched desert with sweeping sandstone bluffs, haciendas, oil depots, and long-range sniper plateaus.',
+    name: 'ASHFALL RIDGE',
+    tagline: 'ARID BADLANDS & DUST-STORM OUTPOSTS',
+    desc: 'A scorched desert of sandstone bluffs, abandoned compounds, fuel depots, and exposed long-range ridgelines.',
     duration: '25-30 MINS',
     badge: '★ SNIPER HAVEN ★',
     accentColor: '#eab308',
@@ -84,9 +84,9 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   },
   FROZEN_VIKENDI: {
     id: 'FROZEN_VIKENDI',
-    name: 'VIKENDI ARCTIC',
-    tagline: 'SNOW PEAKS & CASTLE RUINS',
-    desc: 'Snow-covered pine slopes, frozen lakes, Goroka cosmodrome, and an ancient stone fortress.',
+    name: 'FROSTLINE VALLEY',
+    tagline: 'SNOW PEAKS & ABANDONED RELAY STATIONS',
+    desc: 'Snow-covered pine slopes, frozen lakes, a silent relay station, and a crumbling mountain fortress.',
     duration: '20-25 MINS',
     badge: '★ EXTREME COLD ★',
     accentColor: '#38bdf8',
@@ -99,9 +99,9 @@ export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   },
   NEON_LIVIK: {
     id: 'NEON_LIVIK',
-    name: 'LIVIK NORDIC',
-    tagline: 'FAST-PACED NORDIC WATERFALLS',
-    desc: 'Action-packed terrain with geothermal hot springs, flower fields, and dense close-quarters towns.',
+    name: 'VERDANT REACH',
+    tagline: 'RAPID OPERATIONS IN THE HIGHLANDS',
+    desc: 'A fast-moving highland theatre with geothermal springs, dense villages, and tight close-quarters routes.',
     duration: '12-15 MINS',
     badge: '★ FAST PACED ★',
     accentColor: '#10b981',
@@ -139,24 +139,24 @@ export interface SkinSetDefinition {
 export const SKIN_DEFINITIONS: Record<SkinSetId, SkinSetDefinition> = {
   THE_FOOL_JOKER: {
     id: 'THE_FOOL_JOKER',
-    name: 'THE FOOL (JOKER SET)',
-    tag: 'MYTHIC UPGRADEABLE',
-    rarity: 'MYTHIC',
-    rarityColor: '#ec4899',
-    faceType: 'CLOWN_JOKER',
-    coatColor: '#181b22', // Gothic black/slate tuxedo coat
-    pinstripePants: true,
-    pantsColor: '#14171f',
-    cummerbundColor: '#dc2626', // Scarlet red waist sash
-    hairStyle: 'JESTER_PIGTAILS',
-    hairColor: '#e2e8f0', // Silver/blonde jester bells
-    weaponSkin: 'GLACIER_M416',
-    hasTailcoat: true,
+    name: 'NOMAD RECON SET',
+    tag: 'FIELD-TESTED OPERATOR',
+    rarity: 'LEGENDARY',
+    rarityColor: '#84cc16',
+    faceType: 'HUMAN_MALE',
+    coatColor: '#465346',
+    pinstripePants: false,
+    pantsColor: '#2b332c',
+    cummerbundColor: '#65725e',
+    hairStyle: 'BUZZ',
+    hairColor: '#20170f',
+    weaponSkin: 'CLASSIC_M4A1',
+    hasTailcoat: false,
   },
   GLACIER_WARRIOR: {
     id: 'GLACIER_WARRIOR',
-    name: 'FROSTY VOYAGER SET',
-    tag: 'SUB-ZERO ICE SET',
+    name: 'ARCTIC WARDEN SET',
+    tag: 'SUB-ZERO RESPONSE',
     rarity: 'MYTHIC',
     rarityColor: '#00f0ff',
     faceType: 'MASK',
@@ -171,8 +171,8 @@ export const SKIN_DEFINITIONS: Record<SkinSetId, SkinSetDefinition> = {
   },
   PHARAOH_GOLDEN: {
     id: 'PHARAOH_GOLDEN',
-    name: 'GOLDEN PHARAOH X-SUIT',
-    tag: 'ULTIMATE 7-STAR',
+    name: 'DUNE SENTINEL SET',
+    tag: 'DESERT COMMAND',
     rarity: 'ULTIMATE',
     rarityColor: '#ffd700',
     faceType: 'MASK',
@@ -187,8 +187,8 @@ export const SKIN_DEFINITIONS: Record<SkinSetId, SkinSetDefinition> = {
   },
   BLOOD_RAVEN: {
     id: 'BLOOD_RAVEN',
-    name: 'BLOOD RAVEN X-SUIT',
-    tag: 'CRIMSON FEATHER',
+    name: 'NIGHTFALL OPERATOR SET',
+    tag: 'STEALTH ASSAULT',
     rarity: 'ULTIMATE',
     rarityColor: '#ef4444',
     faceType: 'MASK',
@@ -203,8 +203,8 @@ export const SKIN_DEFINITIONS: Record<SkinSetId, SkinSetDefinition> = {
   },
   TACTICAL_BLACK: {
     id: 'TACTICAL_BLACK',
-    name: 'BLACK COMMANDO TACTICAL',
-    tag: 'SPEC-OPS COMBAT',
+    name: 'URBAN STRIKE OPERATOR',
+    tag: 'SPECIAL OPERATIONS',
     rarity: 'LEGENDARY',
     rarityColor: '#a855f7',
     faceType: 'HUMAN_MALE',
@@ -247,7 +247,7 @@ export interface WeaponDef {
 export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
   CARBINE: {
     id: 'CARBINE',
-    name: 'M416 (GLACIER ICE)',
+    name: 'AR-47 AURORA',
     category: 'ASSAULT RIFLE',
     slotNumber: 1,
     damage: 38,
@@ -262,7 +262,7 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
     zoomFOV: 50,
     reloadTime: 1.5,
     color: '#00f0ff',
-    desc: 'The iconic Glacier M416. Translucent ice receiver with cyan frost particles and maximum stability.',
+    desc: 'A stable modular carbine with an insulated receiver, compact optic, and controllable recoil.',
   },
   SMG: {
     id: 'SMG',
@@ -304,7 +304,7 @@ export const WEAPON_REGISTRY: Record<WeaponType, WeaponDef> = {
   },
   SNIPER: {
     id: 'SNIPER',
-    name: 'AWM .338 MAGNUM',
+    name: 'LONGWATCH .338',
     category: 'SNIPER RIFLE',
     slotNumber: 4,
     damage: 120,
@@ -507,28 +507,26 @@ export const buildWeaponModelMesh = (type: WeaponType, skin: string): THREE.Grou
   return group;
 };
 
-// Builds "The Fool" / Joker Character Rig matching the user's lobby screenshot
+// Builds a grounded, real-world tactical operator with modular armour and equipment.
 export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolean = false): HumanRig => {
   const root = new THREE.Group();
 
-  // Materials for "The Fool" Joker Set
-  const clownFaceMat = new THREE.MeshStandardMaterial({
-    color: '#ffffff', // Pale white porcelain face paint
-    roughness: 0.4,
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: skinDef.faceType === 'HUMAN_FEMALE' ? '#b97958' : '#9c654b',
+    roughness: 0.78,
   });
-  const smileRedMat = new THREE.MeshBasicMaterial({ color: '#dc2626' }); // Scarlet carved smile
-  const eyeMaskMat = new THREE.MeshBasicMaterial({ color: '#1e1b4b' }); // Dark diamond eye shadow
-  const tuxedoMat = new THREE.MeshStandardMaterial({
+  const uniformMat = new THREE.MeshStandardMaterial({
     color: isEnemy ? '#3b0764' : skinDef.coatColor,
-    roughness: 0.6,
+    roughness: 0.82,
   });
-  const cummerbundMat = new THREE.MeshStandardMaterial({
+  const plateMat = new THREE.MeshStandardMaterial({
     color: skinDef.cummerbundColor,
-    roughness: 0.5,
+    roughness: 0.55,
+    metalness: 0.18,
   });
-  const pinstripeMat = new THREE.MeshStandardMaterial({
+  const trouserMat = new THREE.MeshStandardMaterial({
     color: skinDef.pantsColor,
-    roughness: 0.7,
+    roughness: 0.86,
   });
   const shoesMat = new THREE.MeshStandardMaterial({
     color: '#0a0a0a',
@@ -539,102 +537,66 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
     color: '#18181b',
     roughness: 0.6,
   });
-  const jesterBellsMat = new THREE.MeshStandardMaterial({
-    color: '#ffd700',
-    metalness: 0.9,
-    roughness: 0.2,
-  });
   const hairMat = new THREE.MeshStandardMaterial({
     color: skinDef.hairColor,
     roughness: 0.8,
   });
 
-  // 1. Torso & Tailcoat Tuxedo
+  // 1. Torso, plate carrier, radio and front utility pouches.
   const torsoGroup = new THREE.Group();
   torsoGroup.position.set(0, 1.15, 0);
   root.add(torsoGroup);
 
-  // Formal Ruffled Shirt & Tuxedo Vest
-  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.44), tuxedoMat);
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.44), uniformMat);
   chest.castShadow = true;
   torsoGroup.add(chest);
 
-  // White Shirt Inset & Bowtie
-  const shirtInset = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.5, 0.02), new THREE.MeshBasicMaterial({ color: '#f8fafc' }));
-  shirtInset.position.set(0, 0.08, 0.23);
-  torsoGroup.add(shirtInset);
+  const plateCarrier = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.58, 0.12), plateMat);
+  plateCarrier.position.set(0, 0.02, 0.26);
+  torsoGroup.add(plateCarrier);
+  [-0.2, 0, 0.2].forEach((x) => {
+    const pouch = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.2, 0.08), plateMat);
+    pouch.position.set(x, -0.18, 0.37);
+    torsoGroup.add(pouch);
+  });
+  const radio = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.07), new THREE.MeshStandardMaterial({ color: '#1a2024', roughness: 0.6 }));
+  radio.position.set(-0.34, 0.16, 0.24);
+  torsoGroup.add(radio);
 
-  const bowTie = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.03), smileRedMat);
-  bowTie.position.set(0, 0.28, 0.25);
-  torsoGroup.add(bowTie);
-
-  // Red Waist Sash / Cummerbund
-  const sash = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.16, 0.48), cummerbundMat);
-  sash.position.set(0, -0.32, 0);
-  torsoGroup.add(sash);
-
-  // Swallowtail Coat Tails on Back
-  if (skinDef.hasTailcoat) {
-    const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.04), tuxedoMat);
-    tailL.position.set(-0.16, -0.56, -0.22);
-    tailL.rotation.x = -0.15;
-    torsoGroup.add(tailL);
-
-    const tailR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.04), tuxedoMat);
-    tailR.position.set(0.16, -0.56, -0.22);
-    tailR.rotation.x = -0.15;
-    torsoGroup.add(tailR);
-  }
-
-  // 2. Head & Clown Joker Mask
+  // 2. Head, ballistic helmet, eyewear and headset.
   const headGroup = new THREE.Group();
   headGroup.position.set(0, 0.74, 0);
   torsoGroup.add(headGroup);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), clownFaceMat);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), skinMat);
   head.scale.set(1.0, 1.25, 1.1);
   head.castShadow = true;
   headGroup.add(head);
 
-  // Iconic Joker Big Red Smile
-  const smileCurve = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 8, 16, Math.PI), smileRedMat);
-  smileCurve.position.set(0, -0.06, 0.22);
-  smileCurve.rotation.x = Math.PI;
-  headGroup.add(smileCurve);
-
-  // Red Painted Nose
-  const redNose = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), smileRedMat);
-  redNose.position.set(0, 0.02, 0.24);
-  headGroup.add(redNose);
-
-  // Diamond Eye Markings
+  const helmetMat = new THREE.MeshStandardMaterial({ color: '#202826', roughness: 0.48, metalness: 0.28 });
+  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.245, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62), helmetMat);
+  helmet.scale.set(1.04, 0.86, 1.08);
+  helmet.position.y = 0.1;
+  headGroup.add(helmet);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.075, 0.03), new THREE.MeshStandardMaterial({ color: '#12191c', roughness: 0.18, metalness: 0.72 }));
+  visor.position.set(0, 0.08, 0.225);
+  headGroup.add(visor);
   [-0.075, 0.075].forEach((ex) => {
-    const eyeDecal = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.01), eyeMaskMat);
-    eyeDecal.position.set(ex, 0.08, 0.23);
-    eyeDecal.rotation.z = Math.PI / 4;
-    headGroup.add(eyeDecal);
+    const lens = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), new THREE.MeshBasicMaterial({ color: '#83e5ff' }));
+    lens.position.set(ex, 0.07, 0.225);
+    headGroup.add(lens);
   });
+  const headset = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.018, 6, 12, Math.PI), helmetMat);
+  headset.rotation.y = Math.PI / 2;
+  headset.position.z = -0.02;
+  headGroup.add(headset);
 
-  // Jester Pigtails / Hair with Bells
-  if (skinDef.hairStyle === 'JESTER_PIGTAILS') {
-    [-0.22, 0.22].forEach((hx, idx) => {
-      const pigtail = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.38, 8), hairMat);
-      pigtail.position.set(hx, 0.12, -0.05);
-      pigtail.rotation.z = idx === 0 ? 0.45 : -0.45;
-      headGroup.add(pigtail);
-
-      const bell = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), jesterBellsMat);
-      bell.position.set(hx * 1.5, -0.08, -0.05);
-      headGroup.add(bell);
-    });
-  }
-
-  // 3. Arms & Hands holding Glacier M416
+  // 3. Arms and gloves holding the equipped modular carbine.
   const armLGroup = new THREE.Group();
   armLGroup.position.set(-0.46, 0.28, 0);
   torsoGroup.add(armLGroup);
 
-  const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.65, 8), tuxedoMat);
+  const sleeveL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.65, 8), uniformMat);
   sleeveL.position.set(0, -0.32, 0.12);
   sleeveL.rotation.x = 0.65;
   armLGroup.add(sleeveL);
@@ -647,7 +609,7 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
   armRGroup.position.set(0.46, 0.28, 0);
   torsoGroup.add(armRGroup);
 
-  const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.65, 8), tuxedoMat);
+  const sleeveR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.075, 0.65, 8), uniformMat);
   sleeveR.position.set(0, -0.32, 0.12);
   sleeveR.rotation.x = 0.75;
   armRGroup.add(sleeveR);
@@ -664,16 +626,15 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
   weaponAnchor.position.set(0.02, 0.02, 0.1);
   handRGroup.add(weaponAnchor);
 
-  // Attach Glacier M416 by default
-  const glacierM416 = buildGlacierM416Mesh();
-  weaponAnchor.add(glacierM416);
+  const carbine = buildWeaponModelMesh('CARBINE', skinDef.weaponSkin);
+  weaponAnchor.add(carbine);
 
-  // 4. Legs with Pinstripe Trousers & Dress Shoes
+  // 4. Reinforced field trousers and combat boots.
   const legLGroup = new THREE.Group();
   legLGroup.position.set(-0.2, -0.36, 0);
   torsoGroup.add(legLGroup);
 
-  const pantLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.95, 8), pinstripeMat);
+  const pantLegL = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.95, 8), trouserMat);
   pantLegL.position.set(0, -0.48, 0);
   legLGroup.add(pantLegL);
 
@@ -685,7 +646,7 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
   legRGroup.position.set(0.2, -0.36, 0);
   torsoGroup.add(legRGroup);
 
-  const pantLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.95, 8), pinstripeMat);
+  const pantLegR = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.95, 8), trouserMat);
   pantLegR.position.set(0, -0.48, 0);
   legRGroup.add(pantLegR);
 
@@ -703,12 +664,12 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
     legLGroup,
     legRGroup,
     weaponAnchor,
-    currentWeaponMesh: glacierM416,
+    currentWeaponMesh: carbine,
   };
 };
 
 // ============================================================================
-// MAIN COMPONENT: REALISTIC BGMI BATTLE ROYALE
+// MAIN COMPONENT: REALISTIC SHADOW STRIKE BATTLE ROYALE
 // ============================================================================
 export default function ShadowStrikeScreen({ navigation }: any) {
   const { width: winWidth, height: winHeight } = useWindowDimensions();
@@ -719,7 +680,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [phase, setPhase] = useState<GameFlowPhase>('LOBBY');
   const [selectedMapId, setSelectedMapId] = useState<MapId>('ERANGEL');
   const [gameMode, setGameMode] = useState<GameModeId>('ICEMIRE_FRONTIER');
-  const [selectedSkinId, setSelectedSkinId] = useState<SkinSetId>('THE_FOOL_JOKER');
+  const [selectedSkinId, setSelectedSkinId] = useState<SkinSetId>('TACTICAL_BLACK');
   const [is3DInspect, setIs3DInspect] = useState<boolean>(false);
 
   // Lobby 3D Camera & Rotation
@@ -1053,10 +1014,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     },
 
     airplane: {
-      position: new THREE.Vector3(0, 180, -380),
-      velocity: new THREE.Vector3(0, 0, 28),
+      position: new THREE.Vector3(0, 120, -120),
+      velocity: new THREE.Vector3(0, 0, 36),
       hasJumped: false,
+      mesh: null as THREE.Group | null,
     },
+
+    dropZone: new THREE.Vector3(0, 0, 0),
 
     safeZone: {
       center: new THREE.Vector2(0, -40), // Centered near Pochinki
@@ -1106,16 +1070,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     // High performance renderer with capped pixel ratio (eliminates lag on 4K/Retina displays)
     const renderer = new THREE.WebGLRenderer({
-      antialias: false,
+      antialias: true,
       alpha: false,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.12;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     g.renderer = renderer;
 
     mountRef.current.innerHTML = '';
@@ -1164,14 +1129,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   }, [selectedMapId, phase, selectedSkinId, is3DInspect]);
 
   // ============================================================================
-  // EXACT BGMI LOBBY 3D SCENE (IMAGE 1 REPLICA)
+  // Original forward-operating-base lobby scene.
   // ============================================================================
   const buildBGMILobbyScene = (scene: THREE.Scene, g: any) => {
-    scene.background = new THREE.Color('#78c0e8');
-    scene.fog = new THREE.FogExp2('#9fd7f5', 0.007);
+    scene.background = new THREE.Color('#4d6170');
+    scene.fog = new THREE.FogExp2('#667c81', 0.012);
 
-    // Soft Sunlight & Blue Ambient
-    const hemi = new THREE.HemisphereLight('#bae6fd', '#3f6212', 1.4);
+    // Late-afternoon key light over an original forward operating base.
+    const hemi = new THREE.HemisphereLight('#d4e0e5', '#1d2a24', 1.25);
     scene.add(hemi);
     const sun = new THREE.DirectionalLight('#fffbeb', 2.8);
     sun.position.set(25, 50, 30);
@@ -1191,7 +1156,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     grassGeo.computeVertexNormals();
 
     const grassMat = new THREE.MeshStandardMaterial({
-      color: '#558b2f', // Vibrant grass green matching Image 1
+      color: '#33453a',
       roughness: 0.85,
     });
     const grass = new THREE.Mesh(grassGeo, grassMat);
@@ -1199,7 +1164,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     grass.receiveShadow = true;
     scene.add(grass);
 
-    // 2. Ancient Stone Portal Arch & Floating Power Cube (Image 1 Right Background)
+    // 2. Remote command relay and field equipment.
     const ruinsGroup = new THREE.Group();
     ruinsGroup.position.set(4.5, 0, -3.5);
 
@@ -1221,17 +1186,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     dais.position.set(0, 0.15, 0);
     ruinsGroup.add(dais);
 
-    // Floating Magical Red/Gold Glowing Crystal Cube
+    // Rotating emergency beacon on the command relay.
     const cubeMat = new THREE.MeshStandardMaterial({
-      color: '#ef4444',
+      color: '#c2410c',
       emissive: '#f97316',
-      emissiveIntensity: 0.8,
-      roughness: 0.1,
+      emissiveIntensity: 0.55,
+      roughness: 0.28,
     });
-    const magicCube = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), cubeMat);
-    magicCube.position.set(0, 1.4, 0);
-    ruinsGroup.add(magicCube);
-    g.lobbyFloatingCube = magicCube;
+    const signalBeacon = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.34, 12), cubeMat);
+    signalBeacon.position.set(0, 1.4, 0);
+    ruinsGroup.add(signalBeacon);
+    g.lobbyFloatingCube = signalBeacon;
 
     const cubeLight = new THREE.PointLight('#f97316', 2.5, 6);
     cubeLight.position.set(0, 1.4, 0);
@@ -1239,7 +1204,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     scene.add(ruinsGroup);
 
-    // 3. Companion Pet (Small Red Robot Bot on Right of Character)
+    // 3. Recon drone on the right of the character.
     const petBot = new THREE.Group();
     petBot.position.set(1.8, 0.4, 0.4);
 
@@ -1259,7 +1224,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(petBot);
     g.lobbyPetBot = petBot;
 
-    // 4. Hero Showcase Dais (Circular Stage Podium under Character)
+    // 4. Concrete deployment pad under the operator.
     const stageGeo = new THREE.CylinderGeometry(1.5, 1.7, 0.14, 32);
     const stageMat = new THREE.MeshStandardMaterial({
       color: '#1e293b',
@@ -1287,7 +1252,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     goldKeyLight.position.set(5, 5, 4);
     scene.add(goldKeyLight);
 
-    // Floating Atmospheric Sparkles / Confetti
+    // Floating dust motes make the base feel lived-in without fantasy effects.
     const sparkleGeo = new THREE.BufferGeometry();
     const spCount = 50;
     const spPos = new Float32Array(spCount * 3);
@@ -1298,7 +1263,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
     sparkleGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
     const sparkleMat = new THREE.PointsMaterial({
-      color: '#ffd700',
+      color: '#d7e3e0',
       size: 0.045,
       transparent: true,
       opacity: 0.85,
@@ -1307,8 +1272,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(sparkles);
     g.lobbySparkles = sparkles;
 
-    // 5. Spawn "The Fool" Joker Rig in the Center of Lobby
-    const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.THE_FOOL_JOKER;
+    // 5. Spawn the selected operator in the center of the deployment bay.
+    const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.TACTICAL_BLACK;
     const rig = buildTheFoolJokerRig(skinDef, false);
     rig.root.position.set(0, 0.14, 0);
     scene.add(rig.root);
@@ -1349,29 +1314,29 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // ============================================================================
-  // TRUE ERANGEL 8x8 3D BATTLEGROUND SCENE (IMAGE 2 REPLICA)
+  // High-detail original battleground scene.
   // ============================================================================
   const buildErangelBattlegroundScene = (scene: THREE.Scene, g: any) => {
-    scene.background = new THREE.Color('#38bdf8');
-    scene.fog = new THREE.FogExp2('#93c5fd', 0.002);
+    scene.background = new THREE.Color('#6f93a6');
+    scene.fog = new THREE.FogExp2('#8da9b3', 0.0026);
 
-    const hemi = new THREE.HemisphereLight('#bae6fd', '#166534', 1.2);
+    const hemi = new THREE.HemisphereLight('#d9e8ed', '#21372a', 1.45);
     scene.add(hemi);
 
     const sun = new THREE.DirectionalLight('#fffbeb', 2.8);
     sun.position.set(120, 240, 120);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
     scene.add(sun);
 
-    // 1. Texture-Mapped Erangel Satellite Terrain (Optimized 48x48 for smooth 60 FPS)
+    // 1. Texture-mapped terrain with denser geometry for a more believable landscape.
     const textureLoader = new THREE.TextureLoader();
     const erangelTexture = textureLoader.load(ERANGEL_MAP_BASE64);
     erangelTexture.wrapS = THREE.ClampToEdgeWrapping;
     erangelTexture.wrapT = THREE.ClampToEdgeWrapping;
 
-    const terrainGeo = new THREE.PlaneGeometry(900, 900, 48, 48);
+    const terrainGeo = new THREE.PlaneGeometry(900, 900, 96, 96);
     const pos = terrainGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const vx = pos.getX(i);
@@ -1390,8 +1355,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     terrain.receiveShadow = true;
     scene.add(terrain);
 
-    // 2. Realistic Ocean Water Channel between Mainland & Sosnovka Island
-    const waterGeo = new THREE.PlaneGeometry(900, 900);
+    // 2. Ocean channel: only spans the channel, so it never covers the whole map.
+    const waterGeo = new THREE.PlaneGeometry(900, 78);
     const waterMat = new THREE.MeshStandardMaterial({
       color: '#0284c7',
       roughness: 0.1,
@@ -1401,7 +1366,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     });
     const water = new THREE.Mesh(waterGeo, waterMat);
     water.rotation.x = -Math.PI / 2;
-    water.position.y = 0.4;
+    water.position.set(0, 0.45, -100);
     scene.add(water);
 
     // 3. Two Iconic Sosnovka Channel Bridges
@@ -1434,8 +1399,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       scene.add(bridgeGroup);
     });
 
-    // 4. Hot-Drop POI Landmarks (Pochinki & Military Base)
-    // Realistic Pochinki Town 2-Story Houses with pitched roofs
+    // 4. Hot-drop POI: a dense original coastal town with roads, houses and cover.
     const brickMat = new THREE.MeshStandardMaterial({ color: '#b91c1c', roughness: 0.8 });
     const plasterMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.6 });
     const roofBlueMat = new THREE.MeshStandardMaterial({ color: '#0284c7', roughness: 0.5 });
@@ -1467,7 +1431,40 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       roof.castShadow = true;
       houseGroup.add(roof);
 
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 3.2, 0.12),
+        new THREE.MeshStandardMaterial({ color: '#3f2d24', roughness: 0.72 })
+      );
+      door.position.set(0, 1.6, 7.06);
+      houseGroup.add(door);
+      [-4.2, 4.2].forEach((x) => {
+        const window = new THREE.Mesh(
+          new THREE.BoxGeometry(2.1, 1.8, 0.1),
+          new THREE.MeshStandardMaterial({ color: '#83b8d1', emissive: '#28485a', emissiveIntensity: 0.22, roughness: 0.25 })
+        );
+        window.position.set(x, 5.1, 7.08);
+        houseGroup.add(window);
+      });
+
       scene.add(houseGroup);
+    }
+
+    const roadMat = new THREE.MeshStandardMaterial({ color: '#30383b', roughness: 0.9 });
+    [-26, 0, 26].forEach((x) => {
+      const road = new THREE.Mesh(new THREE.BoxGeometry(8, 0.14, 130), roadMat);
+      road.position.set(x, getErangelTerrainHeight(x, -40) + 0.12, -40);
+      scene.add(road);
+    });
+
+    const coverMat = new THREE.MeshStandardMaterial({ color: '#65705e', roughness: 0.82 });
+    for (let c = 0; c < 12; c++) {
+      const x = ((c * 19) % 86) - 43;
+      const z = -15 - Math.floor(c / 3) * 26;
+      const crate = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.8, 1.5), coverMat);
+      crate.position.set(x, getErangelTerrainHeight(x, z) + 0.9, z);
+      crate.castShadow = true;
+      crate.receiveShadow = true;
+      scene.add(crate);
     }
 
     // Military Watchtower at Pochinki
@@ -1536,8 +1533,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(stormWall);
     g.safeZone.stormRingMesh = stormWall;
 
-    // 6. Spawn Player Operative & Hostile Opponents
+    // 6. Insertion aircraft, player operative and hostile opponents.
+    if (g.phase === 'AIRPLANE') buildInsertionAircraft(scene, g);
     buildPlayerInErangel(scene, g);
+    if (g.phase === 'AIRPLANE' && g.playerRig) g.playerRig.root.visible = false;
     spawnErangelOpponents(scene, g);
   };
 
@@ -1554,8 +1553,55 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     return Math.sin(x * 0.015) * Math.cos(z * 0.015) * 8.5 + 2.5;
   };
 
+  const buildInsertionAircraft = (scene: THREE.Scene, g: any) => {
+    const plane = new THREE.Group();
+    const fuselageMat = new THREE.MeshStandardMaterial({ color: '#34424a', roughness: 0.42, metalness: 0.62 });
+    const wingMat = new THREE.MeshStandardMaterial({ color: '#222e33', roughness: 0.5, metalness: 0.7 });
+    const engineMat = new THREE.MeshStandardMaterial({ color: '#151d21', roughness: 0.32, metalness: 0.82 });
+
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.65, 12, 16), fuselageMat);
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.castShadow = true;
+    plane.add(fuselage);
+
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(1.28, 16, 12), fuselageMat);
+    nose.scale.set(1, 1, 1.25);
+    nose.position.z = 6;
+    plane.add(nose);
+
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(15, 0.24, 3.1), wingMat);
+    wing.position.set(0, 0, -0.35);
+    wing.castShadow = true;
+    plane.add(wing);
+
+    [-5.3, 5.3].forEach((x) => {
+      const engine = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.68, 2.3, 12), engineMat);
+      engine.rotation.x = Math.PI / 2;
+      engine.position.set(x, -0.42, 0.35);
+      plane.add(engine);
+      const prop = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: '#14191c' }));
+      prop.position.set(x, -0.42, 1.58);
+      plane.add(prop);
+    });
+
+    const tail = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.16, 1.6), wingMat);
+    tail.position.set(0, 0.55, -5.1);
+    plane.add(tail);
+    const stabilizer = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.8, 1.6), wingMat);
+    stabilizer.position.set(0, 1.55, -5.1);
+    plane.add(stabilizer);
+
+    const navLight = new THREE.PointLight('#f97316', 3, 18);
+    navLight.position.set(0, 1.1, -5.6);
+    plane.add(navLight);
+
+    plane.position.copy(g.airplane.position);
+    scene.add(plane);
+    g.airplane.mesh = plane;
+  };
+
   const buildPlayerInErangel = (scene: THREE.Scene, g: any) => {
-    const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.THE_FOOL_JOKER;
+    const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.TACTICAL_BLACK;
     const rig = buildTheFoolJokerRig(skinDef, false);
     rig.root.position.copy(g.player.position);
     scene.add(rig.root);
@@ -1563,16 +1609,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
-    const activeCount = 14;
+    const activeCount = 18;
     const bots: EnemyBot[] = [];
     const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
 
     for (let i = 0; i < activeCount; i++) {
       const angle = (i / activeCount) * Math.PI * 2;
-      // Close & Medium tactical combat ranges around Pochinki (16m to 65m)
-      const dist = 16 + (i % 5) * 11;
-      const bx = Math.cos(angle) * dist;
-      const bz = Math.sin(angle) * dist - 40;
+      // Place opponents around the actual insertion zone so players can see them immediately.
+      const dist = 13 + (i % 6) * 9;
+      const bx = g.dropZone.x + Math.cos(angle) * dist;
+      const bz = g.dropZone.z + Math.sin(angle) * dist;
       const by = getErangelTerrainHeight(bx, bz);
 
       const rig = buildTheFoolJokerRig(SKIN_DEFINITIONS.TACTICAL_BLACK, true);
@@ -1656,12 +1702,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const p = g.airplane;
     p.position.add(p.velocity.clone().multiplyScalar(dt));
 
+    if (p.mesh) {
+      p.mesh.position.copy(p.position);
+      p.mesh.rotation.z = Math.sin(g.elapsedTime * 1.7) * 0.015;
+    }
+
     if (g.camera) {
       g.camera.position.set(p.position.x - 24, p.position.y + 14, p.position.z - 32);
       g.camera.lookAt(p.position);
     }
 
-    if (p.position.z > 220 && !p.hasJumped) {
+    if (p.position.z > -10 && !p.hasJumped) {
       jumpFromAirplane();
     }
   };
@@ -1671,7 +1722,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (g.phase !== 'AIRPLANE') return;
     g.airplane.hasJumped = true;
     g.player.position.copy(g.airplane.position);
-    g.player.velocity.set(0, -32, 14);
+    g.player.velocity.set(0, -36, 12);
     g.phase = 'FREEFALL';
     setPhase('FREEFALL');
   };
@@ -2465,14 +2516,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     if (instantTouchdown === true) {
       g.phase = 'PLAYING';
       setPhase('PLAYING');
-      g.player.position.set(0, getErangelTerrainHeight(0, -40), -40);
+      g.player.position.set(g.dropZone.x, getErangelTerrainHeight(g.dropZone.x, g.dropZone.z), g.dropZone.z);
       g.player.velocity.set(0, 0, 0);
-      pushKillFeed('⚔️ TOUCHDOWN POCHINKI: Combat Started! 100 Players Active!');
+      pushKillFeed('⚔️ TOUCHDOWN: Hostiles spotted near the insertion zone.');
     } else {
       g.phase = 'AIRPLANE';
       setPhase('AIRPLANE');
-      g.airplane.position.set(0, 180, -380);
+      g.airplane.position.set(0, 120, -120);
+      g.airplane.velocity.set(0, 0, 36);
       g.airplane.hasJumped = false;
+      g.airplane.mesh = null;
     }
   };
 
@@ -2481,7 +2534,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       <StatusBar hidden />
 
       <View style={styles.canvasContainer}>
-        {/* 3D WebGL Canvas for 100% Real 3D BGMI Lobby & Battleground */}
+        {/* 3D WebGL canvas for the Shadow Strike lobby and battleground. */}
         <div
           ref={mountRef}
           style={{
@@ -2510,7 +2563,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         )}
 
         {/* ==================================================================== */}
-        {/* EXACT BGMI LOBBY UI REPLICA (IMAGE 1) */}
+        {/* Original Shadow Strike tactical lobby UI. */}
         {/* ==================================================================== */}
         {phase === 'LOBBY' && (
           <View style={styles.bgmiLobbyUI} pointerEvents="box-none">
@@ -2527,7 +2580,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   <View style={styles.lvlBadge}><Text style={styles.lvlText}>75</Text></View>
                 </View>
                 <View style={styles.profileDetails}>
-                  <Text style={styles.profileName}>SMxTHUG</Text>
+                  <Text style={styles.profileName}>RAVEN-07</Text>
                   <View style={styles.onlineStatusRow}>
                     <Text style={styles.onlineCountText}>12/62</Text>
                     <Text style={styles.bellIcon}>🔔</Text>
@@ -2557,7 +2610,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('☁️ CLOUD: All Resource Packs (HD Icons) Downloaded 100%')}>
                   <Text>☁️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🪖 ARMORY: Glacier M416 Lv.7 Equipped')}>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🪖 ARMORY: Aurora carbine equipped')}>
                   <Text>🪖</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('⚙️ SETTINGS: 90 FPS Ultra HD Graphic Preset Applied')}>
@@ -2567,12 +2620,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
               {/* Currency & RP Section (Right) */}
               <View style={styles.currencySection}>
-                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💰 G-Coin Balance: 289 G')}>
-                  <Text style={styles.currencyLabel}>G</Text>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💰 Supply credit balance: 289')}>
+                  <Text style={styles.currencyLabel}>SC</Text>
                   <Text style={styles.currencyVal}>289</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💎 UC Balance: 1+ UC (Elite Pass Plus Ready)')}>
-                  <Text style={styles.currencyLabelUC}>UC</Text>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💎 Intel token balance: 1')}>
+                  <Text style={styles.currencyLabelUC}>IT</Text>
                   <Text style={styles.currencyVal}>1+</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowSeasonModal(true)}>
@@ -2589,7 +2642,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* RIGHT SIDE EVENT BANNERS (FROSTY VOYAGER SET) */}
+            {/* RIGHT SIDE EVENT BANNERS */}
             <View style={styles.rightBannersColumn}>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -2602,9 +2655,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   style={styles.eventBannerCard}
                 >
                   <View style={styles.eventBannerInner}>
-                    <Text style={styles.eventTag}>FROSTY</Text>
-                    <Text style={styles.eventTitle}>VOYAGER SET</Text>
-                    <Text style={styles.eventSub}>12 ❯</Text>
+                    <Text style={styles.eventTag}>LIMITED DROP</Text>
+                    <Text style={styles.eventTitle}>ARCTIC WARDEN</Text>
+                    <Text style={styles.eventSub}>VIEW LOADOUT ❯</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -2618,7 +2671,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* BOTTOM LEFT: ICEMIRE / ARENA SELECTOR & START BUTTON */}
+            {/* BOTTOM LEFT: OPERATION SELECTOR & DEPLOY BUTTON */}
             <View style={styles.bottomLeftControls}>
               {/* Map & Mode Card */}
               <TouchableOpacity
@@ -2633,18 +2686,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 >
                   <View style={styles.modeCrestRow}>
                     <Text style={styles.modeCrestIcon}>🐉</Text>
-                    <Text style={styles.modeCrestTitle}>Icemire Frontier</Text>
+                    <Text style={styles.modeCrestTitle}>OPERATION NIGHTFALL</Text>
                   </View>
                   <Text style={styles.modeMainTitle}>
-                    {selectedMapId === 'ERANGEL' ? 'Classic - Erangel' : FOUR_MAPS[selectedMapId].name}
+                    {selectedMapId === 'ERANGEL' ? 'Battle Royale — Ironhaven' : FOUR_MAPS[selectedMapId].name}
                   </Text>
                   <View style={styles.modeSubInfoRow}>
-                    <Text style={styles.modeSubText}>👥 4 TPP | {selectedMapId}</Text>
+                    <Text style={styles.modeSubText}>👥 SQUAD • THIRD PERSON • {FOUR_MAPS[selectedMapId].duration}</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* THE ICONIC YELLOW START BUTTON with LinearGradient */}
+              {/* Primary deployment action */}
               <TouchableOpacity
                 onPress={() => startErangelMatch(false)}
                 activeOpacity={0.85}
@@ -2655,7 +2708,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   end={{ x: 1, y: 1 }}
                   style={styles.bgmiStartBtn}
                 >
-                  <Text style={styles.bgmiStartBtnText}>START MATCH</Text>
+                  <Text style={styles.bgmiStartBtnText}>DEPLOY</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -2671,7 +2724,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   end={{ x: 1, y: 1 }}
                   style={[styles.bgmiStartBtn, { paddingVertical: 8, paddingHorizontal: 12 }]}
                 >
-                  <Text style={[styles.bgmiStartBtnText, { fontSize: 13 }]}>⚡ FAST COMBAT (POCHINKI)</Text>
+                  <Text style={[styles.bgmiStartBtnText, { fontSize: 13 }]}>⚡ HOT DROP // IRONHAVEN</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -2680,42 +2733,42 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <View style={styles.bottomBarContainer}>
               <View style={styles.recruitmentTicker}>
                 <Text style={styles.tickerText}>
-                  Team Up: [TABAAHIfm]: [Recruitment] Team Deathmatch - Warehouse
+                  Squad Search: Need 2 operators for a warehouse extraction run.
                 </Text>
               </View>
 
               <View style={styles.bottomMenuRow}>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🌐 SERVER: Asia / India Region (Low Ping 20ms)')}>
-                  <Text style={styles.botNavText}>REGION</Text>
+                  <Text style={styles.botNavText}>COMMAND</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🛡️ CLAN: [TABAAHI] Level 10 Active')}>
-                  <Text style={styles.botNavText}>CLAN</Text>
+                  <Text style={styles.botNavText}>SQUAD</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => setShowSeasonModal(true)}>
-                  <Text style={[styles.botNavText, { color: '#ffd700' }]}>C7S20 SEASON</Text>
+                  <Text style={[styles.botNavText, { color: '#ffd700' }]}>SEASON 08</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🔨 WORKSHOP: Glacier M416 Max Level 7 Upgraded')}>
-                  <Text style={styles.botNavText}>WORKSHOP</Text>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🔨 WORKBENCH: Aurora carbine loadout ready')}>
+                  <Text style={styles.botNavText}>WORKBENCH</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('📋 MISSIONS: All Daily Season Missions Complete!')}>
-                  <Text style={styles.botNavText}>MISSIONS</Text>
+                  <Text style={styles.botNavText}>ORDERS</Text>
                   <View style={styles.redBadgeDot} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.botNavBtn, styles.inventoryBtnHighlight]}
                   onPress={() => setShowInventoryModal(true)}
                 >
-                  <Text style={[styles.botNavText, { color: '#00f0ff' }]}>INVENTORY</Text>
+                  <Text style={[styles.botNavText, { color: '#00f0ff' }]}>LOADOUT</Text>
                   <View style={styles.redBadgeDot} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🤡 SMxTHUG: The Fool Victory Laugh Emote!')}>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🪖 RAVEN-07: Operator profile active')}>
                   <Text style={styles.botNavText}>😀</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Network Status Stamp */}
               <View style={styles.networkStatusStamp}>
-                <Text style={styles.networkText}>📶 India HD 2024/11/29 15:58</Text>
+                <Text style={styles.networkText}>📶 INDIA / HD LINK / SECURE</Text>
               </View>
             </View>
           </View>
@@ -3149,7 +3202,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* AIRPLANE DROP OVERLAY */}
         {phase === 'AIRPLANE' && (
           <View style={styles.airplaneOverlay} pointerEvents="box-none">
-            <Text style={styles.flightTitle}>✈️ C-130 HERCULES OVER ERANGEL 8x8</Text>
+            <Text style={styles.flightTitle}>✈️ INSERTION AIRCRAFT // IRONHAVEN ISLE</Text>
             <View style={{ flexDirection: 'row', gap: 14, marginTop: 16 }}>
               <TouchableOpacity onPress={jumpFromAirplane} activeOpacity={0.85}>
                 <LinearGradient
@@ -3169,7 +3222,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   end={{ x: 1, y: 1 }}
                   style={styles.jumpActionBtn}
                 >
-                  <Text style={styles.jumpActionBtnText}>⚡ FAST POCHINKI TOUCHDOWN</Text>
+                  <Text style={styles.jumpActionBtnText}>⚡ FAST INSERTION</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -3182,8 +3235,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <BlurView intensity={40} tint="dark" style={styles.blurModalContainer}>
               <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
                 <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
-                <Text style={styles.victorySub}>CHICKEN DINNER!</Text>
-                <Text style={styles.victoryMap}>MAP: ERANGEL 8x8 • RANK #1</Text>
+                <Text style={styles.victorySub}>OPERATION COMPLETE</Text>
+                <Text style={styles.victoryMap}>MAP: IRONHAVEN ISLE • RANK #1</Text>
                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
                   <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
                     <LinearGradient
@@ -3214,7 +3267,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <BlurView intensity={40} tint="dark" style={styles.blurModalContainer}>
               <View style={[styles.endModalCard, { borderColor: '#ef4444' }]}>
                 <Text style={styles.defeatTitle}>BETTER LUCK NEXT TIME</Text>
-                <Text style={styles.victoryMap}>MAP: ERANGEL 8x8</Text>
+                <Text style={styles.victoryMap}>MAP: IRONHAVEN ISLE</Text>
                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
                   <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
                     <LinearGradient
