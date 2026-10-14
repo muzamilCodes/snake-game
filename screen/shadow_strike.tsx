@@ -51,6 +51,21 @@ export interface MapDefinition {
   vehicleColor: string;
 }
 
+type SquadCandidate = {
+  id: string;
+  name: string;
+  level: number;
+  status: 'ONLINE' | 'IN MATCH';
+  region: string;
+};
+
+const SQUAD_DIRECTORY: SquadCandidate[] = [
+  { id: 'nova-21', name: 'NOVA-21', level: 42, status: 'ONLINE', region: 'India' },
+  { id: 'atlas-88', name: 'ATLAS-88', level: 57, status: 'ONLINE', region: 'Asia' },
+  { id: 'echo-viper', name: 'ECHO VIPER', level: 31, status: 'IN MATCH', region: 'India' },
+  { id: 'sable-09', name: 'SABLE-09', level: 65, status: 'ONLINE', region: 'Asia' },
+];
+
 export const FOUR_MAPS: Record<MapId, MapDefinition> = {
   ERANGEL: {
     id: 'ERANGEL',
@@ -673,6 +688,8 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
 // ============================================================================
 export default function ShadowStrikeScreen({ navigation }: any) {
   const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const isCompactViewport = winWidth < 600;
+  const radarSize = isCompactViewport ? 84 : 130;
   const mountRef = useRef<any>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -721,6 +738,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [showFullMap, setShowFullMap] = useState<boolean>(false);
   const [showInventoryModal, setShowInventoryModal] = useState<boolean>(false);
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
+  const [sentFriendRequests, setSentFriendRequests] = useState<string[]>([]);
   const [showSeasonModal, setShowSeasonModal] = useState<boolean>(false);
   const [floatingDamage, setFloatingDamage] = useState<{ text: string; color: string } | null>(null);
   const [eliminationBanner, setEliminationBanner] = useState<{
@@ -759,6 +778,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     };
     loadCareerStats();
   }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem('SHADOW_STRIKE_SENT_FRIEND_REQUESTS')
+      .then((saved) => setSentFriendRequests(saved ? JSON.parse(saved) : []))
+      .catch(() => {});
+  }, []);
+
+  const sendFriendRequest = async (candidate: SquadCandidate) => {
+    if (candidate.status !== 'ONLINE' || sentFriendRequests.includes(candidate.id)) return;
+    const next = [...sentFriendRequests, candidate.id];
+    setSentFriendRequests(next);
+    await AsyncStorage.setItem('SHADOW_STRIKE_SENT_FRIEND_REQUESTS', JSON.stringify(next));
+    pushKillFeed(`✓ Friend request sent to ${candidate.name}`);
+  };
 
   const handleSelectSkin = async (skinId: SkinSetId) => {
     setSelectedSkinId(skinId);
@@ -1069,15 +1102,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     g.camera = camera;
 
     // High performance renderer with capped pixel ratio (eliminates lag on 4K/Retina displays)
+    const compactDevice = winWidth < 700;
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !compactDevice,
       alpha: false,
       powerPreference: 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compactDevice ? 1.3 : 1.75));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = compactDevice ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1141,8 +1175,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const sun = new THREE.DirectionalLight('#fffbeb', 2.8);
     sun.position.set(25, 50, 30);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
+    const shadowResolution = winWidth < 700 ? 1024 : 2048;
+    sun.shadow.mapSize.width = shadowResolution;
+    sun.shadow.mapSize.height = shadowResolution;
     scene.add(sun);
 
     // 1. Lush Green Grass Field Terrain (Image 1)
@@ -1336,7 +1371,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     erangelTexture.wrapS = THREE.ClampToEdgeWrapping;
     erangelTexture.wrapT = THREE.ClampToEdgeWrapping;
 
-    const terrainGeo = new THREE.PlaneGeometry(900, 900, 96, 96);
+    const terrainSegments = winWidth < 700 ? 56 : 80;
+    const terrainGeo = new THREE.PlaneGeometry(900, 900, terrainSegments, terrainSegments);
     const pos = terrainGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const vx = pos.getX(i);
@@ -1466,6 +1502,31 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       crate.receiveShadow = true;
       scene.add(crate);
     }
+
+    // Shipping containers, sandbags and sheds create clear tactical hiding routes.
+    const containerMat = new THREE.MeshStandardMaterial({ color: '#315f76', roughness: 0.63, metalness: 0.22 });
+    const sandbagMat = new THREE.MeshStandardMaterial({ color: '#80735b', roughness: 0.96 });
+    const hideSites = [
+      [-32, -12, 0], [30, -4, Math.PI / 2], [-14, 28, Math.PI / 2], [42, 34, 0],
+      [-56, -38, Math.PI / 2], [58, -42, 0],
+    ];
+    hideSites.forEach(([x, z, rotation]) => {
+      const y = getErangelTerrainHeight(x, z);
+      const container = new THREE.Mesh(new THREE.BoxGeometry(7.5, 3, 2.6), containerMat);
+      container.position.set(x, y + 1.5, z);
+      container.rotation.y = rotation;
+      container.castShadow = true;
+      container.receiveShadow = true;
+      scene.add(container);
+
+      for (let bag = 0; bag < 4; bag++) {
+        const sandbag = new THREE.Mesh(new THREE.SphereGeometry(0.52, 8, 6), sandbagMat);
+        sandbag.scale.set(1.35, 0.65, 0.8);
+        sandbag.position.set(x - 3 + bag * 1.05, y + 0.42, z + 2.1);
+        sandbag.castShadow = true;
+        scene.add(sandbag);
+      }
+    });
 
     // Military Watchtower at Pochinki
     [-28, 28].forEach((tx) => {
@@ -1609,16 +1670,20 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
-    const activeCount = 18;
+    const activeCount = winWidth < 700 ? 8 : 10;
     const bots: EnemyBot[] = [];
     const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
 
     for (let i = 0; i < activeCount; i++) {
       const angle = (i / activeCount) * Math.PI * 2;
-      // Place opponents around the actual insertion zone so players can see them immediately.
-      const dist = 13 + (i % 6) * 9;
-      const bx = g.dropZone.x + Math.cos(angle) * dist;
-      const bz = g.dropZone.z + Math.sin(angle) * dist;
+      // Use distinct streets and cover positions instead of one spawn cluster.
+      const spawnPoints = [
+        [-20, -30], [24, -36], [-42, -6], [44, 8], [-12, 34], [22, 42],
+        [-58, -48], [58, -52], [-66, 24], [68, 30],
+      ];
+      const point = spawnPoints[i % spawnPoints.length];
+      const bx = g.dropZone.x + point[0] + Math.cos(angle * 2.3) * 3;
+      const bz = g.dropZone.z + point[1] + Math.sin(angle * 1.7) * 3;
       const by = getErangelTerrainHeight(bx, bz);
 
       const rig = buildTheFoolJokerRig(SKIN_DEFINITIONS.TACTICAL_BLACK, true);
@@ -2587,9 +2652,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   </View>
                 </View>
                 {/* Team slots / icons */}
-                <View style={styles.findTeamBtn}>
-                  <Text style={styles.findTeamText}>Find Teammates</Text>
-                </View>
+                <TouchableOpacity style={styles.findTeamBtn} onPress={() => setShowSquadModal(true)}>
+                  <Text style={styles.findTeamText}>Squad & Friends</Text>
+                </TouchableOpacity>
               </TouchableOpacity>
 
               {/* Center Icons & 3D Inspect Mode Switcher */}
@@ -2774,8 +2839,56 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           </View>
         )}
 
+        <Modal visible={showSquadModal} transparent animationType="fade">
+          <View style={styles.modalBackdrop}>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.squadModalCard}>
+                <View style={styles.modalHeaderRow}>
+                  <View>
+                    <Text style={styles.modalTitle}>SQUAD & FRIENDS</Text>
+                    <Text style={styles.squadModalSub}>LOCAL SOCIAL PROTOTYPE • ASIA REGION</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowSquadModal(false)}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.squadModalHint}>
+                  Add online operators to your squad list. Requests are saved on this device until a multiplayer backend is connected.
+                </Text>
+                <ScrollView style={{ maxHeight: 330 }} showsVerticalScrollIndicator={false}>
+                  {SQUAD_DIRECTORY.map((candidate) => {
+                    const requested = sentFriendRequests.includes(candidate.id);
+                    const available = candidate.status === 'ONLINE';
+                    return (
+                      <View key={candidate.id} style={styles.squadPlayerRow}>
+                        <View style={[styles.onlineDot, !available && styles.onlineDotBusy]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.squadPlayerName}>{candidate.name}</Text>
+                          <Text style={styles.squadPlayerMeta}>LVL {candidate.level} • {candidate.region} • {candidate.status}</Text>
+                        </View>
+                        <TouchableOpacity
+                          disabled={!available || requested}
+                          onPress={() => sendFriendRequest(candidate)}
+                          style={[styles.friendRequestBtn, (!available || requested) && styles.friendRequestBtnDisabled]}
+                        >
+                          <Text style={styles.friendRequestText}>{requested ? 'SENT' : available ? '+ ADD' : 'BUSY'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+                <TouchableOpacity onPress={() => setShowSquadModal(false)} activeOpacity={0.85}>
+                  <LinearGradient colors={['#14b8a6', '#0f766e']} style={styles.squadReadyBtn}>
+                    <Text style={styles.confirmMapBtnText}>READY FOR SQUAD PLAY</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
+        </Modal>
+
         {/* ==================================================================== */}
-        {/* ERANGEL MAP SELECTOR MODAL (IMAGE 2) */}
+        {/* MAP SELECTOR */}
         {/* ==================================================================== */}
         {phase === 'MAP_SELECT' && (
           <View style={styles.modalBackdrop}>
@@ -2916,7 +3029,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         {/* IN-GAME HUD (PHASE: PLAYING) */}
         {/* ==================================================================== */}
         {phase === 'PLAYING' && (
-          <View style={styles.inGameHUD} pointerEvents="box-none">
+          <View style={[styles.inGameHUD, isCompactViewport && styles.inGameHUDCompact]} pointerEvents="box-none">
             {/* Top Bar */}
             <View style={styles.inGameTopBar}>
               <BlurView intensity={35} tint="dark" style={styles.hudAliveCard}>
@@ -2925,7 +3038,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </BlurView>
 
               {/* Top Compass Radar Ribbon with Realtime Enemy Direction & Distance */}
-              <View style={styles.topCompassContainer} pointerEvents="none">
+              {!isCompactViewport && <View style={styles.topCompassContainer} pointerEvents="none">
                 <BlurView intensity={50} tint="dark" style={styles.topCompassBlur}>
                   <View style={styles.compassCenterMarker} />
                   <Text style={styles.compassHeadingText}>
@@ -2943,7 +3056,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     )}
                   </View>
                 </BlurView>
-              </View>
+              </View>}
 
               <BlurView intensity={35} tint="dark" style={styles.hudStormCard}>
                 <Text style={styles.hudStormText}>
@@ -2954,7 +3067,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
               {/* Erangel Satellite Radar */}
               <TouchableOpacity onPress={() => setShowFullMap(true)}>
-                <canvas ref={minimapCanvasRef} width={130} height={130} style={{ width: 130, height: 130, borderRadius: 65, borderWidth: 2, borderColor: '#00f0ff' }} />
+                <canvas ref={minimapCanvasRef} width={radarSize} height={radarSize} style={{ width: radarSize, height: radarSize, borderRadius: radarSize / 2, borderWidth: 2, borderColor: '#00f0ff' }} />
               </TouchableOpacity>
             </View>
 
@@ -3014,7 +3127,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             )}
 
             {/* Bottom HUD: 5 Weapon Slots & Health */}
-            <View style={styles.inGameBottomBar}>
+            <View style={[styles.inGameBottomBar, isCompactViewport && styles.inGameBottomBarCompact]}>
               {/* HP & Armor & Medkit Button */}
               <View style={styles.vitalsBox}>
                 <View style={styles.barRow}>
@@ -3060,7 +3173,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
 
               {/* 5 Weapon Switcher */}
-              <View style={styles.weaponSlotsRow}>
+              {!isCompactViewport && <View style={styles.weaponSlotsRow}>
                 {Object.values(WEAPON_REGISTRY).map((w) => {
                   const isCurrent = currentWeapon.id === w.id;
                   return (
@@ -3076,7 +3189,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </View>}
 
               {/* Ammo Box */}
               <View style={styles.ammoBox}>
@@ -3721,6 +3834,30 @@ const styles = StyleSheet.create({
   modalTitle: { color: '#38bdf8', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
   modalCloseText: { color: '#ef4444', fontSize: 12, fontWeight: '800' },
 
+  squadModalCard: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: 'rgba(8, 17, 28, 0.96)',
+    borderWidth: 2,
+    borderColor: '#14b8a6',
+    borderRadius: 14,
+    padding: 16,
+  },
+  squadModalSub: { color: 'rgba(148, 211, 202, 0.75)', fontSize: 10, fontWeight: '800', marginTop: 3, letterSpacing: 0.7 },
+  squadModalHint: { color: 'rgba(255,255,255,0.68)', fontSize: 12, lineHeight: 17, marginBottom: 12 },
+  squadPlayerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 11, paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, marginBottom: 7,
+  },
+  onlineDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#22c55e', shadowColor: '#22c55e', shadowOpacity: 0.9, shadowRadius: 6 },
+  onlineDotBusy: { backgroundColor: '#64748b', shadowOpacity: 0 },
+  squadPlayerName: { color: '#fff', fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
+  squadPlayerMeta: { color: 'rgba(255,255,255,0.56)', fontSize: 10, fontWeight: '700', marginTop: 2 },
+  friendRequestBtn: { backgroundColor: '#14b8a6', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6 },
+  friendRequestBtnDisabled: { backgroundColor: 'rgba(100,116,139,0.6)' },
+  friendRequestText: { color: '#041b1a', fontSize: 11, fontWeight: '900' },
+  squadReadyBtn: { paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10 },
+
   erangelFeatureCard: {
     width: '100%',
     height: 220,
@@ -3842,6 +3979,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 25,
   },
+  inGameHUDCompact: { padding: 8 },
   inGameTopBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   hudAliveCard: {
     backgroundColor: 'rgba(10, 18, 32, 0.85)',
@@ -3889,6 +4027,7 @@ const styles = StyleSheet.create({
   reticleHit: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ef4444' },
 
   inGameBottomBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10 },
+  inGameBottomBarCompact: { alignItems: 'flex-end' },
   vitalsBox: {
     backgroundColor: 'rgba(10, 18, 32, 0.88)',
     borderWidth: 1.5,
