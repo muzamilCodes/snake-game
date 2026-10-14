@@ -377,6 +377,7 @@ export interface HumanRig {
 export interface EnemyBot {
   id: number;
   name: string;
+  squadId: number;
   rig: HumanRig;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -386,6 +387,7 @@ export interface EnemyBot {
   state: 'PATROL' | 'ALERT' | 'CHASE' | 'ATTACK' | 'COVER' | 'DEAD';
   patrolTarget: THREE.Vector3;
   shootCooldown: number;
+  healCooldown: number;
   walkCycle: number;
   isDead: boolean;
   muzzleLight: THREE.PointLight | null;
@@ -881,11 +883,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const isDraggingLobbyRef = useRef<boolean>(false);
   const lastMouseXRef = useRef<number>(0);
 
-  // Active Match Telemetry
+  // Active Match Telemetry (20-Player Battle Royale: 1 Human + 19 Bots)
   const [playerHp, setPlayerHp] = useState<number>(100);
   const [playerArmor, setPlayerArmor] = useState<number>(100);
-  const [aliveCount, setAliveCount] = useState<number>(100); // Authentic 100 Players
+  const [aliveCount, setAliveCount] = useState<number>(20);
   const [killsCount, setKillsCount] = useState<number>(0);
+  const [battleRoyaleMode, setBattleRoyaleMode] = useState<'SOLO' | 'SQUAD'>('SOLO');
+  const [squadTeammates, setSquadTeammates] = useState<{ id: number; num: number; name: string; hp: number; maxHp: number; isDead: boolean }[]>([
+    { id: 2, num: 2, name: 'Viper_Sniper', hp: 100, maxHp: 100, isDead: false },
+    { id: 3, num: 3, name: 'Ghost_Ops', hp: 100, maxHp: 100, isDead: false },
+    { id: 4, num: 4, name: 'Apex_Assault', hp: 100, maxHp: 100, isDead: false },
+  ]);
 
   // 5 Functional Weapons Inventory
   const [currentWeapon, setCurrentWeapon] = useState<WeaponDef>(WEAPON_REGISTRY.CARBINE);
@@ -923,7 +931,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     victimName: string;
     kills: number;
     remaining: number;
-  }>({ visible: false, victimName: '', kills: 0, remaining: 100 });
+  }>({ visible: false, victimName: '', kills: 0, remaining: 20 });
 
   // Persistent Career Stats backed by @react-native-async-storage/async-storage
   const [totalDinners, setTotalDinners] = useState<number>(140);
@@ -1070,15 +1078,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setIsAiming(false);
     setShowFullMap(false);
     setFloatingDamage(null);
-    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 100 });
+    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 20 });
     g.player.hp = 100;
     g.player.armor = 100;
     setPlayerHp(100);
     setPlayerArmor(100);
     g.eliminationCount = 0;
     setKillsCount(0);
-    g.totalAlive = 100;
-    setAliveCount(100);
+    g.totalAlive = 20;
+    setAliveCount(20);
     if (typeof document !== 'undefined' && document.exitPointerLock) {
       try { document.exitPointerLock(); } catch (e) {}
     }
@@ -1214,7 +1222,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     clock: new THREE.Clock(),
     elapsedTime: 0,
     isFiring: false,
-    totalAlive: 100,
+    totalAlive: 20,
     lastRadarRender: 0,
 
     keys: {
@@ -1932,34 +1940,61 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.TACTICAL_BLACK;
     const rig = buildTheFoolJokerRig(skinDef, false);
     rig.root.position.copy(g.player.position);
+    rig.root.visible = (g.phase !== 'AIRPLANE');
     scene.add(rig.root);
     g.playerRig = rig;
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
-    const activeCount = winWidth < 700 ? 8 : 10;
+    const totalBotCount = 19; // 1 Human Player + 19 Bots = 20 Battle Royale participants
     const bots: EnemyBot[] = [];
     const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
 
-    for (let i = 0; i < activeCount; i++) {
-      const angle = (i / activeCount) * Math.PI * 2;
-      // Use distinct streets and cover positions instead of one spawn cluster.
-      const spawnPoints = [
-        [-20, -30], [24, -36], [-42, -6], [44, 8], [-12, 34], [22, 42],
-        [-58, -48], [58, -52], [-66, 24], [68, 30],
-      ];
+    const BOT_NAMES = [
+      'Viper_Sniper', 'Ghost_Ops', 'Apex_Assault', // Squad 1 Teammates (in SQUAD mode)
+      'Shadow_Wolf', 'Kraken_99', 'Falcon_Eye', 'Raptor_X', // Squad 2
+      'Titan_Heavy', 'Spectre_Echo', 'Frost_Bite', 'Blaze_Fury', // Squad 3
+      'Cobra_Zero', 'Havoc_Striker', 'Phantom_Reaper', 'Cyber_Ninja', // Squad 4
+      'Iron_Clad', 'Vortex_Rider', 'Blood_Hound', 'Storm_Bringer' // Squad 5
+    ];
+
+    const spawnPoints = [
+      [-15, -25], [18, -28], [-32, -4], [35, 6], [-10, 28], [24, 32],
+      [-48, -38], [52, -42], [-58, 18], [60, 22], [-28, 48], [32, 54],
+      [-68, -12], [70, -18], [-18, -62], [22, -68], [-44, 72], [46, 76],
+      [0, 80]
+    ];
+
+    const isSquad = battleRoyaleMode === 'SQUAD';
+
+    for (let i = 0; i < totalBotCount; i++) {
       const point = spawnPoints[i % spawnPoints.length];
-      const bx = g.dropZone.x + point[0] + Math.cos(angle * 2.3) * 3;
-      const bz = g.dropZone.z + point[1] + Math.sin(angle * 1.7) * 3;
+      const bx = g.dropZone.x + point[0];
+      const bz = g.dropZone.z + point[1];
       const by = getErangelTerrainHeight(bx, bz);
 
-      const rig = buildTheFoolJokerRig(SKIN_DEFINITIONS.TACTICAL_BLACK, true);
+      let squadId = i + 2;
+      let isTeammate = false;
+      if (isSquad) {
+        if (i < 3) {
+          squadId = 1; // Player's squad
+          isTeammate = true;
+        } else {
+          squadId = 2 + Math.floor((i - 3) / 4); // Squads 2, 3, 4, 5
+        }
+      }
+
+      const rig = buildTheFoolJokerRig(
+        isTeammate ? SKIN_DEFINITIONS.GLACIER_WARRIOR : SKIN_DEFINITIONS.TACTICAL_BLACK,
+        true
+      );
       rig.root.position.set(bx, by, bz);
 
-      // High-Visibility Red Enemy Combat Helmet
+      // Combat Helmet: Blue for Teammates, Red for Enemies
+      const helmetColor = isTeammate ? '#0284c7' : '#dc2626';
       const helmet = new THREE.Mesh(
         new THREE.SphereGeometry(0.34, 12, 12),
-        new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.3, metalness: 0.6 })
+        new THREE.MeshStandardMaterial({ color: helmetColor, roughness: 0.3, metalness: 0.6 })
       );
       helmet.position.set(0, 1.88, 0);
       rig.root.add(helmet);
@@ -1968,9 +2003,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       const markerGroup = new THREE.Group();
       markerGroup.position.set(0, 2.6, 0);
 
-      // Inverted Glowing Red Target Diamond (🔻)
+      // Inverted Glowing Diamond: Cyan for Teammates, Red for Enemies
       const diamondGeo = new THREE.ConeGeometry(0.24, 0.45, 4);
-      const diamondMat = new THREE.MeshBasicMaterial({ color: '#ff2200' });
+      const diamondMat = new THREE.MeshBasicMaterial({ color: isTeammate ? '#00f0ff' : '#ff2200' });
       const diamond = new THREE.Mesh(diamondGeo, diamondMat);
       diamond.rotation.x = Math.PI;
       diamond.position.y = 0.5;
@@ -1984,16 +2019,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       barBg.position.y = 0.12;
       markerGroup.add(barBg);
 
-      // Foreground Red Health Fill
+      // Foreground Health Fill: Green for Teammates, Red for Enemies
       const hpBar = new THREE.Mesh(
         new THREE.PlaneGeometry(1.34, 0.16),
-        new THREE.MeshBasicMaterial({ color: '#ef4444', side: THREE.DoubleSide })
+        new THREE.MeshBasicMaterial({ color: isTeammate ? '#22c55e' : '#ef4444', side: THREE.DoubleSide })
       );
       hpBar.position.set(0, 0.12, 0.01);
       markerGroup.add(hpBar);
 
-      // Red Enemy Beacon Light on Body
-      const beaconLight = new THREE.PointLight('#ff2200', 3.0, 8);
+      // Beacon Light on Body
+      const beaconLight = new THREE.PointLight(isTeammate ? '#00f0ff' : '#ff2200', 3.0, 8);
       beaconLight.position.set(0, 1.4, 0.3);
       rig.root.add(beaconLight);
 
@@ -2004,7 +2039,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
       bots.push({
         id: i + 1,
-        name: `Operative_${String(i + 1).padStart(2, '0')}`,
+        name: BOT_NAMES[i] || `Operative_${String(i + 1).padStart(2, '0')}`,
+        squadId,
         rig,
         position: rig.root.position,
         velocity: new THREE.Vector3(),
@@ -2012,8 +2048,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         maxHp: 100,
         weapon: weaponsList[i % weaponsList.length],
         state: 'PATROL',
-        patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 35, by, bz + (Math.random() - 0.5) * 35),
-        shootCooldown: 1.2 + Math.random(),
+        patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 40, by, bz + (Math.random() - 0.5) * 40),
+        shootCooldown: 1.0 + Math.random() * 1.5,
+        healCooldown: 0,
         walkCycle: 0,
         isDead: false,
         muzzleLight: null,
@@ -2023,8 +2060,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
 
     g.bots = bots;
-    g.totalAlive = 100;
-    setAliveCount(100);
+    g.totalAlive = 20;
+    setAliveCount(20);
   };
 
   // ============================================================================
@@ -2063,6 +2100,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     g.player.position.copy(g.airplane.position);
     g.player.velocity.set(g.airplane.velocity.x * 0.45, -34, g.airplane.velocity.z * 0.45);
     g.phase = 'FREEFALL';
+    if (g.playerRig) {
+      g.playerRig.root.position.copy(g.player.position);
+      g.playerRig.root.visible = true;
+    }
     setPhase('FREEFALL');
     pushKillFeed('🪂 JUMP: Steer with WASD. Parachute auto-deploys at 65m!');
   };
@@ -2115,6 +2156,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     p.position.add(p.velocity.clone().multiplyScalar(dt));
 
     if (g.playerRig) {
+      g.playerRig.root.visible = true;
       g.playerRig.root.position.copy(p.position);
       g.playerRig.root.rotation.y = yaw;
       g.playerRig.root.rotation.x = g.phase === 'FREEFALL' ? 0.35 : 0.08;
@@ -2139,6 +2181,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         g.parachuteMesh = null;
       }
       if (g.playerRig) {
+        g.playerRig.root.visible = true;
         g.playerRig.root.rotation.x = 0;
       }
       g.phase = 'PLAYING';
@@ -2249,6 +2292,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
     if (g.playerRig) {
       const rig = g.playerRig;
+      rig.root.visible = true;
       rig.root.position.copy(p.position);
       rig.root.rotation.y = yaw;
 
@@ -2395,6 +2439,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const p = g.player;
     const yaw = g.mouseLook?.yaw || 0;
     const bearings: { id: number; dist: number; angleDiff: number }[] = [];
+    const isSquad = battleRoyaleMode === 'SQUAD';
 
     g.bots.forEach((b: EnemyBot) => {
       if (b.isDead) return;
@@ -2404,60 +2449,202 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         b.markerGroup.quaternion.copy(g.camera.quaternion);
       }
 
-      const dist = b.position.distanceTo(p.position);
-      if (dist < 140) {
+      // Update cooldowns
+      if (b.healCooldown > 0) b.healCooldown -= dt;
+      if (b.shootCooldown > 0) b.shootCooldown -= dt;
+
+      // ── Locomotion Animation (Running, Walking, Aiming) ───────────────────
+      b.walkCycle += dt * (b.state === 'ATTACK' ? 5.5 : 10.5);
+      const stride = Math.sin(b.walkCycle) * 0.65;
+      b.rig.legLGroup.rotation.x = stride;
+      b.rig.legRGroup.rotation.x = -stride;
+      b.rig.armLGroup.rotation.x = -stride * 0.7;
+      b.rig.armRGroup.rotation.x = stride * 0.7;
+
+      // Track distance to human player for HUD bearings / radar
+      const distToPlayer = b.position.distanceTo(p.position);
+      if (b.squadId !== 1 && distToPlayer < 140) {
         const targetAngle = Math.atan2(b.position.x - p.position.x, b.position.z - p.position.z);
         let diff = targetAngle - yaw;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        bearings.push({ id: b.id, dist: Math.round(dist), angleDiff: diff });
+        bearings.push({ id: b.id, dist: Math.round(distToPlayer), angleDiff: diff });
       }
 
-      if (dist < 45) {
-        b.state = 'ATTACK';
-        b.rig.root.lookAt(p.position.x, b.position.y, p.position.z);
-        b.shootCooldown -= dt;
-        if (b.shootCooldown <= 0) {
-          b.shootCooldown = 1.0 + Math.random() * 0.8;
-          playGunshotSound(b.weapon);
+      // ── Self-Preservation & Healing System ────────────────────────────────
+      if (b.hp < 40 && b.healCooldown <= 0) {
+        b.state = 'COVER';
+        b.hp = Math.min(b.maxHp, b.hp + 35);
+        b.healCooldown = 14;
+        if (b.hpBarMesh) {
+          b.hpBarMesh.scale.x = Math.max(0.01, b.hp / b.maxHp);
+        }
+      }
 
-          if (dist < 35 && Math.random() < 0.45) {
-            let dmg = 12;
-            if (p.armor > 0) {
-              const absorbed = Math.min(p.armor, Math.round(dmg * 0.6));
-              p.armor -= absorbed;
-              dmg -= absorbed;
-              setPlayerArmor(p.armor);
+      // ── Intelligent Target Selection (Enemies fight EACH OTHER) ───────────
+      // A valid target can be the human player (if not teammate) OR any other bot with a different squadId
+      let target: { isPlayer: boolean; bot?: EnemyBot; pos: THREE.Vector3; dist: number } | null = null;
+      let minTargetDist = 80; // combat awareness radius
+
+      // Consider Human Player
+      if (b.squadId !== 1 && p.hp > 0 && distToPlayer < minTargetDist) {
+        minTargetDist = distToPlayer;
+        target = { isPlayer: true, pos: p.position, dist: distToPlayer };
+      }
+
+      // Consider all other alive bots from opposing squads
+      for (let i = 0; i < g.bots.length; i++) {
+        const other = g.bots[i];
+        if (other.id === b.id || other.isDead || other.squadId === b.squadId) continue;
+        const d = b.position.distanceTo(other.position);
+        if (d < minTargetDist) {
+          minTargetDist = d;
+          target = { isPlayer: false, bot: other, pos: other.position, dist: d };
+        }
+      }
+
+      // ── Tactical Actions ──────────────────────────────────────────────────
+      if (target) {
+        b.rig.root.lookAt(target.pos.x, b.position.y, target.pos.z);
+
+        if (target.dist > 32) {
+          // CHASE / REPOSITION: Move closer to target while using terrain cover
+          b.state = 'CHASE';
+          const toTarget = target.pos.clone().sub(b.position).normalize();
+          b.position.add(toTarget.multiplyScalar(4.5 * dt));
+          b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+          b.rig.root.position.copy(b.position);
+        } else {
+          // ATTACK: Open fire on opponent
+          b.state = 'ATTACK';
+          if (b.shootCooldown <= 0) {
+            b.shootCooldown = 0.9 + Math.random() * 0.7;
+
+            // Audio: Gunshots audible if nearby
+            if (distToPlayer < 75) {
+              playGunshotSound(b.weapon);
             }
-            p.hp = Math.max(0, p.hp - dmg);
-            setPlayerHp(p.hp);
-            setDamageFlash(true);
-            setTimeout(() => setDamageFlash(false), 80);
-            if (p.hp <= 0) handleGameOver();
+
+            // Visual Tracer from Bot to Target
+            if (g.scene) {
+              try {
+                const tracerStart = b.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+                const dir = target.pos.clone().sub(tracerStart);
+                const tLen = Math.min(dir.length(), 35);
+                dir.normalize();
+                const tracerMesh = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.04, 0.04, tLen, 4),
+                  new THREE.MeshBasicMaterial({ color: b.squadId === 1 ? '#00f0ff' : '#ff4400' })
+                );
+                tracerMesh.position.copy(tracerStart.clone().addScaledVector(dir, tLen / 2));
+                tracerMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                g.scene.add(tracerMesh);
+                g.vfxPool.push({ mesh: tracerMesh, life: 0.06 });
+              } catch (e) {}
+            }
+
+            // Damage Resolution
+            if (target.isPlayer) {
+              // Bot damages human player
+              if (Math.random() < 0.45) {
+                let dmg = 12;
+                if (p.armor > 0) {
+                  const absorbed = Math.min(p.armor, Math.round(dmg * 0.6));
+                  p.armor -= absorbed;
+                  dmg -= absorbed;
+                  setPlayerArmor(p.armor);
+                }
+                p.hp = Math.max(0, p.hp - dmg);
+                setPlayerHp(p.hp);
+                setDamageFlash(true);
+                setTimeout(() => setDamageFlash(false), 80);
+                if (p.hp <= 0) handleGameOver();
+              }
+            } else if (target.bot && !target.bot.isDead) {
+              // Bot damages opponent bot!
+              const victim = target.bot;
+              const dmg = 20 + Math.floor(Math.random() * 12);
+              victim.hp = Math.max(0, victim.hp - dmg);
+              if (victim.hpBarMesh) {
+                victim.hpBarMesh.scale.x = Math.max(0.001, victim.hp / victim.maxHp);
+              }
+
+              // Victim Elimination
+              if (victim.hp <= 0 && !victim.isDead) {
+                victim.isDead = true;
+                victim.state = 'DEAD';
+                if (victim.markerGroup) victim.markerGroup.visible = false;
+                if (victim.rig) {
+                  g.dyingBots.push({ bot: victim, timer: 0 });
+                }
+                spawnDeathLootCrate(victim.position.clone(), victim.name, g);
+                g.totalAlive = Math.max(1, g.totalAlive - 1);
+                setAliveCount(g.totalAlive);
+                pushKillFeed(`💥 ${b.name} eliminated ${victim.name} with ${b.weapon}`);
+
+                // Check Victory
+                if (isSquad) {
+                  const hostileAlive = g.bots.filter((bt: EnemyBot) => bt.squadId !== 1 && !bt.isDead).length;
+                  if (hostileAlive === 0 && (p.hp > 0 || g.bots.some((bt: EnemyBot) => bt.squadId === 1 && !bt.isDead))) {
+                    handleGameVictory();
+                  }
+                } else {
+                  if (g.totalAlive === 1 && p.hp > 0) {
+                    handleGameVictory();
+                  }
+                }
+              }
+            }
           }
         }
       } else {
-        b.state = 'PATROL';
-        const toTarget = b.patrolTarget.clone().sub(b.position);
-        if (toTarget.length() < 2) {
-          b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 35, 0, b.position.z + (Math.random() - 0.5) * 35);
+        // No enemy in combat range
+        if (b.squadId === 1) {
+          // Teammate logic: follow player in squad formation
+          if (distToPlayer > 18) {
+            b.state = 'CHASE';
+            const toPlayer = p.position.clone().sub(b.position).normalize();
+            b.position.add(toPlayer.multiplyScalar(4.0 * dt));
+            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+            b.rig.root.position.copy(b.position);
+            b.rig.root.rotation.y = Math.atan2(-toPlayer.x, -toPlayer.z);
+          } else {
+            b.state = 'PATROL';
+            b.rig.root.lookAt(p.position.x + 5, b.position.y, p.position.z + 5);
+          }
         } else {
-          toTarget.normalize();
-          b.position.add(toTarget.multiplyScalar(3.2 * dt));
-          b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
-          b.rig.root.position.copy(b.position);
-          b.rig.root.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+          // Standard patrol between tactical waypoints
+          b.state = 'PATROL';
+          const toTarget = b.patrolTarget.clone().sub(b.position);
+          if (toTarget.length() < 3) {
+            b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 50, 0, b.position.z + (Math.random() - 0.5) * 50);
+          } else {
+            toTarget.normalize();
+            b.position.add(toTarget.multiplyScalar(3.2 * dt));
+            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+            b.rig.root.position.copy(b.position);
+            b.rig.root.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+          }
         }
       }
     });
 
-    // Throttle React state updates to ~10 FPS (was causing 60 re-renders/sec)
+    // Throttle React state updates to ~10 FPS for zero UI lag
     if (g.elapsedTime - g.lastBotUIUpdate >= 0.1) {
       g.lastBotUIUpdate = g.elapsedTime;
       setNearbyEnemyBearings(bearings.sort((a: any, b: any) => a.dist - b.dist).slice(0, 4));
-      let deg = Math.round((yaw * 180 / Math.PI) % 360);
+      let deg = Math.round(((yaw * 180) / Math.PI) % 360);
       if (deg < 0) deg += 360;
       setCompassHeading(deg);
+
+      // Sync Squad Teammates Telemetry HUD in SQUAD mode
+      if (isSquad && g.bots && g.bots.length >= 3) {
+        setSquadTeammates([
+          { id: g.bots[0].id, num: 2, name: g.bots[0].name, hp: g.bots[0].hp, maxHp: g.bots[0].maxHp, isDead: g.bots[0].isDead },
+          { id: g.bots[1].id, num: 3, name: g.bots[1].name, hp: g.bots[1].hp, maxHp: g.bots[1].maxHp, isDead: g.bots[1].isDead },
+          { id: g.bots[2].id, num: 4, name: g.bots[2].name, hp: g.bots[2].hp, maxHp: g.bots[2].maxHp, isDead: g.bots[2].isDead },
+        ]);
+      }
     }
   };
 
@@ -2509,15 +2696,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     ctx.arc(szX, szY, Math.max(4, szR), 0, Math.PI * 2);
     ctx.stroke();
 
-    // Enemy Bot Blips (Red Dots)
-    ctx.fillStyle = '#ef4444';
+    // Bot Blips: Cyan for Teammates, Red for Enemies
     g.bots.forEach((b: EnemyBot) => {
       if (b.isDead) return;
       const bx = cx + (b.position.x - g.player.position.x) * scale;
       const by = cy + (b.position.z - g.player.position.z) * scale;
       if (Math.hypot(bx - cx, by - cy) < radius) {
+        ctx.fillStyle = b.squadId === 1 ? '#00f0ff' : '#ef4444';
         ctx.beginPath();
-        ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+        ctx.arc(bx, by, b.squadId === 1 ? 3.5 : 2.5, 0, Math.PI * 2);
         ctx.fill();
       }
     });
@@ -2589,6 +2776,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
 
       if (struckBot && !struckBot.isDead) {
+        if (battleRoyaleMode === 'SQUAD' && struckBot.squadId === 1) {
+          pushKillFeed(`⚠️ Teammate: Do not shoot ${struckBot.name}!`);
+          return;
+        }
+
         struckBot.hp = Math.max(0, struckBot.hp - p.currentWeapon.damage);
         if (struckBot.hpBarMesh) {
           struckBot.hpBarMesh.scale.x = Math.max(0.001, struckBot.hp / struckBot.maxHp);
@@ -2621,7 +2813,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           setTimeout(() => setEliminationBanner((prev) => ({ ...prev, visible: false })), 2600);
           pushKillFeed(`SMxTHUG eliminated ${struckBot.name} with ${p.currentWeapon.name}`);
 
-          if (g.totalAlive === 1 && p.hp > 0) handleGameVictory();
+          if (battleRoyaleMode === 'SQUAD') {
+            const hostileAlive = g.bots.filter((bt: EnemyBot) => bt.squadId !== 1 && !bt.isDead).length;
+            if (hostileAlive === 0 && (p.hp > 0 || g.bots.some((bt: EnemyBot) => bt.squadId === 1 && !bt.isDead))) {
+              handleGameVictory();
+            }
+          } else {
+            if (g.totalAlive === 1 && p.hp > 0) handleGameVictory();
+          }
         }
       }
     }
@@ -3004,17 +3203,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     setIsOutsideSafeZone(false);
 
     g.eliminationCount = 0;
+    g.totalAlive = 20;
     g.medkits = 3;
     g.isHealing = false;
     setPlayerHp(100);
     setPlayerArmor(100);
     setKillsCount(0);
-    setAliveCount(100);
+    setAliveCount(20);
     setMedkitCount(3);
     setIsHealing(false);
     setHealProgress(0);
-    setKillFeed(['⚔️ MATCH COMMENCED: Eliminate hostiles to claim Victory!']);
-    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 100 });
+    setKillFeed(['⚔️ MATCH COMMENCED: 20 Operatives Deployed. Eliminate hostiles to claim Victory!']);
+    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 20 });
 
     if (g.parachuteMesh && g.playerRig) {
       g.playerRig.root.remove(g.parachuteMesh);
@@ -3026,10 +3226,15 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       setPhase('PLAYING');
       g.player.position.set(g.dropZone.x, getErangelTerrainHeight(g.dropZone.x, g.dropZone.z) + 1.0, g.dropZone.z);
       g.player.velocity.set(0, 0, 0);
+      if (g.playerRig) {
+        g.playerRig.root.position.copy(g.player.position);
+        g.playerRig.root.visible = true;
+      }
       pushKillFeed('⚔️ TOUCHDOWN: Hostiles spotted near the insertion zone.');
     } else {
       g.phase = 'AIRPLANE';
       setPhase('AIRPLANE');
+      if (g.playerRig) g.playerRig.root.visible = false;
       g.airplane.position.set(-320, 150, -360);
       g.airplane.velocity.set(22, 0, 34);
       g.airplane.hasJumped = false;
@@ -3183,6 +3388,63 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
             {/* BOTTOM LEFT: OPERATION SELECTOR & DEPLOY BUTTON */}
             <View style={styles.bottomLeftControls}>
+              {/* SOLO vs SQUAD MODE SELECTOR (Priority 4) */}
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, width: '100%', maxWidth: 280 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    backgroundColor: battleRoyaleMode === 'SOLO' ? '#eab308' : 'rgba(15, 23, 42, 0.85)',
+                    borderWidth: 1.5,
+                    borderColor: battleRoyaleMode === 'SOLO' ? '#fde047' : '#334155',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => {
+                    setBattleRoyaleMode('SOLO');
+                    pushKillFeed('👤 MODE SELECTED: SOLO (20 Players Free-For-All)');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '900',
+                    color: battleRoyaleMode === 'SOLO' ? '#0f172a' : '#cbd5e1',
+                    letterSpacing: 0.5,
+                  }}>
+                    👤 SOLO (20P)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 7,
+                    borderRadius: 6,
+                    backgroundColor: battleRoyaleMode === 'SQUAD' ? '#00f0ff' : 'rgba(15, 23, 42, 0.85)',
+                    borderWidth: 1.5,
+                    borderColor: battleRoyaleMode === 'SQUAD' ? '#7ee3ff' : '#334155',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => {
+                    setBattleRoyaleMode('SQUAD');
+                    pushKillFeed('👥 MODE SELECTED: SQUAD (5 Squads of 4 Players)');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '900',
+                    color: battleRoyaleMode === 'SQUAD' ? '#0f172a' : '#cbd5e1',
+                    letterSpacing: 0.5,
+                  }}>
+                    👥 SQUAD (4x5)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Map & Mode Card */}
               <TouchableOpacity
                 onPress={() => setPhase('MAP_SELECT')}
@@ -3202,7 +3464,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     {selectedMapId === 'ERANGEL' ? 'Battle Royale — Ironhaven' : FOUR_MAPS[selectedMapId].name}
                   </Text>
                   <View style={styles.modeSubInfoRow}>
-                    <Text style={styles.modeSubText}>👥 SQUAD • THIRD PERSON • {FOUR_MAPS[selectedMapId].duration}</Text>
+                    <Text style={styles.modeSubText}>
+                      {battleRoyaleMode === 'SOLO' ? '👤 SOLO • 20 PLAYERS' : '👥 SQUAD • 5 SQUADS (20P)'} • TPP • {FOUR_MAPS[selectedMapId].duration}
+                    </Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -3522,6 +3786,51 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <Text key={idx} style={styles.killFeedText}>{m}</Text>
               ))}
             </View>
+
+            {/* Squad Team Telemetry HUD in SQUAD mode */}
+            {battleRoyaleMode === 'SQUAD' && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: isCompactViewport ? 48 : 56,
+                  left: 12,
+                  backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                  padding: 8,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#0284c7',
+                  width: 175,
+                  gap: 5,
+                }}
+                pointerEvents="none"
+              >
+                <Text style={{ fontSize: 9, fontWeight: '900', color: '#38bdf8', letterSpacing: 0.6 }}>
+                  🛡️ SQUAD #1 (YOU + 3 BOTS)
+                </Text>
+                {/* 1. Human Player */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '900', color: '#22c55e' }}>1</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#f8fafc', flex: 1 }} numberOfLines={1}>
+                    SMxTHUG (You)
+                  </Text>
+                  <View style={{ width: 44, height: 6, backgroundColor: '#334155', borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.max(0, playerHp)}%`, height: '100%', backgroundColor: playerHp > 30 ? '#22c55e' : '#ef4444' }} />
+                  </View>
+                </View>
+                {/* 2-4. AI Teammates */}
+                {squadTeammates.map((tm) => (
+                  <View key={tm.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '900', color: tm.isDead ? '#ef4444' : '#00f0ff' }}>{tm.num}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: tm.isDead ? '#64748b' : '#e2e8f0', flex: 1 }} numberOfLines={1}>
+                      {tm.name}
+                    </Text>
+                    <View style={{ width: 44, height: 6, backgroundColor: '#334155', borderRadius: 3, overflow: 'hidden' }}>
+                      <View style={{ width: `${tm.isDead ? 0 : Math.max(0, tm.hp)}%`, height: '100%', backgroundColor: tm.isDead ? '#475569' : tm.hp > 30 ? '#00f0ff' : '#ef4444' }} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {/* Reticle */}
             <View style={styles.reticleCenter} pointerEvents="none">
@@ -3861,8 +4170,12 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             <BlurView intensity={40} tint="dark" style={styles.blurModalContainer}>
               <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
                 <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
-                <Text style={styles.victorySub}>OPERATION COMPLETE</Text>
-                <Text style={styles.victoryMap}>MAP: IRONHAVEN ISLE • RANK #1</Text>
+                <Text style={styles.victorySub}>
+                  {battleRoyaleMode === 'SQUAD' ? 'SQUAD #1 CHICKEN DINNER!' : 'CHICKEN DINNER! #1/20'}
+                </Text>
+                <Text style={styles.victoryMap}>
+                  {battleRoyaleMode === 'SQUAD' ? 'TEAM VICTORY' : 'SOLO CHAMPION'} • KILLS: {killsCount} • MAP: IRONHAVEN ISLE
+                </Text>
                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
                   <TouchableOpacity onPress={() => startErangelMatch(false)} activeOpacity={0.85}>
                     <LinearGradient
