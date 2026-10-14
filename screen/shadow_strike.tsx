@@ -1357,7 +1357,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     }
 
     // Input handlers
-    setupInputControls(renderer.domElement, g);
+    const disposeInputControls = setupInputControls(renderer.domElement, g);
 
     // RAF Loop
     let isRunning = true;
@@ -1387,6 +1387,21 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     return () => {
       isRunning = false;
       if (g.animFrameId) cancelAnimationFrame(g.animFrameId);
+      disposeInputControls();
+      // Release GPU memory for the old scene, otherwise every match leaks and FPS decays
+      scene.traverse((obj: THREE.Object3D) => {
+        const mesh = obj as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (mat) {
+          (Array.isArray(mat) ? mat : [mat]).forEach((m) => {
+            Object.values(m).forEach((v) => {
+              if (v && (v as THREE.Texture).isTexture) (v as THREE.Texture).dispose();
+            });
+            m.dispose();
+          });
+        }
+      });
       renderer.dispose();
     };
   }, [selectedMapId, phase === 'LOBBY' || phase === 'MAP_SELECT', selectedSkinId, is3DInspect]);
@@ -3034,6 +3049,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     let lastCombatMouseY = 0;
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Arrow keys must not scroll the browser page (caused the "lag" jumpiness)
+      if (e.key.startsWith('Arrow')) e.preventDefault();
       const k = e.key.toLowerCase();
       if (k === 'w') g.keys.w = true;
       if (k === 'a') g.keys.a = true;
@@ -3149,6 +3166,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     window.addEventListener('mousemove', onMouseMove);
     canvas.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('contextmenu', onContextMenu);
+
+    // Return disposer so re-running the scene effect can't stack duplicate listeners
+    return () => {
+      canvas.removeEventListener('click', onCanvasClick);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('mousemove', onMouseMove);
+      canvas.removeEventListener('contextmenu', onContextMenu);
+      window.removeEventListener('contextmenu', onContextMenu);
+    };
   };
 
   const pushKillFeed = (msg: string) => {
