@@ -858,6 +858,27 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
   const returnToLobby = () => {
     const g = gameRef.current;
+    const activeScene = g.scene;
+    if (activeScene) {
+      if (g.bots) {
+        g.bots.forEach((b: any) => {
+          if (b.rig?.root) activeScene.remove(b.rig.root);
+        });
+        g.bots = [];
+      }
+      if (g.lootCrates) {
+        g.lootCrates.forEach((c: any) => {
+          if (c.mesh) activeScene.remove(c.mesh);
+        });
+        g.lootCrates = [];
+      }
+      if (g.vfxPool) {
+        g.vfxPool.forEach((v: any) => {
+          if (v.mesh) activeScene.remove(v.mesh);
+        });
+        g.vfxPool = [];
+      }
+    }
     g.phase = 'LOBBY';
     setPhase('LOBBY');
     g.isFiring = false;
@@ -1025,6 +1046,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       arrowRight: false,
       arrowUp: false,
       arrowDown: false,
+      crouch: false,
     },
     mouseLook: { yaw: 0, pitch: 0.15, isAiming: false },
 
@@ -1044,6 +1066,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       reserve: 180,
       reloading: false,
       lastShotTime: 0,
+      jumpVelocity: 0,
+      isGrounded: true,
     },
 
     airplane: {
@@ -1081,6 +1105,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     bulletTracers: [] as { line: THREE.Line; life: number }[],
     damageDealt: 0,
     eliminationCount: 0,
+    // VFX pool: replaces all setTimeout-based mesh cleanup (main lag fix)
+    vfxPool: [] as { mesh: THREE.Object3D; life: number }[],
+    // Dying bots pending smooth ragdoll animation
+    dyingBots: [] as { bot: any; timer: number }[],
+    // Throttle bot-AI React state to 10fps
+    lastBotUIUpdate: 0,
+    // Store nearby loot crate in gameRef to avoid stale closure in keydown
+    currentNearbyLootCrate: null as any,
   });
 
   // ============================================================================
@@ -1120,8 +1152,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     mountRef.current.innerHTML = '';
     mountRef.current.appendChild(renderer.domElement);
 
-    // Build Scene depending on Phase
-    if (phase === 'LOBBY') {
+    // Build Scene depending on isLobbyMode (avoids tearing down WebGL on in-match phase changes)
+    const isLobbyMode = phase === 'LOBBY' || phase === 'MAP_SELECT';
+    if (isLobbyMode) {
       buildBGMILobbyScene(scene, g);
     } else {
       buildErangelBattlegroundScene(scene, g);
@@ -1160,7 +1193,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       if (g.animFrameId) cancelAnimationFrame(g.animFrameId);
       renderer.dispose();
     };
-  }, [selectedMapId, phase, selectedSkinId, is3DInspect]);
+  }, [selectedMapId, phase === 'LOBBY' || phase === 'MAP_SELECT', selectedSkinId, is3DInspect]);
 
   // ============================================================================
   // Original forward-operating-base lobby scene.
@@ -1833,12 +1866,41 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const yaw = g.mouseLook.yaw;
     const pitch = g.mouseLook.pitch;
 
-    // Movement
+    // ── VFX pool tick: zero-setTimeout bullet effect cleanup ──────────────────
+    for (let i = g.vfxPool.length - 1; i >= 0; i--) {
+      g.vfxPool[i].life -= dt;
+      if (g.vfxPool[i].life <= 0) {
+        if (g.scene) g.scene.remove(g.vfxPool[i].mesh);
+        g.vfxPool.splice(i, 1);
+      }
+    }
+
+    // ── Smooth ragdoll animation for dying bots ───────────────────────────────
+    for (let i = g.dyingBots.length - 1; i >= 0; i--) {
+      const db = g.dyingBots[i];
+      db.timer += dt;
+      const t = Math.min(1, db.timer / 0.35);
+      if (db.bot.rig) {
+        db.bot.rig.root.rotation.x = t * (Math.PI / 2);
+        db.bot.rig.root.position.y = 0.22 * t;
+      }
+      if (t >= 1) g.dyingBots.splice(i, 1);
+    }
+
+    // ── Pulse loot-crate beacon beams (BGMI shimmer effect) ──────────────────
+    g.lootCrates.forEach((crate: any) => {
+      if (!crate.looted && crate.beamMesh) {
+        (crate.beamMesh.material as any).opacity =
+          0.28 + Math.sin(g.elapsedTime * 4.5) * 0.17;
+      }
+    });
+
+    // ── Movement ─────────────────────────────────────────────────────────────
     const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
     const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
     const moveDir = new THREE.Vector3();
 
-    // Smooth Arrow Keys Camera Turning & Movement
+    // Arrow Keys & WASD
     if (g.keys.arrowLeft) g.mouseLook.yaw += 2.6 * dt;
     if (g.keys.arrowRight) g.mouseLook.yaw -= 2.6 * dt;
     if (g.keys.arrowUp) moveDir.add(fwd);
@@ -1852,21 +1914,40 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const isMoving = moveDir.lengthSq() > 0;
     if (isMoving) moveDir.normalize();
 
-    const speed = g.keys.shift ? 10.5 : 6.2;
+    const isCrouching = g.keys.crouch;
+    const speed = isCrouching ? 3.0 : (g.keys.shift ? 10.5 : 6.2);
     p.velocity.x = moveDir.x * speed;
     p.velocity.z = moveDir.z * speed;
 
-    p.position.add(p.velocity.clone().multiplyScalar(dt));
-    p.position.y = getErangelTerrainHeight(p.position.x, p.position.z);
+    // Horizontal movement
+    p.position.x += p.velocity.x * dt;
+    p.position.z += p.velocity.z * dt;
+
+    // ── Jump physics & gravity ────────────────────────────────────────────────
+    p.jumpVelocity = (p.jumpVelocity || 0) - 22 * dt;
+    p.position.y += p.jumpVelocity * dt;
+    const groundH = getErangelTerrainHeight(p.position.x, p.position.z);
+    const standH = isCrouching ? 0.55 : 1.0;
+    if (p.position.y <= groundH + standH) {
+      p.position.y = groundH + standH;
+      p.jumpVelocity = 0;
+      p.isGrounded = true;
+    } else {
+      p.isGrounded = false;
+    }
 
     if (g.playerRig) {
       const rig = g.playerRig;
       rig.root.position.copy(p.position);
       rig.root.rotation.y = yaw;
 
+      // Smooth crouch squash
+      const crouchScaleY = isCrouching ? 0.62 : 1.0;
+      rig.torsoGroup.scale.y += (crouchScaleY - rig.torsoGroup.scale.y) * 0.22;
+
       if (isMoving) {
-        p.walkCycle += dt * 12;
-        const stride = Math.sin(p.walkCycle) * 0.7;
+        p.walkCycle += dt * (isCrouching ? 7 : 12);
+        const stride = Math.sin(p.walkCycle) * (isCrouching ? 0.4 : 0.7);
         rig.legLGroup.rotation.x = stride;
         rig.legRGroup.rotation.x = -stride;
         rig.torsoGroup.position.y = 1.15 + Math.abs(Math.sin(p.walkCycle)) * 0.04;
@@ -1877,18 +1958,18 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     }
 
-    // Camera
+    // ── Camera ────────────────────────────────────────────────────────────────
     if (g.camera) {
       const fov = g.mouseLook.isAiming ? p.currentWeapon.zoomFOV : 65;
       g.camera.fov += (fov - g.camera.fov) * 0.2;
       g.camera.updateProjectionMatrix();
 
       const dist = g.mouseLook.isAiming ? 1.6 : 3.5;
-      const height = g.mouseLook.isAiming ? 1.65 : 1.85;
+      const camH = isCrouching ? 1.1 : (g.mouseLook.isAiming ? 1.65 : 1.85);
 
       g.camera.position.set(
         p.position.x - Math.sin(yaw) * dist + Math.cos(yaw) * 0.6,
-        p.position.y + height + Math.sin(pitch) * 1.5,
+        p.position.y + camH + Math.sin(pitch) * 1.5,
         p.position.z - Math.cos(yaw) * dist - Math.sin(yaw) * 0.6
       );
       g.camera.lookAt(
@@ -1903,7 +1984,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       fireWeapon();
     }
 
-    // Nearby Loot Crate Proximity Check
+    // ── Nearby loot crate check — stored in gameRef to fix stale closure ──────
     let closestCrate: any = null;
     let closestDist = 999;
     g.lootCrates.forEach((crate: any) => {
@@ -1914,6 +1995,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         closestCrate = crate;
       }
     });
+    g.currentNearbyLootCrate = closestCrate;
     setNearbyLootCrate(closestCrate);
 
     // Safe Zone & AI
@@ -1985,8 +2067,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             b.state = 'DEAD';
             if (b.markerGroup) b.markerGroup.visible = false;
             if (b.rig) {
-              b.rig.root.rotation.x = Math.PI / 2;
-              b.rig.root.position.y = 0.2;
+              g.dyingBots.push({ bot: b, timer: 0 });
             }
             spawnDeathLootCrate(b.position.clone(), b.name, g);
             g.totalAlive = Math.max(1, g.totalAlive - 1);
@@ -2030,7 +2111,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           playGunshotSound(b.weapon);
 
           if (dist < 35 && Math.random() < 0.45) {
-            const dmg = 12;
+            let dmg = 12;
+            if (p.armor > 0) {
+              const absorbed = Math.min(p.armor, Math.round(dmg * 0.6));
+              p.armor -= absorbed;
+              dmg -= absorbed;
+              setPlayerArmor(p.armor);
+            }
             p.hp = Math.max(0, p.hp - dmg);
             setPlayerHp(p.hp);
             setDamageFlash(true);
@@ -2053,11 +2140,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     });
 
-    setNearbyEnemyBearings(bearings.sort((a, b) => a.dist - b.dist).slice(0, 4));
-
-    let deg = Math.round((yaw * 180 / Math.PI) % 360);
-    if (deg < 0) deg += 360;
-    setCompassHeading(deg);
+    // Throttle React state updates to ~10 FPS (was causing 60 re-renders/sec)
+    if (g.elapsedTime - g.lastBotUIUpdate >= 0.1) {
+      g.lastBotUIUpdate = g.elapsedTime;
+      setNearbyEnemyBearings(bearings.sort((a: any, b: any) => a.dist - b.dist).slice(0, 4));
+      let deg = Math.round((yaw * 180 / Math.PI) % 360);
+      if (deg < 0) deg += 360;
+      setCompassHeading(deg);
+    }
   };
 
   const renderErangelRadar = (g: any) => {
@@ -2188,9 +2278,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
 
       if (struckBot && !struckBot.isDead) {
-        struckBot.hp -= p.currentWeapon.damage;
+        struckBot.hp = Math.max(0, struckBot.hp - p.currentWeapon.damage);
         if (struckBot.hpBarMesh) {
-          struckBot.hpBarMesh.scale.x = Math.max(0.01, struckBot.hp / struckBot.maxHp);
+          struckBot.hpBarMesh.scale.x = Math.max(0.001, struckBot.hp / struckBot.maxHp);
         }
         playHitMarkerSound();
         setHitMarker(true);
@@ -2203,8 +2293,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
           struckBot.state = 'DEAD';
           if (struckBot.markerGroup) struckBot.markerGroup.visible = false;
           if (struckBot.rig) {
-            struckBot.rig.root.rotation.x = Math.PI / 2;
-            struckBot.rig.root.position.y = 0.2;
+            g.dyingBots.push({ bot: struckBot, timer: 0 });
           }
           spawnDeathLootCrate(struckBot.position.clone(), struckBot.name, g);
           g.eliminationCount++;
@@ -2245,59 +2334,45 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }, 60);
       }
 
-      // 1. Bright Glowing Muzzle Flame & PointLight
-      const flashGeo = new THREE.SphereGeometry(0.18, 8, 8);
-      const flashMat = new THREE.MeshBasicMaterial({ color: '#fffb00' });
-      const flashMesh = new THREE.Mesh(flashGeo, flashMat);
+      // 1. Bright Glowing Muzzle Flame & PointLight (VFX pool — no setTimeout)
+      const flashMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 8, 8),
+        new THREE.MeshBasicMaterial({ color: '#fffb00' })
+      );
       flashMesh.position.copy(muzzleStart);
       g.scene.add(flashMesh);
+      g.vfxPool.push({ mesh: flashMesh, life: 0.065 });
 
       const flashLight = new THREE.PointLight('#ff9900', 7, 8);
       flashLight.position.copy(muzzleStart);
       g.scene.add(flashLight);
+      g.vfxPool.push({ mesh: flashLight, life: 0.065 });
 
-      setTimeout(() => {
-        if (g.scene) {
-          g.scene.remove(flashMesh);
-          g.scene.remove(flashLight);
-        }
-        flashGeo.dispose();
-        flashMat.dispose();
-      }, 65);
-
-      // 2. Thick Glowing 3D Cylinder Tracer Round
+      // 2. Thick Glowing 3D Cylinder Tracer Round (VFX pool — no setTimeout)
       const dir = targetHitPoint.clone().sub(muzzleStart);
       const dist = dir.length();
       if (dist > 0.4) {
         dir.normalize();
         const tracerLen = Math.min(dist, 40);
-        const tracerGeo = new THREE.CylinderGeometry(0.045, 0.045, tracerLen, 6);
-        const tracerMat = new THREE.MeshBasicMaterial({ color: p.currentWeapon.color || '#ffea00' });
-        const tracerMesh = new THREE.Mesh(tracerGeo, tracerMat);
-
+        const tracerMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.045, 0.045, tracerLen, 6),
+          new THREE.MeshBasicMaterial({ color: p.currentWeapon.color || '#ffea00' })
+        );
         const centerPos = muzzleStart.clone().addScaledVector(dir, tracerLen / 2);
         tracerMesh.position.copy(centerPos);
         tracerMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-
         g.scene.add(tracerMesh);
-        setTimeout(() => {
-          if (g.scene) g.scene.remove(tracerMesh);
-          tracerGeo.dispose();
-          tracerMat.dispose();
-        }, 75);
+        g.vfxPool.push({ mesh: tracerMesh, life: 0.075 });
       }
 
-      // 3. Impact Spark Burst at Target Hit Point
-      const sparkGeo = new THREE.SphereGeometry(0.22, 6, 6);
-      const sparkMat = new THREE.MeshBasicMaterial({ color: '#ff3b30' });
-      const sparkMesh = new THREE.Mesh(sparkGeo, sparkMat);
+      // 3. Impact Spark Burst at Target Hit Point (VFX pool — no setTimeout)
+      const sparkMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 6, 6),
+        new THREE.MeshBasicMaterial({ color: '#ff3b30' })
+      );
       sparkMesh.position.copy(targetHitPoint);
       g.scene.add(sparkMesh);
-      setTimeout(() => {
-        if (g.scene) g.scene.remove(sparkMesh);
-        sparkGeo.dispose();
-        sparkMat.dispose();
-      }, 70);
+      g.vfxPool.push({ mesh: sparkMesh, life: 0.07 });
     } catch (e) {}
   };
 
@@ -2470,9 +2545,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         else if (g.phase === 'FREEFALL') {
           g.phase = 'PARACHUTE';
           setPhase('PARACHUTE');
+        } else if (g.phase === 'PLAYING' && g.player.isGrounded) {
+          // Jump!
+          g.player.jumpVelocity = 6.5;
+          g.player.isGrounded = false;
         }
       }
-      if (k === 'e' && nearbyLootCrate) lootCrate(nearbyLootCrate);
+      if (k === 'c') g.keys.crouch = true;
+      if (k === 'e' && g.currentNearbyLootCrate) lootCrate(g.currentNearbyLootCrate);
       if (k === 'h' || k === '6') useMedkit();
       if (k === '1') switchWeapon('CARBINE');
       if (k === '2') switchWeapon('SMG');
@@ -2492,6 +2572,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       if (e.key === 'ArrowUp') g.keys.arrowUp = false;
       if (e.key === 'ArrowDown') g.keys.arrowDown = false;
       if (e.key === 'Shift') g.keys.shift = false;
+      if (k === 'c') g.keys.crouch = false;
     };
 
     const onContextMenu = (e: MouseEvent) => {
@@ -2571,17 +2652,67 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const startErangelMatch = (instantTouchdown: any = false) => {
     playStartMatchSound();
     const g = gameRef.current;
+    // ── Full match-state reset (prevents accumulation across restarts) ────────
     g.player.hp = 100;
     g.player.armor = 100;
+    g.player.jumpVelocity = 0;
+    g.player.isGrounded = true;
+
+    const activeScene = g.scene;
+    // Clean up loot crates from scene
+    if (g.lootCrates && activeScene) {
+      g.lootCrates.forEach((crate: any) => {
+        if (crate.mesh) activeScene.remove(crate.mesh);
+      });
+    }
+    g.lootCrates = [];
+
+    // Clean up VFX from scene
+    if (g.vfxPool && activeScene) {
+      g.vfxPool.forEach((v: any) => {
+        if (v.mesh) activeScene.remove(v.mesh);
+      });
+    }
+    g.vfxPool = [];
+    g.dyingBots = [];
+
+    // Respawn / reset bots if scene is already loaded
+    if (activeScene && g.bots && g.bots.length > 0) {
+      g.bots.forEach((b: any) => {
+        if (b.rig?.root) activeScene.remove(b.rig.root);
+      });
+      spawnErangelOpponents(activeScene, g);
+    }
+
+    // Reset safe zone
+    g.safeZone.radius = 360;
+    g.safeZone.targetRadius = 220;
+    g.safeZone.shrinkTimer = 120;
+    g.safeZone.currentStage = 1;
+    if (g.safeZone.stormRingMesh) {
+      g.safeZone.stormRingMesh.scale.set(360, 1, 360);
+    }
+    setSafeZoneTime(120);
+    setSafeZonePhase(1);
+    setIsOutsideSafeZone(false);
+
+    g.eliminationCount = 0;
+    g.medkits = 3;
+    g.isHealing = false;
     setPlayerHp(100);
     setPlayerArmor(100);
     setKillsCount(0);
     setAliveCount(100);
+    setMedkitCount(3);
+    setIsHealing(false);
+    setHealProgress(0);
+    setKillFeed(['⚔️ MATCH COMMENCED: Eliminate hostiles to claim Victory!']);
+    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 100 });
 
     if (instantTouchdown === true) {
       g.phase = 'PLAYING';
       setPhase('PLAYING');
-      g.player.position.set(g.dropZone.x, getErangelTerrainHeight(g.dropZone.x, g.dropZone.z), g.dropZone.z);
+      g.player.position.set(g.dropZone.x, getErangelTerrainHeight(g.dropZone.x, g.dropZone.z) + 1.0, g.dropZone.z);
       g.player.velocity.set(0, 0, 0);
       pushKillFeed('⚔️ TOUCHDOWN: Hostiles spotted near the insertion zone.');
     } else {
@@ -2590,7 +2721,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       g.airplane.position.set(0, 120, -120);
       g.airplane.velocity.set(0, 0, 36);
       g.airplane.hasJumped = false;
-      g.airplane.mesh = null;
+      if (g.airplane.mesh) {
+        g.airplane.mesh.position.set(0, 120, -120);
+      }
     }
   };
 
@@ -3232,6 +3365,34 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <Text style={styles.virtualReloadText}>🔄 RELOAD</Text>
               </TouchableOpacity>
 
+              {/* Jump & Crouch Virtual Controls */}
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const g = gameRef.current;
+                    if (g.player.isGrounded) {
+                      g.player.jumpVelocity = 6.5;
+                      g.player.isGrounded = false;
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  style={styles.virtualJumpBtn}
+                >
+                  <Text style={styles.virtualJumpText}>🦘 JUMP</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    const g = gameRef.current;
+                    g.keys.crouch = !g.keys.crouch;
+                  }}
+                  activeOpacity={0.7}
+                  style={styles.virtualCrouchBtn}
+                >
+                  <Text style={styles.virtualCrouchText}>🧎 CROUCH</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
                 onPress={() => fireWeapon()}
                 onPressIn={() => {
@@ -3306,7 +3467,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             {/* In-Game Key Guide Bar */}
             <View style={styles.controlHintsBar} pointerEvents="none">
               <Text style={styles.controlHintText}>
-                🎮 WASD / Arrows: Move & Turn • Click or [🔥 FIRE]: Shoot • [🎯 SCOPE]: 4x ADS • [🔄]: Reload • [🩹 H]: Medkit ({medkitCount}) • [📦 E]: Loot • 1-5: Guns • M: Map
+                🎮 WASD: Move • [SPACE]: Jump • [C]: Crouch • Click / [🔥 FIRE]: Shoot • [🎯 SCOPE]: 4x ADS • [🔄]: Reload • [🩹 H]: Medkit ({medkitCount}) • [📦 E]: Loot • 1-5: Guns • M: Map
               </Text>
             </View>
           </View>
@@ -3336,6 +3497,46 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   style={styles.jumpActionBtn}
                 >
                   <Text style={styles.jumpActionBtnText}>⚡ FAST INSERTION</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* FREEFALL & PARACHUTE DESCENT OVERLAY */}
+        {(phase === 'FREEFALL' || phase === 'PARACHUTE') && (
+          <View style={styles.airplaneOverlay} pointerEvents="box-none">
+            <Text style={styles.flightTitle}>
+              {phase === 'FREEFALL' ? '🪂 FREEFALL // RAPID DESCENT' : '🪂 PARACHUTE DEPLOYED // GLIDING'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: 16 }}>
+              {phase === 'FREEFALL' && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const g = gameRef.current;
+                    g.phase = 'PARACHUTE';
+                    setPhase('PARACHUTE');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={['#22c55e', '#16a34a', '#15803d']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.jumpActionBtn}
+                  >
+                    <Text style={styles.jumpActionBtnText}>🪂 DEPLOY PARACHUTE [SPACE]</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => startErangelMatch(true)} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#ef4444', '#dc2626', '#991b1b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.jumpActionBtn}
+                >
+                  <Text style={styles.jumpActionBtnText}>⚡ FAST TOUCHDOWN</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -4276,6 +4477,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   virtualReloadText: { color: '#eab308', fontSize: 11, fontWeight: '900' },
+  virtualJumpBtn: {
+    backgroundColor: 'rgba(59, 130, 246, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#3b82f6',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  virtualJumpText: { color: '#60a5fa', fontSize: 11, fontWeight: '900' },
+  virtualCrouchBtn: {
+    backgroundColor: 'rgba(168, 85, 247, 0.25)',
+    borderWidth: 1.5,
+    borderColor: '#a855f7',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  virtualCrouchText: { color: '#c084fc', fontSize: 11, fontWeight: '900' },
 
   // Virtual Movement D-Pad
   virtualDpadCluster: {
