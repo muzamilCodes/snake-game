@@ -2243,7 +2243,6 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     // 6. Insertion aircraft, player operative and hostile opponents.
     if (g.phase === 'AIRPLANE') buildInsertionAircraft(scene, g);
     buildPlayerInErangel(scene, g);
-    if (g.phase === 'AIRPLANE' && g.playerRig) g.playerRig.root.visible = false;
     spawnErangelOpponents(scene, g);
   };
 
@@ -2350,7 +2349,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.TACTICAL_BLACK;
     const rig = buildTheFoolJokerRig(skinDef, false);
     rig.root.position.copy(g.player.position);
-    rig.root.visible = (g.phase !== 'AIRPLANE');
+    rig.root.visible = true;
     scene.add(rig.root);
     g.playerRig = rig;
 
@@ -2359,7 +2358,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       if (g.playerRig !== rig) return;
       const gltfRig = buildGLTFSoldierRig(gltfScene, animations);
       gltfRig.root.position.copy(g.player.position);
-      gltfRig.root.visible = (g.phase !== 'AIRPLANE');
+      gltfRig.root.visible = true;
       scene.remove(rig.root);
       scene.add(gltfRig.root);
       g.playerRig = gltfRig;
@@ -2543,8 +2542,24 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       p.mesh.rotation.z = Math.sin(g.elapsedTime * 1.7) * 0.02;
     }
 
+    const yaw = Math.atan2(p.velocity.x, p.velocity.z);
+
+    // The operative rides on the fuselage flank so the player is visible in the
+    // insertion sequence instead of an invisible-camera ghost.
+    if (g.playerRig) {
+      const rig = g.playerRig;
+      rig.root.visible = true;
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+      rig.root.position.set(p.position.x + rightX * 2.4, p.position.y + 1.55, p.position.z + rightZ * 2.4);
+      rig.root.rotation.set(0, yaw + Math.PI / 2, 0.06);
+      if (rig.mixer) {
+        rig.mixer.update(dt);
+        playSoldierAnim(rig, 'idle');
+      }
+    }
+
     if (g.camera) {
-      const yaw = Math.atan2(p.velocity.x, p.velocity.z);
       g.camera.position.set(
         p.position.x - Math.sin(yaw) * 36,
         p.position.y + 16,
@@ -3780,6 +3795,32 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     canvas.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('contextmenu', onContextMenu);
 
+    // Lobby 360° turntable must work when the drag starts on top of the HUD
+    // overlays (cards, banners, tabs), which swallow canvas mouse events.
+    const onLobbyMouseDown = (e: MouseEvent) => {
+      if (g.phase !== 'LOBBY') return;
+      isDraggingLobbyRef.current = true;
+      lastMouseXRef.current = e.clientX;
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (g.phase !== 'LOBBY' || e.touches.length !== 1) return;
+      isDraggingLobbyRef.current = true;
+      lastMouseXRef.current = e.touches[0].clientX;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (g.phase !== 'LOBBY' || !isDraggingLobbyRef.current || e.touches.length !== 1) return;
+      const deltaX = e.touches[0].clientX - lastMouseXRef.current;
+      lastMouseXRef.current = e.touches[0].clientX;
+      lobbyRotationRef.current += deltaX * 0.012;
+    };
+    const onTouchEnd = () => {
+      isDraggingLobbyRef.current = false;
+    };
+    window.addEventListener('mousedown', onLobbyMouseDown);
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+
     // Return disposer so re-running the scene effect can't stack duplicate listeners
     return () => {
       canvas.removeEventListener('click', onCanvasClick);
@@ -3790,6 +3831,10 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       window.removeEventListener('mousemove', onMouseMove);
       canvas.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('contextmenu', onContextMenu);
+      window.removeEventListener('mousedown', onLobbyMouseDown);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
     };
   };
 
@@ -3879,12 +3924,16 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     } else {
       g.phase = 'AIRPLANE';
       setPhase('AIRPLANE');
-      if (g.playerRig) g.playerRig.root.visible = false;
+      if (g.playerRig) g.playerRig.root.visible = true;
       g.airplane.position.set(-320, 150, -360);
       g.airplane.velocity.set(22, 0, 34);
       g.airplane.hasJumped = false;
       if (g.airplane.mesh) {
         g.airplane.mesh.position.set(-320, 150, -360);
+      } else if (activeScene) {
+        // Mesh was destroyed by the previous match's jump — the scene itself is
+        // reused across in-match restarts, so rebuild the aircraft here.
+        buildInsertionAircraft(activeScene, g);
       }
     }
   };
