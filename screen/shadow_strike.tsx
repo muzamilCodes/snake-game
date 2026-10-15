@@ -17,6 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { ERANGEL_MAP_BASE64 } from '../utils/erangel_assets';
+import { loadSoldierGLTF, loadHDREnvironment, buildGLTFSoldierRig, playSoldierAnim } from '../utils/soldierRig';
+import { findPath, hasLineOfSight, findCover, registerObstacle, clearObstacles } from '../utils/pathfinding';
 
 // ============================================================================
 // GAME FLOW & MAP DEFINITIONS (ERANGEL & THEMED MAPS)
@@ -372,6 +374,8 @@ export interface HumanRig {
   weaponAnchor: THREE.Group;
   currentWeaponMesh: THREE.Group | null;
   hpBarMesh?: THREE.Mesh;
+  mixer?: THREE.AnimationMixer;
+  actions?: Record<string, THREE.AnimationAction>;
 }
 
 export interface EnemyBot {
@@ -386,6 +390,9 @@ export interface EnemyBot {
   weapon: WeaponType;
   state: 'PATROL' | 'ALERT' | 'CHASE' | 'ATTACK' | 'COVER' | 'DEAD';
   patrolTarget: THREE.Vector3;
+  path?: { x: number; z: number }[];
+  pathTimer?: number;
+  coverTarget?: { x: number; z: number } | null;
   shootCooldown: number;
   healCooldown: number;
   walkCycle: number;
@@ -454,6 +461,48 @@ export const buildGlacierM416Mesh = (): THREE.Group => {
   const lens = new THREE.Mesh(new THREE.CircleGeometry(0.024, 8), iceCrystalMat);
   lens.position.set(0, 0.11, 0.11);
   gun.add(lens);
+
+  // Handguard (textured ice panel under barrel)
+  const handguard = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.3), frostAccentMat);
+  handguard.position.set(0, -0.04, 0.28);
+  gun.add(handguard);
+
+  // Pistol grip (angled dark polymer)
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.06), darkMetalMat);
+  grip.position.set(0, -0.13, -0.12);
+  grip.rotation.x = 0.32;
+  gun.add(grip);
+
+  // Trigger guard + trigger
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.006, 6, 10, Math.PI), darkMetalMat);
+  guard.position.set(0, -0.08, -0.04);
+  guard.rotation.y = Math.PI / 2;
+  gun.add(guard);
+  const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.035, 0.012), iceCrystalMat);
+  trigger.position.set(0, -0.075, -0.04);
+  gun.add(trigger);
+
+  // Charging handle on rear receiver
+  const charge = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.04), darkMetalMat);
+  charge.position.set(0, 0.05, -0.18);
+  gun.add(charge);
+
+  // Muzzle brake (slotted)
+  const brake = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.09, 8), darkMetalMat);
+  brake.rotation.x = Math.PI / 2;
+  brake.position.set(0, 0.01, 0.65);
+  gun.add(brake);
+
+  // Angled foregrip under handguard
+  const foregrip = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.1, 0.04), darkMetalMat);
+  foregrip.position.set(0, -0.11, 0.34);
+  foregrip.rotation.x = -0.4;
+  gun.add(foregrip);
+
+  // Side rail / ejection port detail
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.025, 0.18), darkMetalMat);
+  rail.position.set(0.05, 0.04, 0.02);
+  gun.add(rail);
 
   return gun;
 };
@@ -1826,6 +1875,27 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     scene.add(rig.root);
     g.lobbyRig = rig;
 
+    // Async upgrade to real rigged GLTF soldier with skeletal animations.
+    loadSoldierGLTF().then(({ scene: gltfScene, animations }) => {
+      const gltfRig = buildGLTFSoldierRig(gltfScene, animations);
+      gltfRig.root.position.set(0, 0.14, 0);
+      gltfRig.root.scale.setScalar(1.7);
+      scene.remove(rig.root);
+      scene.add(gltfRig.root);
+      g.lobbyRig = gltfRig;
+      playSoldierAnim(gltfRig, 'idle');
+    }).catch(() => {});
+
+    // HDR environment for real PBR reflections.
+    if (g.renderer) {
+      loadHDREnvironment(g.renderer).then((envMap) => {
+        if (envMap) {
+          scene.environment = envMap;
+          g.hdrEnvMap = envMap;
+        }
+      }).catch(() => {});
+    }
+
     // Set Camera Facing Character (Matching Image 1 third-person viewpoint)
     if (g.camera) {
       g.camera.position.set(0, 1.35, 3.2);
@@ -1836,9 +1906,14 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
   const updateLobbyScene = (dt: number, g: any) => {
     // Character Idle Breathing Animation & 360 Drag Rotation
     if (g.lobbyRig) {
-      const breath = Math.sin(g.elapsedTime * 2.2) * 0.012;
-      g.lobbyRig.torsoGroup.position.y = 1.15 + breath;
-      g.lobbyRig.root.rotation.y = lobbyRotationRef.current;
+      if (g.lobbyRig.mixer) {
+        g.lobbyRig.mixer.update(dt);
+        g.lobbyRig.root.rotation.y = lobbyRotationRef.current;
+      } else {
+        const breath = Math.sin(g.elapsedTime * 2.2) * 0.012;
+        g.lobbyRig.torsoGroup.position.y = 1.15 + breath;
+        g.lobbyRig.root.rotation.y = lobbyRotationRef.current;
+      }
     }
 
     // Floating Magical Cube Rotation & Hover
@@ -2020,6 +2095,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     });
 
     const coverMat = new THREE.MeshStandardMaterial({ color: '#65705e', roughness: 0.82 });
+    clearObstacles();
     for (let c = 0; c < 12; c++) {
       const x = ((c * 19) % 86) - 43;
       const z = -15 - Math.floor(c / 3) * 26;
@@ -2028,6 +2104,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       crate.castShadow = true;
       crate.receiveShadow = true;
       scene.add(crate);
+      registerObstacle(x, z, 1.8);
     }
 
     // Shipping containers, sandbags and sheds create clear tactical hiding routes.
@@ -2045,6 +2122,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       container.castShadow = true;
       container.receiveShadow = true;
       scene.add(container);
+      registerObstacle(x, z, 4.2);
 
       for (let bag = 0; bag < 4; bag++) {
         const sandbag = new THREE.Mesh(new THREE.SphereGeometry(0.52, 8, 6), sandbagMat);
@@ -2075,6 +2153,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       towerGroup.add(troof);
 
       scene.add(towerGroup);
+      registerObstacle(tx, tz, 3.5);
     });
 
     // Erangel Pine Trees around Combat Area
@@ -2113,6 +2192,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       boulder.castShadow = true;
       boulder.receiveShadow = true;
       scene.add(boulder);
+      registerObstacle(rx, rz, 2.6);
     });
 
     // Sosnovka Military Base Radar Dome (South Island: 0, -180)
@@ -2217,17 +2297,26 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     hTail.position.set(0, 5.4, -10.8);
     plane.add(hTail);
 
-    // Wingtip Navigation Lights (Red Port, Green Starboard)
-    const portLight = new THREE.PointLight('#ef4444', 4, 25);
-    portLight.position.set(-13.0, 1.4, 0.5);
-    plane.add(portLight);
-    const stbdLight = new THREE.PointLight('#22c55e', 4, 25);
-    stbdLight.position.set(13.0, 1.4, 0.5);
-    plane.add(stbdLight);
+    // Wingtip Navigation Lights (Red Port, Green Starboard) — emissive spheres, no PointLight cost
+    const portLightMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 8, 8),
+      new THREE.MeshBasicMaterial({ color: '#ef4444' })
+    );
+    portLightMesh.position.set(-13.0, 1.4, 0.5);
+    plane.add(portLightMesh);
+    const stbdLightMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 8, 8),
+      new THREE.MeshBasicMaterial({ color: '#22c55e' })
+    );
+    stbdLightMesh.position.set(13.0, 1.4, 0.5);
+    plane.add(stbdLightMesh);
 
-    const beacon = new THREE.PointLight('#ffffff', 5, 20);
-    beacon.position.set(0, 5.6, -11.2);
-    plane.add(beacon);
+    const beaconMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 8, 8),
+      new THREE.MeshBasicMaterial({ color: '#ffffff' })
+    );
+    beaconMesh.position.set(0, 5.6, -11.2);
+    plane.add(beaconMesh);
 
     plane.position.copy(g.airplane.position);
     scene.add(plane);
@@ -2241,6 +2330,25 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     rig.root.visible = (g.phase !== 'AIRPLANE');
     scene.add(rig.root);
     g.playerRig = rig;
+
+    // Async upgrade to real rigged GLTF soldier.
+    loadSoldierGLTF().then(({ scene: gltfScene, animations }) => {
+      if (g.playerRig !== rig) return;
+      const gltfRig = buildGLTFSoldierRig(gltfScene, animations);
+      gltfRig.root.position.copy(g.player.position);
+      gltfRig.root.visible = (g.phase !== 'AIRPLANE');
+      scene.remove(rig.root);
+      scene.add(gltfRig.root);
+      g.playerRig = gltfRig;
+      playSoldierAnim(gltfRig, 'idle');
+    }).catch(() => {});
+
+    // HDR environment for real PBR reflections on battleground.
+    if (g.renderer) {
+      loadHDREnvironment(g.renderer).then((envMap) => {
+        if (envMap) scene.environment = envMap;
+      }).catch(() => {});
+    }
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
@@ -2364,6 +2472,33 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     g.bots = bots;
     g.totalAlive = 20;
     setAliveCount(20);
+
+    // Async upgrade all bot rigs to real rigged GLTF soldiers with animations.
+    loadSoldierGLTF().then(({ scene: gltfScene, animations }) => {
+      bots.forEach((b) => {
+        const oldRoot = b.rig.root;
+        const gltfRig = buildGLTFSoldierRig(gltfScene, animations);
+        gltfRig.root.position.copy(oldRoot.position);
+        // Re-parent helmet + marker overlays to new GLTF root
+        oldRoot.children.forEach((child) => {
+          if ((child as THREE.Mesh).geometry || (child as THREE.Group).isGroup) {
+            if (child !== gltfScene && (child as any).type === 'Group' || (child as any).type === 'Mesh') {
+              // Only move non-rig overlays (helmet, markerGroup, beaconGlow)
+              const isRigPart = (child as any).name?.startsWith?.('mixamorig') || (child as any).isSkinnedMesh;
+              if (!isRigPart && child.parent === oldRoot) {
+                gltfRig.root.add(child);
+              }
+            }
+          }
+        });
+        gltfRig.hpBarMesh = b.rig.hpBarMesh;
+        scene.remove(oldRoot);
+        scene.add(gltfRig.root);
+        b.rig = gltfRig;
+        b.position = gltfRig.root.position;
+        playSoldierAnim(gltfRig, 'idle');
+      });
+    }).catch(() => {});
   };
 
   // ============================================================================
@@ -2610,20 +2745,24 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       rig.root.position.copy(p.position);
       rig.root.rotation.y = yaw;
 
-      // Smooth crouch squash
-      const crouchScaleY = isCrouching ? 0.62 : 1.0;
-      rig.torsoGroup.scale.y += (crouchScaleY - rig.torsoGroup.scale.y) * 0.22;
-
-      if (isMoving) {
-        p.walkCycle += dt * (isCrouching ? 7 : 12);
-        const stride = Math.sin(p.walkCycle) * (isCrouching ? 0.4 : 0.7);
-        rig.legLGroup.rotation.x = stride;
-        rig.legRGroup.rotation.x = -stride;
-        rig.torsoGroup.position.y = 1.15 + Math.abs(Math.sin(p.walkCycle)) * 0.04;
+      if (rig.mixer) {
+        rig.mixer.update(dt);
+        const animName = !isMoving ? 'idle' : (g.keys.shift ? 'run' : 'walk');
+        playSoldierAnim(rig, animName as any);
       } else {
-        rig.torsoGroup.position.y = 1.15 + Math.sin(g.elapsedTime * 2.4) * 0.015;
-        rig.legLGroup.rotation.x = 0;
-        rig.legRGroup.rotation.x = 0;
+        const crouchScaleY = isCrouching ? 0.62 : 1.0;
+        rig.torsoGroup.scale.y += (crouchScaleY - rig.torsoGroup.scale.y) * 0.22;
+        if (isMoving) {
+          p.walkCycle += dt * (isCrouching ? 7 : 12);
+          const stride = Math.sin(p.walkCycle) * (isCrouching ? 0.4 : 0.7);
+          rig.legLGroup.rotation.x = stride;
+          rig.legRGroup.rotation.x = -stride;
+          rig.torsoGroup.position.y = 1.15 + Math.abs(Math.sin(p.walkCycle)) * 0.04;
+        } else {
+          rig.torsoGroup.position.y = 1.15 + Math.sin(g.elapsedTime * 2.4) * 0.015;
+          rig.legLGroup.rotation.x = 0;
+          rig.legRGroup.rotation.x = 0;
+        }
       }
     }
 
@@ -2768,12 +2907,18 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       if (b.shootCooldown > 0) b.shootCooldown -= dt;
 
       // ── Locomotion Animation (Running, Walking, Aiming) ───────────────────
-      b.walkCycle += dt * (b.state === 'ATTACK' ? 5.5 : 10.5);
-      const stride = Math.sin(b.walkCycle) * 0.65;
-      b.rig.legLGroup.rotation.x = stride;
-      b.rig.legRGroup.rotation.x = -stride;
-      b.rig.armLGroup.rotation.x = -stride * 0.7;
-      b.rig.armRGroup.rotation.x = stride * 0.7;
+      if (b.rig.mixer) {
+        b.rig.mixer.update(dt);
+        const animName = b.state === 'ATTACK' ? 'idle' : (b.state === 'CHASE' || b.state === 'ALERT' ? 'run' : 'walk');
+        playSoldierAnim(b.rig, animName as any);
+      } else {
+        b.walkCycle += dt * (b.state === 'ATTACK' ? 5.5 : 10.5);
+        const stride = Math.sin(b.walkCycle) * 0.65;
+        b.rig.legLGroup.rotation.x = stride;
+        b.rig.legRGroup.rotation.x = -stride;
+        b.rig.armLGroup.rotation.x = -stride * 0.7;
+        b.rig.armRGroup.rotation.x = stride * 0.7;
+      }
 
       // Track distance to human player for HUD bearings / radar
       const distToPlayer = b.position.distanceTo(p.position);
@@ -2817,19 +2962,76 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
         }
       }
 
-      // ── Tactical Actions ──────────────────────────────────────────────────
-      if (target) {
+      // ── Tactical Actions (A* pathfinding + LOS + cover) ───────────────────
+      b.pathTimer = (b.pathTimer ?? 0) - dt;
+
+      // Low HP: seek cover
+      if (b.hp < 35 && target && (b.state === 'ATTACK' || b.state === 'CHASE') && !b.coverTarget) {
+        const cover = findCover(b.position.x, b.position.z, target.pos.x, target.pos.z);
+        if (cover) {
+          b.coverTarget = cover;
+          b.state = 'COVER';
+          b.pathTimer = 0;
+        }
+      }
+
+      if (b.state === 'COVER' && b.coverTarget) {
+        if ((b.pathTimer ?? 0) <= 0 || !b.path || b.path.length === 0) {
+          b.path = findPath(b.position.x, b.position.z, b.coverTarget.x, b.coverTarget.z);
+          b.pathTimer = 1.5;
+        }
+        if (b.path && b.path.length > 0) {
+          const wp = b.path[0];
+          const dx = wp.x - b.position.x;
+          const dz = wp.z - b.position.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 1.5) {
+            b.path.shift();
+          } else {
+            b.position.x += (dx / d) * 5.0 * dt;
+            b.position.z += (dz / d) * 5.0 * dt;
+            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+            b.rig.root.position.copy(b.position);
+            b.rig.root.rotation.y = Math.atan2(-dx, -dz);
+          }
+        } else {
+          b.coverTarget = null;
+          b.state = 'ATTACK';
+        }
+      } else if (target) {
+        const los = hasLineOfSight(b.position.x, b.position.z, target.pos.x, target.pos.z);
         b.rig.root.lookAt(target.pos.x, b.position.y, target.pos.z);
 
-        if (target.dist > 32) {
-          // CHASE / REPOSITION: Move closer to target while using terrain cover
+        if (target.dist > 28 || !los) {
+          // CHASE: navigate via A* path
           b.state = 'CHASE';
-          const toTarget = target.pos.clone().sub(b.position).normalize();
-          b.position.add(toTarget.multiplyScalar(4.5 * dt));
-          b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
-          b.rig.root.position.copy(b.position);
+          if ((b.pathTimer ?? 0) <= 0 || !b.path || b.path.length === 0) {
+            b.path = findPath(b.position.x, b.position.z, target.pos.x, target.pos.z);
+            b.pathTimer = 1.2;
+          }
+          if (b.path && b.path.length > 0) {
+            const wp = b.path[0];
+            const dx = wp.x - b.position.x;
+            const dz = wp.z - b.position.z;
+            const d = Math.hypot(dx, dz);
+            if (d < 2) {
+              b.path.shift();
+            } else {
+              b.position.x += (dx / d) * 5.0 * dt;
+              b.position.z += (dz / d) * 5.0 * dt;
+              b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+              b.rig.root.position.copy(b.position);
+              b.rig.root.rotation.y = Math.atan2(-dx, -dz);
+            }
+          } else {
+            // No path — fall back to direct movement
+            const toTarget = target.pos.clone().sub(b.position).normalize();
+            b.position.add(toTarget.multiplyScalar(4.5 * dt));
+            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+            b.rig.root.position.copy(b.position);
+          }
         } else {
-          // ATTACK: Open fire on opponent
+          // ATTACK: line-of-sight confirmed, open fire
           b.state = 'ATTACK';
           if (b.shootCooldown <= 0) {
             b.shootCooldown = 0.9 + Math.random() * 0.7;
@@ -2857,7 +3059,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
               } catch (e) {}
             }
 
-            // Damage Resolution
+            // Damage Resolution (only if LOS)
             if (target.isPlayer) {
               // Bot damages human player
               if (Math.random() < 0.45) {
@@ -2917,11 +3119,25 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
           // Teammate logic: follow player in squad formation
           if (distToPlayer > 18) {
             b.state = 'CHASE';
-            const toPlayer = p.position.clone().sub(b.position).normalize();
-            b.position.add(toPlayer.multiplyScalar(4.0 * dt));
-            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
-            b.rig.root.position.copy(b.position);
-            b.rig.root.rotation.y = Math.atan2(-toPlayer.x, -toPlayer.z);
+            if ((b.pathTimer ?? 0) <= 0 || !b.path || b.path.length === 0) {
+              b.path = findPath(b.position.x, b.position.z, p.position.x, p.position.z);
+              b.pathTimer = 1.5;
+            }
+            if (b.path && b.path.length > 0) {
+              const wp = b.path[0];
+              const dx = wp.x - b.position.x;
+              const dz = wp.z - b.position.z;
+              const d = Math.hypot(dx, dz);
+              if (d < 2) {
+                b.path.shift();
+              } else {
+                b.position.x += (dx / d) * 4.0 * dt;
+                b.position.z += (dz / d) * 4.0 * dt;
+                b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+                b.rig.root.position.copy(b.position);
+                b.rig.root.rotation.y = Math.atan2(-dx, -dz);
+              }
+            }
           } else {
             b.state = 'PATROL';
             b.rig.root.lookAt(p.position.x + 5, b.position.y, p.position.z + 5);
@@ -2932,12 +3148,33 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
           const toTarget = b.patrolTarget.clone().sub(b.position);
           if (toTarget.length() < 3) {
             b.patrolTarget.set(b.position.x + (Math.random() - 0.5) * 50, 0, b.position.z + (Math.random() - 0.5) * 50);
+            b.pathTimer = 0;
           } else {
-            toTarget.normalize();
-            b.position.add(toTarget.multiplyScalar(3.2 * dt));
-            b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
-            b.rig.root.position.copy(b.position);
-            b.rig.root.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+            if ((b.pathTimer ?? 0) <= 0 || !b.path || b.path.length === 0) {
+              b.path = findPath(b.position.x, b.position.z, b.patrolTarget.x, b.patrolTarget.z);
+              b.pathTimer = 2.5;
+            }
+            if (b.path && b.path.length > 0) {
+              const wp = b.path[0];
+              const dx = wp.x - b.position.x;
+              const dz = wp.z - b.position.z;
+              const d = Math.hypot(dx, dz);
+              if (d < 2) {
+                b.path.shift();
+              } else {
+                b.position.x += (dx / d) * 3.2 * dt;
+                b.position.z += (dz / d) * 3.2 * dt;
+                b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+                b.rig.root.position.copy(b.position);
+                b.rig.root.rotation.y = Math.atan2(-dx, -dz);
+              }
+            } else {
+              toTarget.normalize();
+              b.position.add(toTarget.multiplyScalar(3.2 * dt));
+              b.position.y = getErangelTerrainHeight(b.position.x, b.position.z);
+              b.rig.root.position.copy(b.position);
+              b.rig.root.rotation.y = Math.atan2(-toTarget.x, -toTarget.z);
+            }
           }
         }
       }
