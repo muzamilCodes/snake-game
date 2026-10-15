@@ -912,7 +912,9 @@ const disposeSceneObject = (obj: any) => {
   }
 };
 
-export default function ShadowStrikeScreen({ navigation }: any) {
+export default function ShadowStrikeScreen({ navigation, profile, onLogout }: any) {
+  const playerProfile: { name: string; avatar: string; uid: string; clan: string } =
+    profile || { name: 'OPERATIVE', avatar: '👑', uid: '0000000000', clan: 'TABAAHI' };
   const { width: winWidth, height: winHeight } = useWindowDimensions();
   const isCompactViewport = winWidth < 600;
   const radarSize = isCompactViewport ? 84 : 130;
@@ -1036,6 +1038,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [matchesPlayed, setMatchesPlayed] = useState<number>(0);
   const [totalKills, setTotalKills] = useState<number>(0);
   const [totalDeaths, setTotalDeaths] = useState<number>(0);
+  const [ucBalance, setUcBalance] = useState<number>(0);
+  const [goldBalance, setGoldBalance] = useState<number>(0);
 
   useEffect(() => {
     const loadCareerStats = async () => {
@@ -1061,6 +1065,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         if (savedMatches !== null) setMatchesPlayed(parseInt(savedMatches, 10));
         if (savedTotalKills !== null) setTotalKills(parseInt(savedTotalKills, 10));
         if (savedTotalDeaths !== null) setTotalDeaths(parseInt(savedTotalDeaths, 10));
+        const savedUC = await AsyncStorage.getItem('BGMI_SHADOW_UC');
+        const savedGold = await AsyncStorage.getItem('BGMI_SHADOW_GOLD');
+        if (savedUC !== null) setUcBalance(parseInt(savedUC, 10) || 0);
+        if (savedGold !== null) setGoldBalance(parseInt(savedGold, 10) || 0);
         const savedSettings = await AsyncStorage.getItem('BGMI_SHADOW_SETTINGS');
         if (savedSettings) {
           try {
@@ -1117,7 +1125,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // Commits real per-match kill/death totals to the persistent dossier
-  const commitCareerMatch = (kills: number, died: boolean) => {
+  const commitCareerMatch = (kills: number, died: boolean, won: boolean) => {
     setTotalKills((prev) => {
       const next = prev + kills;
       AsyncStorage.setItem('BGMI_SHADOW_TOTAL_KILLS', next.toString()).catch(() => {});
@@ -1127,6 +1135,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       setTotalDeaths((prev) => {
         const next = prev + 1;
         AsyncStorage.setItem('BGMI_SHADOW_TOTAL_DEATHS', next.toString()).catch(() => {});
+        return next;
+      });
+    }
+    // Real UC/Gold earnings: +10 UC & +5 Gold per kill, +50 UC & +100 Gold per win.
+    const ucGain = kills * 10 + (won ? 50 : 0);
+    const goldGain = kills * 5 + (won ? 100 : 0);
+    if (ucGain > 0) {
+      setUcBalance((prev) => {
+        const next = prev + ucGain;
+        AsyncStorage.setItem('BGMI_SHADOW_UC', next.toString()).catch(() => {});
+        return next;
+      });
+    }
+    if (goldGain > 0) {
+      setGoldBalance((prev) => {
+        const next = prev + goldGain;
+        AsyncStorage.setItem('BGMI_SHADOW_GOLD', next.toString()).catch(() => {});
         return next;
       });
     }
@@ -1159,7 +1184,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
       return prev;
     });
-    commitCareerMatch(g.eliminationCount, false);
+    commitCareerMatch(g.eliminationCount, false, true);
   };
 
   const handleGameOver = () => {
@@ -1184,7 +1209,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
       return prev;
     });
-    commitCareerMatch(g.eliminationCount, true);
+    commitCareerMatch(g.eliminationCount, true, false);
   };
 
   const returnToLobby = () => {
@@ -1576,7 +1601,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     sun.shadow.mapSize.height = shadowResolution;
     scene.add(sun);
 
-    // 1. Lush Green Grass Field Terrain (Image 1)
+    // 1. Desert sand floor (BGMI lobby style)
     const grassGeo = new THREE.PlaneGeometry(80, 80, 48, 48);
     const pos = grassGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
@@ -1587,8 +1612,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     grassGeo.computeVertexNormals();
 
     const grassMat = new THREE.MeshStandardMaterial({
-      color: '#33453a',
-      roughness: 0.85,
+      color: '#c9b18a',
+      roughness: 0.92,
     });
     const grass = new THREE.Mesh(grassGeo, grassMat);
     grass.rotation.x = -Math.PI / 2;
@@ -1703,6 +1728,97 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     scene.add(sparkles);
     g.lobbySparkles = sparkles;
 
+    // 4b. Motorcycle prop on the left (BGMI lobby style)
+    const bikeGroup = new THREE.Group();
+    bikeGroup.position.set(-2.4, 0, 0.6);
+    bikeGroup.rotation.y = 0.4;
+    const tireMat = new THREE.MeshStandardMaterial({ color: '#1a1a1a', roughness: 0.9 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: '#8b95a3', metalness: 0.85, roughness: 0.25 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: '#2d3748', metalness: 0.4, roughness: 0.55 });
+    const wheelGeo = new THREE.TorusGeometry(0.32, 0.09, 10, 20);
+    const wheelL = new THREE.Mesh(wheelGeo, tireMat);
+    wheelL.position.set(0, 0.32, -0.55);
+    wheelL.rotation.y = Math.PI / 2;
+    bikeGroup.add(wheelL);
+    const wheelR = new THREE.Mesh(wheelGeo, tireMat);
+    wheelR.position.set(0, 0.32, 0.55);
+    wheelR.rotation.y = Math.PI / 2;
+    bikeGroup.add(wheelR);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 1.1), bodyMat);
+    frame.position.set(0, 0.55, 0);
+    bikeGroup.add(frame);
+    const tank = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.22, 0.5), chromeMat);
+    tank.position.set(0, 0.75, -0.1);
+    bikeGroup.add(tank);
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.42), tireMat);
+    seat.position.set(0, 0.78, 0.28);
+    bikeGroup.add(seat);
+    const handlebar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.55, 8), chromeMat);
+    handlebar.position.set(0, 0.95, -0.5);
+    handlebar.rotation.x = Math.PI / 2;
+    handlebar.rotation.z = Math.PI / 2;
+    bikeGroup.add(handlebar);
+    const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8), chromeMat);
+    fork.position.set(0, 0.65, -0.55);
+    fork.rotation.x = 0.35;
+    bikeGroup.add(fork);
+    scene.add(bikeGroup);
+    g.lobbyBike = bikeGroup;
+
+    // 4c. Floating UFO-style platform above and behind the operator
+    const ufoGroup = new THREE.Group();
+    ufoGroup.position.set(0.8, 4.2, -6);
+    const ufoDisc = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.4, 1.8, 0.35, 24),
+      new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.75, roughness: 0.3 })
+    );
+    ufoGroup.add(ufoDisc);
+    const ufoTop = new THREE.Mesh(
+      new THREE.SphereGeometry(0.9, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: '#64748b', metalness: 0.6, roughness: 0.35 })
+    );
+    ufoTop.position.y = 0.18;
+    ufoGroup.add(ufoTop);
+    const ufoRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.9, 0.06, 8, 32),
+      new THREE.MeshBasicMaterial({ color: '#00f0ff' })
+    );
+    ufoRing.rotation.x = Math.PI / 2;
+    ufoRing.position.y = -0.18;
+    ufoGroup.add(ufoRing);
+    scene.add(ufoGroup);
+    g.lobbyUfo = ufoGroup;
+
+    // 4d. Temple statue on a stone pedestal (background right)
+    const statueGroup = new THREE.Group();
+    statueGroup.position.set(3.2, 0, -4.5);
+    const statueStone = new THREE.MeshStandardMaterial({ color: '#a08a6b', roughness: 0.85 });
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 1.2), statueStone);
+    pedestal.position.y = 0.3;
+    statueGroup.add(pedestal);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.5), statueStone);
+    torso.position.y = 1.25;
+    statueGroup.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 12), statueStone);
+    head.position.y = 2.15;
+    statueGroup.add(head);
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.5, 10), statueStone);
+    crown.position.y = 2.55;
+    statueGroup.add(crown);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.0, 0.22), statueStone);
+    armL.position.set(-0.5, 1.25, 0);
+    armL.rotation.z = 0.25;
+    statueGroup.add(armL);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.0, 0.22), statueStone);
+    armR.position.set(0.5, 1.25, 0);
+    armR.rotation.z = -0.25;
+    statueGroup.add(armR);
+    const staffMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6, 8), statueStone);
+    staffMesh.position.set(0.75, 1.5, 0);
+    statueGroup.add(staffMesh);
+    scene.add(statueGroup);
+    g.lobbyStatue = statueGroup;
+
     // 5. Spawn the selected operator in the center of the deployment bay.
     const skinDef = SKIN_DEFINITIONS[selectedSkinId] || SKIN_DEFINITIONS.TACTICAL_BLACK;
     const rig = buildTheFoolJokerRig(skinDef, false);
@@ -1741,6 +1857,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     // Sparkles Rotation
     if (g.lobbySparkles) {
       g.lobbySparkles.rotation.y += dt * 0.1;
+    }
+
+    // UFO platform: slow hover + spin
+    if (g.lobbyUfo) {
+      g.lobbyUfo.position.y = 4.2 + Math.sin(g.elapsedTime * 0.8) * 0.15;
+      g.lobbyUfo.rotation.y += dt * 0.3;
+    }
+
+    // Motorcycle: subtle idle sway
+    if (g.lobbyBike) {
+      g.lobbyBike.rotation.z = Math.sin(g.elapsedTime * 1.2) * 0.02;
     }
   };
 
@@ -2998,7 +3125,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
             remaining: g.totalAlive,
           });
           setTimeout(() => setEliminationBanner((prev) => ({ ...prev, visible: false })), 2600);
-          pushKillFeed(`SMxTHUG eliminated ${struckBot.name} with ${p.currentWeapon.name}`);
+          pushKillFeed(`${playerProfile.name} eliminated ${struckBot.name} with ${p.currentWeapon.name}`);
 
           if (battleRoyaleMode === 'SQUAD') {
             const hostileAlive = g.bots.filter((bt: EnemyBot) => bt.squadId !== 1 && !bt.isDead).length;
@@ -3505,11 +3632,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 activeOpacity={0.8}
               >
                 <View style={styles.avatarFrameGold}>
-                  <Text style={styles.avatarIcon}>👑</Text>
+                  <Text style={styles.avatarIcon}>{playerProfile.avatar}</Text>
                   <View style={styles.lvlBadge}><Text style={styles.lvlText}>{1 + Math.floor(totalKills / 15)}</Text></View>
                 </View>
                 <View style={styles.profileDetails}>
-                  <Text style={styles.profileName}>RAVEN-07</Text>
+                  <Text style={styles.profileName}>{playerProfile.name}</Text>
                   <View style={styles.onlineStatusRow}>
                     <Text style={styles.onlineCountText}>12/62</Text>
                     <Text style={styles.bellIcon}>🔔</Text>
@@ -3549,13 +3676,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
               {/* Currency & RP Section (Right) */}
               <View style={styles.currencySection}>
-                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💰 Supply credit balance: 289')}>
-                  <Text style={styles.currencyLabel}>SC</Text>
-                  <Text style={styles.currencyVal}>289</Text>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed(`🪙 GOLD balance: ${goldBalance}`)}>
+                  <Text style={styles.currencyLabel}>🪙</Text>
+                  <Text style={styles.currencyVal}>{goldBalance.toLocaleString()}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed('💎 Intel token balance: 1')}>
-                  <Text style={styles.currencyLabelUC}>IT</Text>
-                  <Text style={styles.currencyVal}>1+</Text>
+                <TouchableOpacity style={styles.currencyPill} onPress={() => pushKillFeed(`💎 UC balance: ${ucBalance} — earn +10 UC per kill, +50 UC per win`)}>
+                  <Text style={styles.currencyLabelUC}>💎</Text>
+                  <Text style={styles.currencyVal}>{ucBalance.toLocaleString()}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setShowSeasonModal(true)}>
                   <LinearGradient
@@ -3573,6 +3700,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
             {/* RIGHT SIDE EVENT BANNERS */}
             <View style={styles.rightBannersColumn}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setShowSeasonModal(true)}
+              >
+                <LinearGradient
+                  colors={['#7c2d12', '#b45309', '#78350f']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.eventBannerCard}
+                >
+                  <View style={styles.eventBannerInner}>
+                    <Text style={styles.eventTag}>🎁 PUSH</Text>
+                    <Text style={styles.eventTitle}>TREASURE</Text>
+                    <Text style={styles.eventSub}>OPEN EVENT ❯</Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() => setShowSeasonModal(true)}
@@ -3602,6 +3746,37 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
             {/* BOTTOM LEFT: OPERATION SELECTOR & DEPLOY BUTTON */}
             <View style={styles.bottomLeftControls}>
+              {/* Arena Training mini card (BGMI style) */}
+              <TouchableOpacity
+                onPress={() => pushKillFeed('🎯 ARENA TRAINING: Warehouse TDM — 4v4 quick match')}
+                activeOpacity={0.85}
+                style={{ marginBottom: 8 }}
+              >
+                <LinearGradient
+                  colors={['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.95)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: 'rgba(251, 191, 36, 0.5)',
+                    maxWidth: 280,
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>🎯</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fbbf24', fontSize: 11, fontWeight: '900', letterSpacing: 0.8 }}>ARENA TRAINING</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '700' }}>TDM · Warehouse · 4v4</Text>
+                  </View>
+                  <Text style={{ color: '#00f0ff', fontSize: 10, fontWeight: '900' }}>PLAY ❯</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
               {/* SOLO vs SQUAD MODE SELECTOR (Priority 4) */}
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, width: '100%', maxWidth: 280 }}>
                 <TouchableOpacity
@@ -3696,7 +3871,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   end={{ x: 1, y: 1 }}
                   style={styles.bgmiStartBtn}
                 >
-                  <Text style={styles.bgmiStartBtnText}>DEPLOY</Text>
+                  <Text style={styles.bgmiStartBtnText}>▶ START</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -3726,31 +3901,31 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               </View>
 
               <View style={styles.bottomMenuRow}>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🌐 SERVER: Asia / India Region (Low Ping 20ms)')}>
-                  <Text style={styles.botNavText}>COMMAND</Text>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => setShowSquadModal(true)}>
+                  <Text style={styles.botNavText}>TEAM</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🛡️ CLAN: [TABAAHI] Level 10 Active')}>
-                  <Text style={styles.botNavText}>SQUAD</Text>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => setShowProfileModal(true)}>
+                  <Text style={[styles.botNavText, { color: '#fbbf24' }]}>{playerProfile.name}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed(`🛡️ CLAN: [${playerProfile.clan}] Level 10 Active`)}>
+                  <Text style={styles.botNavText}>CLAN</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => setShowSeasonModal(true)}>
-                  <Text style={[styles.botNavText, { color: '#ffd700' }]}>SEASON 08</Text>
+                  <Text style={[styles.botNavText, { color: '#ffd700' }]}>SS7 SEASON</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🔨 WORKBENCH: Aurora carbine loadout ready')}>
-                  <Text style={styles.botNavText}>WORKBENCH</Text>
+                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🔨 WORKSHOP: Aurora carbine loadout ready')}>
+                  <Text style={styles.botNavText}>WORKSHOP</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('📋 MISSIONS: All Daily Season Missions Complete!')}>
-                  <Text style={styles.botNavText}>ORDERS</Text>
+                  <Text style={styles.botNavText}>MISSIONS</Text>
                   <View style={styles.redBadgeDot} />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.botNavBtn, styles.inventoryBtnHighlight]}
                   onPress={() => setShowInventoryModal(true)}
                 >
-                  <Text style={[styles.botNavText, { color: '#00f0ff' }]}>LOADOUT</Text>
+                  <Text style={[styles.botNavText, { color: '#00f0ff' }]}>INVENTORY</Text>
                   <View style={styles.redBadgeDot} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.botNavBtn} onPress={() => pushKillFeed('🪖 RAVEN-07: Operator profile active')}>
-                  <Text style={styles.botNavText}>😀</Text>
                 </TouchableOpacity>
               </View>
 
@@ -4025,7 +4200,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={{ fontSize: 11, fontWeight: '900', color: '#22c55e' }}>1</Text>
                   <Text style={{ fontSize: 10, fontWeight: '700', color: '#f8fafc', flex: 1 }} numberOfLines={1}>
-                    SMxTHUG (You)
+                    {playerProfile.name} (You)
                   </Text>
                   <View style={{ width: 44, height: 6, backgroundColor: '#334155', borderRadius: 3, overflow: 'hidden' }}>
                     <View style={{ width: `${Math.max(0, playerHp)}%`, height: '100%', backgroundColor: playerHp > 30 ? '#22c55e' : '#ef4444' }} />
@@ -4536,6 +4711,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                     <Text style={styles.confirmMapBtnText}>✓ SAVE & CLOSE</Text>
                   </LinearGradient>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    setShowSettingsModal(false);
+                    try { await AsyncStorage.removeItem('BGMI_SHADOW_PROFILE'); } catch (_) {}
+                    if (typeof onLogout === 'function') onLogout();
+                  }}
+                  activeOpacity={0.85}
+                  style={{ marginTop: 10 }}
+                >
+                  <LinearGradient
+                    colors={['#7f1d1d', '#991b1b', '#b91c1c']}
+                    style={[styles.confirmMapBtn, { paddingVertical: 10 }]}
+                  >
+                    <Text style={[styles.confirmMapBtnText, { color: '#fee2e2', fontSize: 12 }]}>🔄 SWITCH ACCOUNT (LOG OUT)</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
             </BlurView>
           </View>
@@ -4557,13 +4749,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
                 <View style={styles.profileModalBody}>
                   <View style={styles.avatarBigFrame}>
-                    <Text style={{ fontSize: 36 }}>👑</Text>
+                    <Text style={{ fontSize: 36 }}>{playerProfile.avatar}</Text>
                     <View style={styles.avatarBigBadge}><Text style={styles.avatarBigBadgeText}>LV.{1 + Math.floor(totalKills / 15)}</Text></View>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.profileHeroName}>SMxTHUG</Text>
-                    <Text style={styles.profileClanBadge}>CLAN: [TABAAHI] • TIER: ACE DOMINATOR ★</Text>
-                    <Text style={styles.profileServerInfo}>SERVER: ASIA (INDIA) • ID: 5289410729</Text>
+                    <Text style={styles.profileHeroName}>{playerProfile.name}</Text>
+                    <Text style={styles.profileClanBadge}>CLAN: [{playerProfile.clan}] • TIER: ACE DOMINATOR ★</Text>
+                    <Text style={styles.profileServerInfo}>SERVER: ASIA (INDIA) • ID: {playerProfile.uid}</Text>
                   </View>
                 </View>
 
@@ -4650,7 +4842,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   style={styles.seasonBannerBox}
                 >
                   <Text style={styles.seasonBannerTitle}>FROSTY VOYAGER • ELITE PASS LV.100</Text>
-                  <Text style={styles.seasonBannerDesc}>All Season Mythic Rewards & Upgrades Unlocked for SMxTHUG</Text>
+                  <Text style={styles.seasonBannerDesc}>All Season Mythic Rewards & Upgrades Unlocked for {playerProfile.name}</Text>
                 </LinearGradient>
 
                 <View style={styles.seasonRewardsRow}>
