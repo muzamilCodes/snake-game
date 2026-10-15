@@ -82,7 +82,8 @@ export function buildGLTFSoldierRig(
 ): HumanRig & { mixer: THREE.AnimationMixer; actions: Record<string, THREE.AnimationAction> } {
   const root = new THREE.Group();
   const clone = gltfScene.clone(true);
-  clone.scale.setScalar(0.01);
+  // Soldier.glb is authored at real human scale (~1.7m). No downscaling needed.
+  clone.scale.setScalar(1);
   clone.rotation.y = Math.PI;
   root.add(clone);
 

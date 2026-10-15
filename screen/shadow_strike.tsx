@@ -378,6 +378,21 @@ export interface HumanRig {
   actions?: Record<string, THREE.AnimationAction>;
 }
 
+// AI difficulty tuning — drives reaction time, accuracy, damage and awareness radius.
+export type AiDifficulty = 'CASUAL' | 'NORMAL' | 'HARDCORE' | 'INSANE';
+export const AI_TUNING: Record<AiDifficulty, {
+  reaction: number; hitChance: number; dmgScale: number; fireIntervalScale: number; awareness: number;
+}> = {
+  CASUAL:   { reaction: 1.7, hitChance: 0.26, dmgScale: 0.55, fireIntervalScale: 1.8, awareness: 48 },
+  NORMAL:   { reaction: 1.0, hitChance: 0.40, dmgScale: 0.85, fireIntervalScale: 1.25, awareness: 62 },
+  HARDCORE: { reaction: 0.6, hitChance: 0.55, dmgScale: 1.0, fireIntervalScale: 1.0, awareness: 76 },
+  INSANE:   { reaction: 0.35, hitChance: 0.68, dmgScale: 1.25, fireIntervalScale: 0.85, awareness: 92 },
+};
+
+// Total match size: 1 human + 100 AI = 101 participants.
+export const MATCH_AI_COUNT = 100;
+export const MATCH_TOTAL_PLAYERS = MATCH_AI_COUNT + 1;
+
 export interface EnemyBot {
   id: number;
   name: string;
@@ -400,6 +415,12 @@ export interface EnemyBot {
   muzzleLight: THREE.PointLight | null;
   hpBarMesh: THREE.Mesh;
   markerGroup?: THREE.Group;
+  // Scalable-combat fields (100-opponent matchmaking)
+  aiTimer: number;        // countdown to next expensive AI decision tick
+  tier: number;           // 0 = near (full sim), 1 = mid, 2 = far (light sim)
+  ammo: number;           // rounds left in current magazine
+  reloadTimer: number;    // seconds of reload remaining
+  reactionTimer: number;  // delay before bot can open fire on a fresh target
 }
 
 // Builds the Glacier M416 (Translucent crystalline ice model with glowing blue frost shaders)
@@ -985,7 +1006,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
   // Active Match Telemetry (20-Player Battle Royale: 1 Human + 19 Bots)
   const [playerHp, setPlayerHp] = useState<number>(100);
   const [playerArmor, setPlayerArmor] = useState<number>(100);
-  const [aliveCount, setAliveCount] = useState<number>(20);
+  const [aliveCount, setAliveCount] = useState<number>(MATCH_TOTAL_PLAYERS);
   const [killsCount, setKillsCount] = useState<number>(0);
   const [battleRoyaleMode, setBattleRoyaleMode] = useState<'SOLO' | 'SQUAD'>('SOLO');
   const [squadTeammates, setSquadTeammates] = useState<{ id: number; num: number; name: string; hp: number; maxHp: number; isDead: boolean }[]>([
@@ -1029,7 +1050,8 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
   // REAL SETTINGS (graphics preset / sound / sensitivity) — persisted
   // ============================================================================
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const [graphicsPreset, setGraphicsPreset] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('HIGH');
+  const [graphicsPreset, setGraphicsPreset] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'ULTRA'>('HIGH');
+  const [aiDifficulty, setAiDifficulty] = useState<AiDifficulty>('NORMAL');
   const [soundOn, setSoundOn] = useState<boolean>(true);
   const [sensitivity, setSensitivity] = useState<number>(1);
   const soundEnabledRef = useRef<boolean>(true);
@@ -1043,9 +1065,9 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     if (!settingsLoadedRef.current) return;
     AsyncStorage.setItem(
       'BGMI_SHADOW_SETTINGS',
-      JSON.stringify({ g: graphicsPreset, s: soundOn, sens: sensitivity })
+      JSON.stringify({ g: graphicsPreset, s: soundOn, sens: sensitivity, d: aiDifficulty })
     ).catch(() => {});
-  }, [graphicsPreset, soundOn, sensitivity]);
+  }, [graphicsPreset, soundOn, sensitivity, aiDifficulty]);
 
   useEffect(() => {
     soundEnabledRef.current = soundOn;
@@ -1058,7 +1080,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
   useEffect(() => {
     const g = gameRef.current;
     if (!g.renderer || typeof window === 'undefined') return;
-    const cap = graphicsPreset === 'LOW' ? 1 : graphicsPreset === 'MEDIUM' ? 1.35 : 1.75;
+    const cap = graphicsPreset === 'LOW' ? 1 : graphicsPreset === 'MEDIUM' ? 1.35 : graphicsPreset === 'HIGH' ? 1.75 : 2;
     g.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
     const wantShadow = graphicsPreset !== 'LOW';
     if (g.renderer.shadowMap.enabled !== wantShadow) {
@@ -1122,12 +1144,13 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
         if (savedSettings) {
           try {
             const parsed = JSON.parse(savedSettings);
-            if (parsed.g === 'LOW' || parsed.g === 'MEDIUM' || parsed.g === 'HIGH') setGraphicsPreset(parsed.g);
+            if (parsed.g === 'LOW' || parsed.g === 'MEDIUM' || parsed.g === 'HIGH' || parsed.g === 'ULTRA') setGraphicsPreset(parsed.g);
             if (typeof parsed.s === 'boolean') {
               setSoundOn(parsed.s);
               soundEnabledRef.current = parsed.s;
             }
             if (typeof parsed.sens === 'number') setSensitivity(parsed.sens);
+            if (parsed.d === 'CASUAL' || parsed.d === 'NORMAL' || parsed.d === 'HARDCORE' || parsed.d === 'INSANE') setAiDifficulty(parsed.d);
           } catch {}
         }
         if (savedSkin && (SKIN_DEFINITIONS as any)[savedSkin]) {
@@ -1306,8 +1329,8 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     setPlayerArmor(100);
     g.eliminationCount = 0;
     setKillsCount(0);
-    g.totalAlive = 20;
-    setAliveCount(20);
+    g.totalAlive = MATCH_TOTAL_PLAYERS;
+    setAliveCount(MATCH_TOTAL_PLAYERS);
     if (typeof document !== 'undefined' && document.exitPointerLock) {
       try { document.exitPointerLock(); } catch (e) {}
     }
@@ -1446,7 +1469,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     sensitivity: 1,
     elapsedTime: 0,
     isFiring: false,
-    totalAlive: 20,
+    totalAlive: MATCH_TOTAL_PLAYERS,
     lastRadarRender: 0,
 
     keys: {
@@ -1536,6 +1559,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     // Pooled muzzle-flash light (created once, intensity-animated)
     muzzleFlashLight: null as THREE.PointLight | null,
   };
+  if (typeof window !== 'undefined') (window as any).__game = gameRef.current;
 
   // ============================================================================
   // THREE.JS SCENE INITIALIZER (LOBBY & ERANGEL BATTLEGROUND)
@@ -1879,7 +1903,6 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     loadSoldierGLTF().then(({ scene: gltfScene, animations }) => {
       const gltfRig = buildGLTFSoldierRig(gltfScene, animations);
       gltfRig.root.position.set(0, 0.14, 0);
-      gltfRig.root.scale.setScalar(1.7);
       scene.remove(rig.root);
       scene.add(gltfRig.root);
       g.lobbyRig = gltfRig;
@@ -2352,7 +2375,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
   };
 
   const spawnErangelOpponents = (scene: THREE.Scene, g: any) => {
-    const totalBotCount = 19; // 1 Human Player + 19 Bots = 20 Battle Royale participants
+    const totalBotCount = 100; // 1 Human Player + 100 AI opponents = 101 participants
     const bots: EnemyBot[] = [];
     const weaponsList: WeaponType[] = ['CARBINE', 'SMG', 'SHOTGUN', 'SNIPER', 'PISTOL'];
 
@@ -2364,17 +2387,17 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
       'Iron_Clad', 'Vortex_Rider', 'Blood_Hound', 'Storm_Bringer' // Squad 5
     ];
 
-    const spawnPoints = [
-      [-15, -25], [18, -28], [-32, -4], [35, 6], [-10, 28], [24, 32],
-      [-48, -38], [52, -42], [-58, 18], [60, 22], [-28, 48], [32, 54],
-      [-68, -12], [70, -18], [-18, -62], [22, -68], [-44, 72], [46, 76],
-      [0, 80]
-    ];
-
     const isSquad = battleRoyaleMode === 'SQUAD';
+    // Scatter spawn points across a wide ring around the drop zone so 100 opponents
+    // start spread over the battleground instead of stacking on 19 fixed coords.
+    const spawnAt = (i: number): [number, number] => {
+      const angle = i * 2.399963; // golden-angle spiral for even spread
+      const radius = 24 + Math.sqrt(i) * 15; // dense near drop, thinning outward
+      return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+    };
 
     for (let i = 0; i < totalBotCount; i++) {
-      const point = spawnPoints[i % spawnPoints.length];
+      const point = spawnAt(i);
       const bx = g.dropZone.x + point[0];
       const bz = g.dropZone.z + point[1];
       const by = getErangelTerrainHeight(bx, bz);
@@ -2447,16 +2470,17 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
 
       scene.add(rig.root);
 
+      const botWeapon = weaponsList[i % weaponsList.length];
       bots.push({
         id: i + 1,
-        name: BOT_NAMES[i] || `Operative_${String(i + 1).padStart(2, '0')}`,
+        name: BOT_NAMES[i] || `Operative_${String(i + 1).padStart(3, '0')}`,
         squadId,
         rig,
         position: rig.root.position,
         velocity: new THREE.Vector3(),
         hp: 100,
         maxHp: 100,
-        weapon: weaponsList[i % weaponsList.length],
+        weapon: botWeapon,
         state: 'PATROL',
         patrolTarget: new THREE.Vector3(bx + (Math.random() - 0.5) * 40, by, bz + (Math.random() - 0.5) * 40),
         shootCooldown: 1.0 + Math.random() * 1.5,
@@ -2466,12 +2490,17 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
         muzzleLight: null,
         hpBarMesh: hpBar,
         markerGroup,
+        aiTimer: Math.random() * 0.8, // desync first decision tick across the squad
+        tier: 2,
+        ammo: WEAPON_REGISTRY[botWeapon].clipSize,
+        reloadTimer: 0,
+        reactionTimer: 0,
       });
     }
 
     g.bots = bots;
-    g.totalAlive = 20;
-    setAliveCount(20);
+    g.totalAlive = MATCH_TOTAL_PLAYERS;
+    setAliveCount(MATCH_TOTAL_PLAYERS);
 
     // Async upgrade all bot rigs to real rigged GLTF soldiers with animations.
     loadSoldierGLTF().then(({ scene: gltfScene, animations }) => {
@@ -2897,31 +2926,44 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     g.bots.forEach((b: EnemyBot) => {
       if (b.isDead) return;
 
-      // Always billboard overhead marker to directly face camera
-      if (b.markerGroup && g.camera) {
+      const distToPlayer = b.position.distanceTo(p.position);
+      // Distance tier drives sim + render cost so all 100 opponents stay playable:
+      //  0 = engaged range (full sim every frame), 1 = mid, 2 = far (light tick).
+      const tier = distToPlayer < 55 ? 0 : distToPlayer < 130 ? 1 : 2;
+      b.tier = tier;
+
+      // Cooldowns always advance (cheap) so combat cadence stays correct between ticks.
+      if (b.healCooldown > 0) b.healCooldown -= dt;
+      if (b.shootCooldown > 0) b.shootCooldown -= dt;
+      if (b.reloadTimer > 0) b.reloadTimer -= dt;
+      if (b.reactionTimer > 0) b.reactionTimer -= dt;
+      b.aiTimer -= dt;
+      const isDecisionFrame = b.aiTimer <= 0; // this frame runs the staggered AI tick
+
+      // Billboard markers only for visible-range bots.
+      if (b.markerGroup && g.camera && tier <= 1) {
         b.markerGroup.quaternion.copy(g.camera.quaternion);
       }
 
-      // Update cooldowns
-      if (b.healCooldown > 0) b.healCooldown -= dt;
-      if (b.shootCooldown > 0) b.shootCooldown -= dt;
-
-      // ── Locomotion Animation (Running, Walking, Aiming) ───────────────────
-      if (b.rig.mixer) {
-        b.rig.mixer.update(dt);
-        const animName = b.state === 'ATTACK' ? 'idle' : (b.state === 'CHASE' || b.state === 'ALERT' ? 'run' : 'walk');
-        playSoldierAnim(b.rig, animName as any);
-      } else {
-        b.walkCycle += dt * (b.state === 'ATTACK' ? 5.5 : 10.5);
-        const stride = Math.sin(b.walkCycle) * 0.65;
-        b.rig.legLGroup.rotation.x = stride;
-        b.rig.legRGroup.rotation.x = -stride;
-        b.rig.armLGroup.rotation.x = -stride * 0.7;
-        b.rig.armRGroup.rotation.x = stride * 0.7;
+      // ── Locomotion Animation ── near/mid animate each frame; distant at reduced rate.
+      const animAccum = ((b as any).animAccum = ((b as any).animAccum || 0) + dt);
+      if (tier <= 1 || animAccum >= 0.25) {
+        const step = tier === 2 ? animAccum : dt;
+        if (b.rig.mixer) {
+          b.rig.mixer.update(step);
+          const animName = b.state === 'ATTACK' ? 'idle' : (b.state === 'CHASE' || b.state === 'ALERT' ? 'run' : 'walk');
+          playSoldierAnim(b.rig, animName as any);
+        } else {
+          b.walkCycle += step * (b.state === 'ATTACK' ? 5.5 : 10.5);
+          const stride = Math.sin(b.walkCycle) * 0.65;
+          b.rig.legLGroup.rotation.x = stride;
+          b.rig.legRGroup.rotation.x = -stride;
+          b.rig.armLGroup.rotation.x = -stride * 0.7;
+          b.rig.armRGroup.rotation.x = stride * 0.7;
+        }
+        if (tier === 2) (b as any).animAccum = 0;
       }
 
-      // Track distance to human player for HUD bearings / radar
-      const distToPlayer = b.position.distanceTo(p.position);
       if (b.squadId !== 1 && distToPlayer < 140) {
         const targetAngle = Math.atan2(b.position.x - p.position.x, b.position.z - p.position.z);
         let diff = targetAngle - yaw;
@@ -2940,33 +2982,42 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
         }
       }
 
-      // ── Intelligent Target Selection (Enemies fight EACH OTHER) ───────────
-      // A valid target can be the human player (if not teammate) OR any other bot with a different squadId
-      let target: { isPlayer: boolean; bot?: EnemyBot; pos: THREE.Vector3; dist: number } | null = null;
-      let minTargetDist = 80; // combat awareness radius
-
-      // Consider Human Player
-      if (b.squadId !== 1 && p.hp > 0 && distToPlayer < minTargetDist) {
-        minTargetDist = distToPlayer;
-        target = { isPlayer: true, pos: p.position, dist: distToPlayer };
-      }
-
-      // Consider all other alive bots from opposing squads
-      for (let i = 0; i < g.bots.length; i++) {
-        const other = g.bots[i];
-        if (other.id === b.id || other.isDead || other.squadId === b.squadId) continue;
-        const d = b.position.distanceTo(other.position);
-        if (d < minTargetDist) {
-          minTargetDist = d;
-          target = { isPlayer: false, bot: other, pos: other.position, dist: d };
+      // ── Intelligent Target Selection (staggered) ───────────────────────────
+      // The O(n) enemy scan is the dominant cost with 100 opponents, so it only
+      // re-runs on a distance-scaled AI tick; between ticks the cached lock is reused.
+      if (b.aiTimer <= 0) {
+        const tune = AI_TUNING[aiDifficulty];
+        let best: { isPlayer: boolean; bot?: EnemyBot; pos: THREE.Vector3; dist: number } | null = null;
+        let minTargetDist = tune.awareness;
+        if (b.squadId !== 1 && p.hp > 0 && distToPlayer < minTargetDist) {
+          minTargetDist = distToPlayer;
+          best = { isPlayer: true, pos: p.position, dist: distToPlayer };
         }
+        for (let i = 0; i < g.bots.length; i++) {
+          const other = g.bots[i];
+          if (other.id === b.id || other.isDead || other.squadId === b.squadId) continue;
+          const d = b.position.distanceTo(other.position);
+          if (d < minTargetDist) {
+            minTargetDist = d;
+            best = { isPlayer: false, bot: other, pos: other.position, dist: d };
+          }
+        }
+        // Fresh lock (different target than last tick) triggers a reaction delay
+        // so opponents don't snap-eliminate each other the instant they meet.
+        const prev = (b as any).cachedTarget as { bot?: EnemyBot; isPlayer?: boolean } | null;
+        const switched = !prev || prev.bot !== best?.bot || prev.isPlayer !== best?.isPlayer;
+        if (switched && best) b.reactionTimer = tune.reaction * (0.7 + Math.random() * 0.6);
+        (b as any).cachedTarget = best;
+        b.aiTimer = tier === 0 ? 0.16 + Math.random() * 0.06 : tier === 1 ? 0.45 + Math.random() * 0.1 : 1.0 + Math.random() * 0.3;
       }
+      const target = ((b as any).cachedTarget ?? null) as
+        { isPlayer: boolean; bot?: EnemyBot; pos: THREE.Vector3; dist: number } | null;
 
       // ── Tactical Actions (A* pathfinding + LOS + cover) ───────────────────
       b.pathTimer = (b.pathTimer ?? 0) - dt;
 
-      // Low HP: seek cover
-      if (b.hp < 35 && target && (b.state === 'ATTACK' || b.state === 'CHASE') && !b.coverTarget) {
+      // Low HP: seek cover (only for close-range bots — findCover is a grid search)
+      if (b.hp < 35 && tier <= 1 && target && (b.state === 'ATTACK' || b.state === 'CHASE') && !b.coverTarget) {
         const cover = findCover(b.position.x, b.position.z, target.pos.x, target.pos.z);
         if (cover) {
           b.coverTarget = cover;
@@ -2999,7 +3050,13 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
           b.state = 'ATTACK';
         }
       } else if (target) {
-        const los = hasLineOfSight(b.position.x, b.position.z, target.pos.x, target.pos.z);
+        // Line-of-sight raycasts are expensive; only re-sample for close bots or on
+        // the staggered decision tick, and reuse the cached result between frames.
+        let los = (b as any).cachedLos as boolean;
+        if (tier <= 1 || isDecisionFrame || los === undefined) {
+          los = hasLineOfSight(b.position.x, b.position.z, target.pos.x, target.pos.z);
+          (b as any).cachedLos = los;
+        }
         b.rig.root.lookAt(target.pos.x, b.position.y, target.pos.z);
 
         if (target.dist > 28 || !los) {
@@ -3033,16 +3090,24 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
         } else {
           // ATTACK: line-of-sight confirmed, open fire
           b.state = 'ATTACK';
-          if (b.shootCooldown <= 0) {
-            b.shootCooldown = 0.9 + Math.random() * 0.7;
+          const wdef = WEAPON_REGISTRY[b.weapon];
+          const tune = AI_TUNING[aiDifficulty];
+          if (b.reloadTimer > 0) {
+            // mid-reload — hold fire until the magazine swap finishes
+          } else if (b.ammo <= 0) {
+            b.reloadTimer = wdef.reloadTime;
+            b.ammo = wdef.clipSize;
+          } else if (b.reactionTimer <= 0 && b.shootCooldown <= 0) {
+            b.shootCooldown = wdef.fireRate * tune.fireIntervalScale * (1.6 + Math.random() * 0.9);
+            if (--b.ammo <= 0) { b.reloadTimer = wdef.reloadTime; b.ammo = wdef.clipSize; }
 
             // Audio: Gunshots audible if nearby
-            if (distToPlayer < 75) {
+            if (distToPlayer < 70 && tier <= 1) {
               playGunshotSound(b.weapon);
             }
 
-            // Visual Tracer from Bot to Target
-            if (g.scene) {
+            // Visual Tracer from Bot to Target (near-range only — 100 bots would flood the scene)
+            if (g.scene && tier === 0) {
               try {
                 const tracerStart = b.position.clone().add(new THREE.Vector3(0, 1.4, 0));
                 const dir = target.pos.clone().sub(tracerStart);
@@ -3059,11 +3124,13 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
               } catch (e) {}
             }
 
-            // Damage Resolution (only if LOS)
+            // Damage Resolution (only if LOS) — weapon-based damage with distance-falloff accuracy
+            const hitChance = tune.hitChance * Math.max(0.22, 1 - target.dist / (wdef.range + 40));
+            const rawDmg = wdef.damage * tune.dmgScale * (0.6 + Math.random() * 0.7);
             if (target.isPlayer) {
               // Bot damages human player
-              if (Math.random() < 0.45) {
-                let dmg = 12;
+              if (Math.random() < hitChance) {
+                let dmg = Math.round(rawDmg * 0.5);
                 if (p.armor > 0) {
                   const absorbed = Math.min(p.armor, Math.round(dmg * 0.6));
                   p.armor -= absorbed;
@@ -3076,10 +3143,10 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
                 setTimeout(() => setDamageFlash(false), 80);
                 if (p.hp <= 0) handleGameOver();
               }
-            } else if (target.bot && !target.bot.isDead) {
-              // Bot damages opponent bot!
+            } else if (target.bot && !target.bot.isDead && Math.random() < hitChance) {
+              // Bot damages opponent bot with weapon-based damage (attrition, not instant kill)
               const victim = target.bot;
-              const dmg = 20 + Math.floor(Math.random() * 12);
+              const dmg = Math.round(rawDmg * 0.5);
               victim.hp = Math.max(0, victim.hp - dmg);
               if (victim.hpBarMesh) {
                 victim.hpBarMesh.scale.x = Math.max(0.001, victim.hp / victim.maxHp);
@@ -3781,18 +3848,18 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
     setIsOutsideSafeZone(false);
 
     g.eliminationCount = 0;
-    g.totalAlive = 20;
+    g.totalAlive = MATCH_TOTAL_PLAYERS;
     g.medkits = 3;
     g.isHealing = false;
     setPlayerHp(100);
     setPlayerArmor(100);
     setKillsCount(0);
-    setAliveCount(20);
+    setAliveCount(MATCH_TOTAL_PLAYERS);
     setMedkitCount(3);
     setIsHealing(false);
     setHealProgress(0);
-    setKillFeed(['⚔️ MATCH COMMENCED: 20 Operatives Deployed. Eliminate hostiles to claim Victory!']);
-    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: 20 });
+    setKillFeed([`⚔️ MATCH COMMENCED: ${MATCH_TOTAL_PLAYERS} Operatives Deployed. Eliminate hostiles to claim Victory!`]);
+    setEliminationBanner({ visible: false, victimName: '', kills: 0, remaining: MATCH_TOTAL_PLAYERS });
 
     if (g.parachuteMesh && g.playerRig) {
       g.playerRig.root.remove(g.parachuteMesh);
@@ -4091,7 +4158,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
                   </Text>
                   <View style={styles.modeSubInfoRow}>
                     <Text style={styles.modeSubText}>
-                      {battleRoyaleMode === 'SOLO' ? '👤 SOLO • 20 PLAYERS' : '👥 SQUAD • 5 SQUADS (20P)'} • TPP • {FOUR_MAPS[selectedMapId].duration}
+                      {battleRoyaleMode === 'SOLO' ? `👤 SOLO • ${MATCH_TOTAL_PLAYERS} PLAYERS` : '👥 SQUAD • 25 SQUADS'} • TPP • {FOUR_MAPS[selectedMapId].duration}
                     </Text>
                   </View>
                 </LinearGradient>
@@ -4797,7 +4864,7 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
               <View style={[styles.endModalCard, { borderColor: '#ffd700' }]}>
                 <Text style={styles.victoryTitle}>🏆 WINNER WINNER 🏆</Text>
                 <Text style={styles.victorySub}>
-                  {battleRoyaleMode === 'SQUAD' ? 'SQUAD #1 CHICKEN DINNER!' : 'CHICKEN DINNER! #1/20'}
+                  {battleRoyaleMode === 'SQUAD' ? 'SQUAD #1 CHICKEN DINNER!' : `CHICKEN DINNER! #1/${MATCH_TOTAL_PLAYERS}`}
                 </Text>
                 <Text style={styles.victoryMap}>
                   {battleRoyaleMode === 'SQUAD' ? 'TEAM VICTORY' : 'SOLO CHAMPION'} • KILLS: {killsCount} • MAP: IRONHAVEN ISLE
@@ -4884,8 +4951,8 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
 
                 <View style={styles.settingsRow}>
                   <Text style={styles.settingsLabel}>GRAPHICS QUALITY</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {(['LOW', 'MEDIUM', 'HIGH'] as const).map((preset) => (
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {(['LOW', 'MEDIUM', 'HIGH', 'ULTRA'] as const).map((preset) => (
                       <TouchableOpacity
                         key={preset}
                         onPress={() => setGraphicsPreset(preset)}
@@ -4907,7 +4974,36 @@ export default function ShadowStrikeScreen({ navigation, profile, onLogout }: an
                   </View>
                 </View>
                 <Text style={styles.settingsHint}>
-                  LOW disables shadows and caps resolution — best FPS on weak PCs.
+                  LOW disables shadows and caps resolution — best FPS on weak PCs. ULTRA raises
+                  resolution for high-end GPUs.
+                </Text>
+
+                <View style={styles.settingsRow}>
+                  <Text style={styles.settingsLabel}>AI TACTICS DIFFICULTY</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {(['CASUAL', 'NORMAL', 'HARDCORE', 'INSANE'] as const).map((diff) => (
+                      <TouchableOpacity
+                        key={diff}
+                        onPress={() => setAiDifficulty(diff)}
+                        style={[
+                          styles.settingsSegBtn,
+                          aiDifficulty === diff && styles.settingsSegBtnActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.settingsSegText,
+                            aiDifficulty === diff && styles.settingsSegTextActive,
+                          ]}
+                        >
+                          {diff}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <Text style={styles.settingsHint}>
+                  Controls opponent reaction time, accuracy, weapon damage and awareness range.
                 </Text>
 
                 <View style={styles.settingsRow}>
