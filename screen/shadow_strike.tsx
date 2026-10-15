@@ -223,12 +223,12 @@ export const SKIN_DEFINITIONS: Record<SkinSetId, SkinSetDefinition> = {
     rarity: 'LEGENDARY',
     rarityColor: '#a855f7',
     faceType: 'HUMAN_MALE',
-    coatColor: '#0f172a',
+    coatColor: '#2f3b4c',
     pinstripePants: false,
-    pantsColor: '#090d16',
-    cummerbundColor: '#1e293b',
+    pantsColor: '#232c3a',
+    cummerbundColor: '#46536b',
     hairStyle: 'BUZZ',
-    hairColor: '#111',
+    hairColor: '#26221e',
     weaponSkin: 'CLASSIC_M4A1',
     hasTailcoat: false,
   },
@@ -455,11 +455,6 @@ export const buildGlacierM416Mesh = (): THREE.Group => {
   lens.position.set(0, 0.11, 0.11);
   gun.add(lens);
 
-  // Glowing Muzzle Light
-  const mLight = new THREE.PointLight('#00f0ff', 0, 10);
-  mLight.position.set(0, 0.02, 0.75);
-  gun.add(mLight);
-
   return gun;
 };
 
@@ -592,10 +587,6 @@ export const buildWeaponModelMesh = (type: WeaponType, skin: string): THREE.Grou
     group.add(underRail);
   }
 
-  const mLight = new THREE.PointLight('#ffe066', 0, 10);
-  mLight.position.set(0, 0.04, 0.8);
-  group.add(mLight);
-
   return group;
 };
 
@@ -681,6 +672,18 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
   chest.castShadow = true;
   torsoGroup.add(chest);
 
+  // Rounded shoulders + tapered pelvis break up the boxy silhouette
+  [-0.4, 0.4].forEach((sx) => {
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), uniformMat);
+    shoulder.position.set(sx, 0.3, 0);
+    shoulder.scale.set(1, 0.9, 1);
+    torsoGroup.add(shoulder);
+  });
+
+  const pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.34, 0.4), trouserMat);
+  pelvis.position.set(0, -0.5, 0);
+  torsoGroup.add(pelvis);
+
   const plateCarrier = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.58, 0.12), plateMat);
   plateCarrier.position.set(0, 0.02, 0.26);
   torsoGroup.add(plateCarrier);
@@ -720,6 +723,38 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
   head.scale.set(1.0, 1.25, 1.1);
   head.castShadow = true;
   headGroup.add(head);
+
+  // Human face: brow ridge, eyes with pupils — reads as a person, not a mannequin
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: '#e8e6e1', roughness: 0.35 });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: '#1c1410', roughness: 0.25 });
+  [-0.078, 0.078].forEach((ex) => {
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.036, 8, 8), eyeWhiteMat);
+    eyeWhite.position.set(ex, 0.055, 0.198);
+    eyeWhite.scale.set(1.15, 0.85, 0.6);
+    headGroup.add(eyeWhite);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.017, 6, 6), pupilMat);
+    pupil.position.set(ex, 0.055, 0.225);
+    headGroup.add(pupil);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.016, 0.02), new THREE.MeshStandardMaterial({ color: skinDef.hairColor, roughness: 0.8 }));
+    brow.position.set(ex, 0.108, 0.208);
+    brow.rotation.z = ex < 0 ? 0.08 : -0.08;
+    headGroup.add(brow);
+  });
+
+  // Buzz-cut hair cap visible under the helmet rim at the back
+  const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.226, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    new THREE.MeshStandardMaterial({ color: skinDef.hairColor, roughness: 0.9 })
+  );
+  hairCap.scale.set(1.0, 1.05, 1.05);
+  hairCap.position.set(0, 0.02, -0.035);
+  hairCap.rotation.x = -0.55;
+  headGroup.add(hairCap);
+
+  // Neck
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.075, 0.18, 8), skinMat);
+  neck.position.set(0, 0.58, -0.01);
+  torsoGroup.add(neck);
 
   // Tactical Balaclava Neck & Mask
   const balaclava = new THREE.Mesh(new THREE.SphereGeometry(0.225, 14, 10), new THREE.MeshStandardMaterial({ color: isEnemy ? '#1e1b4b' : '#18181b', roughness: 0.9 }));
@@ -864,6 +899,19 @@ export const buildTheFoolJokerRig = (skinDef: SkinSetDefinition, isEnemy: boolea
 // ============================================================================
 // MAIN COMPONENT: REALISTIC SHADOW STRIKE BATTLE ROYALE
 // ============================================================================
+const disposeSceneObject = (obj: any) => {
+  if (!obj) return;
+  if (obj.geometry) obj.geometry.dispose();
+  if (obj.material) {
+    (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m: any) => {
+      Object.values(m).forEach((v: any) => {
+        if (v && v.isTexture) v.dispose();
+      });
+      m.dispose();
+    });
+  }
+};
+
 export default function ShadowStrikeScreen({ navigation }: any) {
   const { width: winWidth, height: winHeight } = useWindowDimensions();
   const isCompactViewport = winWidth < 600;
@@ -925,6 +973,55 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
   const [sentFriendRequests, setSentFriendRequests] = useState<string[]>([]);
   const [showSeasonModal, setShowSeasonModal] = useState<boolean>(false);
+
+  // ============================================================================
+  // REAL SETTINGS (graphics preset / sound / sensitivity) — persisted
+  // ============================================================================
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [graphicsPreset, setGraphicsPreset] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('HIGH');
+  const [soundOn, setSoundOn] = useState<boolean>(true);
+  const [sensitivity, setSensitivity] = useState<number>(1);
+  const soundEnabledRef = useRef<boolean>(true);
+  const settingsLoadedRef = useRef<boolean>(false);
+
+  const handleToggleSound = () => setSoundOn((prev) => !prev);
+  const handleSetSensitivity = (delta: number) =>
+    setSensitivity((prev) => Math.min(2, Math.max(0.4, Math.round((prev + delta) * 100) / 100)));
+
+  useEffect(() => {
+    if (!settingsLoadedRef.current) return;
+    AsyncStorage.setItem(
+      'BGMI_SHADOW_SETTINGS',
+      JSON.stringify({ g: graphicsPreset, s: soundOn, sens: sensitivity })
+    ).catch(() => {});
+  }, [graphicsPreset, soundOn, sensitivity]);
+
+  useEffect(() => {
+    soundEnabledRef.current = soundOn;
+  }, [soundOn]);
+
+  useEffect(() => {
+    gameRef.current.sensitivity = sensitivity;
+  }, [sensitivity]);
+
+  useEffect(() => {
+    const g = gameRef.current;
+    if (!g.renderer || typeof window === 'undefined') return;
+    const cap = graphicsPreset === 'LOW' ? 1 : graphicsPreset === 'MEDIUM' ? 1.35 : 1.75;
+    g.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+    const wantShadow = graphicsPreset !== 'LOW';
+    if (g.renderer.shadowMap.enabled !== wantShadow) {
+      g.renderer.shadowMap.enabled = wantShadow;
+      g.scene?.traverse((o: any) => {
+        if (o.material) {
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m: any) => {
+            m.needsUpdate = true;
+          });
+        }
+      });
+    }
+  }, [graphicsPreset, phase]);
+
   const [floatingDamage, setFloatingDamage] = useState<{ text: string; color: string } | null>(null);
   const [eliminationBanner, setEliminationBanner] = useState<{
     visible: boolean;
@@ -934,22 +1031,48 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   }>({ visible: false, victimName: '', kills: 0, remaining: 20 });
 
   // Persistent Career Stats backed by @react-native-async-storage/async-storage
-  const [totalDinners, setTotalDinners] = useState<number>(140);
-  const [highestKills, setHighestKills] = useState<number>(18);
-  const [matchesPlayed, setMatchesPlayed] = useState<number>(412);
+  const [totalDinners, setTotalDinners] = useState<number>(0);
+  const [highestKills, setHighestKills] = useState<number>(0);
+  const [matchesPlayed, setMatchesPlayed] = useState<number>(0);
+  const [totalKills, setTotalKills] = useState<number>(0);
+  const [totalDeaths, setTotalDeaths] = useState<number>(0);
 
   useEffect(() => {
     const loadCareerStats = async () => {
       try {
+        // One-time migration: older builds persisted fake default stats.
+        const migrated = await AsyncStorage.getItem('BGMI_SHADOW_STATS_V2');
+        if (!migrated) {
+          await AsyncStorage.removeItem('BGMI_SHADOW_DINNERS');
+          await AsyncStorage.removeItem('BGMI_SHADOW_HIGH_KILLS');
+          await AsyncStorage.removeItem('BGMI_SHADOW_MATCHES');
+          await AsyncStorage.setItem('BGMI_SHADOW_STATS_V2', '1').catch(() => {});
+        }
         const savedDinners = await AsyncStorage.getItem('BGMI_SHADOW_DINNERS');
         const savedKills = await AsyncStorage.getItem('BGMI_SHADOW_HIGH_KILLS');
         const savedMatches = await AsyncStorage.getItem('BGMI_SHADOW_MATCHES');
+        const savedTotalKills = await AsyncStorage.getItem('BGMI_SHADOW_TOTAL_KILLS');
+        const savedTotalDeaths = await AsyncStorage.getItem('BGMI_SHADOW_TOTAL_DEATHS');
         const savedSkin = await AsyncStorage.getItem('BGMI_SHADOW_SKIN');
         const savedMap = await AsyncStorage.getItem('BGMI_SHADOW_MAP');
 
         if (savedDinners !== null) setTotalDinners(parseInt(savedDinners, 10));
         if (savedKills !== null) setHighestKills(parseInt(savedKills, 10));
         if (savedMatches !== null) setMatchesPlayed(parseInt(savedMatches, 10));
+        if (savedTotalKills !== null) setTotalKills(parseInt(savedTotalKills, 10));
+        if (savedTotalDeaths !== null) setTotalDeaths(parseInt(savedTotalDeaths, 10));
+        const savedSettings = await AsyncStorage.getItem('BGMI_SHADOW_SETTINGS');
+        if (savedSettings) {
+          try {
+            const parsed = JSON.parse(savedSettings);
+            if (parsed.g === 'LOW' || parsed.g === 'MEDIUM' || parsed.g === 'HIGH') setGraphicsPreset(parsed.g);
+            if (typeof parsed.s === 'boolean') {
+              setSoundOn(parsed.s);
+              soundEnabledRef.current = parsed.s;
+            }
+            if (typeof parsed.sens === 'number') setSensitivity(parsed.sens);
+          } catch {}
+        }
         if (savedSkin && (SKIN_DEFINITIONS as any)[savedSkin]) {
           setSelectedSkinId(savedSkin as SkinSetId);
         }
@@ -958,6 +1081,8 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         }
       } catch (err) {
         console.warn('AsyncStorage load error:', err);
+      } finally {
+        settingsLoadedRef.current = true;
       }
     };
     loadCareerStats();
@@ -991,8 +1116,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     } catch (e) {}
   };
 
+  // Commits real per-match kill/death totals to the persistent dossier
+  const commitCareerMatch = (kills: number, died: boolean) => {
+    setTotalKills((prev) => {
+      const next = prev + kills;
+      AsyncStorage.setItem('BGMI_SHADOW_TOTAL_KILLS', next.toString()).catch(() => {});
+      return next;
+    });
+    if (died) {
+      setTotalDeaths((prev) => {
+        const next = prev + 1;
+        AsyncStorage.setItem('BGMI_SHADOW_TOTAL_DEATHS', next.toString()).catch(() => {});
+        return next;
+      });
+    }
+  };
+
   const handleGameVictory = () => {
     const g = gameRef.current;
+    if (g.phase !== 'PLAYING') return;
     g.phase = 'VICTORY';
     setPhase('VICTORY');
     g.isFiring = false;
@@ -1010,16 +1152,19 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       return next;
     });
     setHighestKills((prev) => {
-      if (killsCount > prev) {
-        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', killsCount.toString()).catch(() => {});
-        return killsCount;
+      const matchKills = g.eliminationCount;
+      if (matchKills > prev) {
+        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', matchKills.toString()).catch(() => {});
+        return matchKills;
       }
       return prev;
     });
+    commitCareerMatch(g.eliminationCount, false);
   };
 
   const handleGameOver = () => {
     const g = gameRef.current;
+    if (g.phase !== 'PLAYING') return;
     g.phase = 'GAMEOVER';
     setPhase('GAMEOVER');
     g.isFiring = false;
@@ -1032,12 +1177,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       return next;
     });
     setHighestKills((prev) => {
-      if (killsCount > prev) {
-        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', killsCount.toString()).catch(() => {});
-        return killsCount;
+      const matchKills = g.eliminationCount;
+      if (matchKills > prev) {
+        AsyncStorage.setItem('BGMI_SHADOW_HIGH_KILLS', matchKills.toString()).catch(() => {});
+        return matchKills;
       }
       return prev;
     });
+    commitCareerMatch(g.eliminationCount, true);
   };
 
   const returnToLobby = () => {
@@ -1105,7 +1252,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   }, []);
 
   const getAudioCtx = () => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined' || !soundEnabledRef.current) return null;
     try {
       if (!audioCtxRef.current) {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -1212,7 +1359,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   };
 
   // Mutable Game Loop State
-  const gameRef = useRef({
+  // Lazy init: a plain useRef({...}) literal would be rebuilt on EVERY render
+  const gameRef = useRef<any>(null);
+  if (!gameRef.current) gameRef.current = {
     phase: 'LOBBY' as GameFlowPhase,
     mapId: 'ERANGEL' as MapId,
     scene: null as THREE.Scene | null,
@@ -1220,6 +1369,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     renderer: null as THREE.WebGLRenderer | null,
     animFrameId: null as any,
     clock: new THREE.Clock(),
+    sensitivity: 1,
     elapsedTime: 0,
     isFiring: false,
     totalAlive: 20,
@@ -1309,7 +1459,9 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     parachuteMesh: null as THREE.Group | null,
     // Healing aura point light
     healLight: null as THREE.PointLight | null,
-  });
+    // Pooled muzzle-flash light (created once, intensity-animated)
+    muzzleFlashLight: null as THREE.PointLight | null,
+  };
 
   // ============================================================================
   // THREE.JS SCENE INITIALIZER (LOBBY & ERANGEL BATTLEGROUND)
@@ -1596,6 +1748,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
   // High-detail original battleground scene.
   // ============================================================================
   const buildErangelBattlegroundScene = (scene: THREE.Scene, g: any) => {
+    // Old scene's pooled lights are gone after a rebuild
+    g.muzzleFlashLight = null;
+    g.healLight = null;
+
     scene.background = new THREE.Color('#6f93a6');
     scene.fog = new THREE.FogExp2('#8da9b3', 0.0026);
 
@@ -2042,10 +2198,14 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       hpBar.position.set(0, 0.12, 0.01);
       markerGroup.add(hpBar);
 
-      // Beacon Light on Body
-      const beaconLight = new THREE.PointLight(isTeammate ? '#00f0ff' : '#ff2200', 3.0, 8);
-      beaconLight.position.set(0, 1.4, 0.3);
-      rig.root.add(beaconLight);
+      // Beacon glow on body — emissive fake, a real PointLight per bot would
+      // multiply the scene's light count and recompile every shader
+      const beaconGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 6, 6),
+        new THREE.MeshBasicMaterial({ color: isTeammate ? '#00f0ff' : '#ff2200' })
+      );
+      beaconGlow.position.set(0, 1.4, 0.3);
+      rig.root.add(beaconGlow);
 
       rig.root.add(markerGroup);
       rig.hpBarMesh = hpBar;
@@ -2112,6 +2272,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     const g = gameRef.current;
     if (g.phase !== 'AIRPLANE') return;
     g.airplane.hasJumped = true;
+    // Drop the aircraft + its 3 nav PointLights from the scene; leftover lights
+    // raise per-pixel lighting cost for the rest of the match
+    if (g.airplane.mesh && g.scene) {
+      g.scene.remove(g.airplane.mesh);
+      g.airplane.mesh.traverse((o: any) => disposeSceneObject(o));
+      g.airplane.mesh = null;
+    }
     g.player.position.copy(g.airplane.position);
     g.player.velocity.set(g.airplane.velocity.x * 0.45, -34, g.airplane.velocity.z * 0.45);
     g.phase = 'FREEFALL';
@@ -2215,6 +2382,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       g.vfxPool[i].life -= dt;
       if (g.vfxPool[i].life <= 0) {
         if (g.scene) g.scene.remove(g.vfxPool[i].mesh);
+        disposeSceneObject(g.vfxPool[i].mesh);
         g.vfxPool.splice(i, 1);
       }
     }
@@ -2239,19 +2407,23 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       }
     });
 
-    // ── Healing Pulse Light around player ───────────────────────────────────
-    if (g.isHealing && g.playerRig) {
-      if (!g.healLight && g.scene) {
-        g.healLight = new THREE.PointLight('#22c55e', 4, 6);
-        g.scene.add(g.healLight);
-      }
-      if (g.healLight) {
+    // ── Healing Pulse Light around player (pooled — never removed from scene) ─
+    if (!g.healLight && g.scene) {
+      g.healLight = new THREE.PointLight('#22c55e', 0, 6);
+      g.scene.add(g.healLight);
+    }
+    if (g.healLight) {
+      if (g.isHealing && g.playerRig) {
         g.healLight.position.copy(p.position).add(new THREE.Vector3(0, 1.0, 0));
         g.healLight.intensity = 2.5 + Math.sin(g.elapsedTime * 9) * 1.8;
+      } else {
+        g.healLight.intensity = 0;
       }
-    } else if (g.healLight) {
-      if (g.scene) g.scene.remove(g.healLight);
-      g.healLight = null;
+    }
+
+    // ── Muzzle flash light decay ──────────────────────────────────────────────
+    if (g.muzzleFlashLight && g.muzzleFlashLight.intensity > 0) {
+      g.muzzleFlashLight.intensity = Math.max(0, g.muzzleFlashLight.intensity - dt * 110);
     }
 
     // ── Weapon recoil spring recovery ───────────────────────────────────────
@@ -2864,10 +3036,16 @@ export default function ShadowStrikeScreen({ navigation }: any) {
       g.scene.add(flashMesh);
       g.vfxPool.push({ mesh: flashMesh, life: 0.065 });
 
-      const flashLight = new THREE.PointLight('#ff9900', 7, 8);
-      flashLight.position.copy(muzzleStart);
-      g.scene.add(flashLight);
-      g.vfxPool.push({ mesh: flashLight, life: 0.065 });
+      // One persistent pooled light: adding/removing lights per shot forces a
+      // full shader recompile of every material in the scene (massive stutter)
+      if (!g.muzzleFlashLight && g.scene) {
+        g.muzzleFlashLight = new THREE.PointLight('#ff9900', 0, 8);
+        g.scene.add(g.muzzleFlashLight);
+      }
+      if (g.muzzleFlashLight) {
+        g.muzzleFlashLight.position.copy(muzzleStart);
+        g.muzzleFlashLight.intensity = 7;
+      }
 
       // 2. Thick Glowing 3D Cylinder Tracer Round (VFX pool — no setTimeout)
       const dir = targetHitPoint.clone().sub(muzzleStart);
@@ -2970,10 +3148,13 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     beam.position.y = 8;
     crateGroup.add(beam);
 
-    // Pulsing Green Glow Light
-    const pLight = new THREE.PointLight('#22c55e', 3.5, 9);
-    pLight.position.y = 1.0;
-    crateGroup.add(pLight);
+    // Emissive glow cap instead of a PointLight (light count = shader recompiles)
+    const glowCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 8, 8),
+      new THREE.MeshBasicMaterial({ color: '#22c55e' })
+    );
+    glowCap.position.y = 1.0;
+    crateGroup.add(glowCap);
 
     g.scene.add(crateGroup);
     g.lootCrates.push({
@@ -3135,16 +3316,17 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         lastMouseXRef.current = e.clientX;
         lobbyRotationRef.current += deltaX * 0.012;
       } else if (g.phase === 'PLAYING') {
+        const sens = g.sensitivity ?? 1;
         if (document.pointerLockElement === canvas) {
-          g.mouseLook.yaw -= e.movementX * 0.0024;
-          g.mouseLook.pitch -= e.movementY * 0.0024;
+          g.mouseLook.yaw -= e.movementX * 0.0024 * sens;
+          g.mouseLook.pitch -= e.movementY * 0.0024 * sens;
         } else if (isCombatMouseDown) {
           const deltaX = e.clientX - lastCombatMouseX;
           const deltaY = e.clientY - lastCombatMouseY;
           lastCombatMouseX = e.clientX;
           lastCombatMouseY = e.clientY;
-          g.mouseLook.yaw -= deltaX * 0.0035;
-          g.mouseLook.pitch -= deltaY * 0.0035;
+          g.mouseLook.yaw -= deltaX * 0.0035 * sens;
+          g.mouseLook.pitch -= deltaY * 0.0035 * sens;
         }
         g.mouseLook.pitch = Math.max(-0.6, Math.min(0.85, g.mouseLook.pitch));
       }
@@ -3205,7 +3387,10 @@ export default function ShadowStrikeScreen({ navigation }: any) {
     // Clean up VFX from scene
     if (g.vfxPool && activeScene) {
       g.vfxPool.forEach((v: any) => {
-        if (v.mesh) activeScene.remove(v.mesh);
+        if (v.mesh) {
+          activeScene.remove(v.mesh);
+          disposeSceneObject(v.mesh);
+        }
       });
     }
     g.vfxPool = [];
@@ -3321,7 +3506,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
               >
                 <View style={styles.avatarFrameGold}>
                   <Text style={styles.avatarIcon}>👑</Text>
-                  <View style={styles.lvlBadge}><Text style={styles.lvlText}>75</Text></View>
+                  <View style={styles.lvlBadge}><Text style={styles.lvlText}>{1 + Math.floor(totalKills / 15)}</Text></View>
                 </View>
                 <View style={styles.profileDetails}>
                   <Text style={styles.profileName}>RAVEN-07</Text>
@@ -3357,7 +3542,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('🪖 ARMORY: Aurora carbine equipped')}>
                   <Text>🪖</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => pushKillFeed('⚙️ SETTINGS: 90 FPS Ultra HD Graphic Preset Applied')}>
+                <TouchableOpacity style={styles.topUtilityIcon} onPress={() => setShowSettingsModal(true)}>
                   <Text>⚙️</Text>
                 </TouchableOpacity>
               </View>
@@ -4272,6 +4457,91 @@ export default function ShadowStrikeScreen({ navigation }: any) {
         </Modal>
 
         {/* ==================================================================== */}
+        {/* REAL SETTINGS MODAL (GRAPHICS / SOUND / SENSITIVITY) */}
+        {/* ==================================================================== */}
+        <Modal visible={showSettingsModal} transparent animationType="slide">
+          <View style={styles.modalBackdrop}>
+            <BlurView intensity={45} tint="dark" style={styles.blurModalContainer}>
+              <View style={styles.profileModalCard}>
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>⚙️ SETTINGS</Text>
+                  <TouchableOpacity onPress={() => setShowSettingsModal(false)}>
+                    <Text style={styles.modalCloseText}>✕ CLOSE</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.settingsRow}>
+                  <Text style={styles.settingsLabel}>GRAPHICS QUALITY</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {(['LOW', 'MEDIUM', 'HIGH'] as const).map((preset) => (
+                      <TouchableOpacity
+                        key={preset}
+                        onPress={() => setGraphicsPreset(preset)}
+                        style={[
+                          styles.settingsSegBtn,
+                          graphicsPreset === preset && styles.settingsSegBtnActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.settingsSegText,
+                            graphicsPreset === preset && styles.settingsSegTextActive,
+                          ]}
+                        >
+                          {preset}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <Text style={styles.settingsHint}>
+                  LOW disables shadows and caps resolution — best FPS on weak PCs.
+                </Text>
+
+                <View style={styles.settingsRow}>
+                  <Text style={styles.settingsLabel}>SOUND EFFECTS</Text>
+                  <TouchableOpacity
+                    onPress={handleToggleSound}
+                    style={[styles.settingsSegBtn, soundOn && styles.settingsSegBtnActive]}
+                  >
+                    <Text style={[styles.settingsSegText, soundOn && styles.settingsSegTextActive]}>
+                      {soundOn ? '🔊 ON' : '🔇 OFF'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.settingsRow}>
+                  <Text style={styles.settingsLabel}>MOUSE SENSITIVITY ×{sensitivity.toFixed(2)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => handleSetSensitivity(-0.1)}
+                      style={styles.settingsSegBtn}
+                    >
+                      <Text style={styles.settingsSegText}>−</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleSetSensitivity(0.1)}
+                      style={styles.settingsSegBtn}
+                    >
+                      <Text style={styles.settingsSegText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity onPress={() => setShowSettingsModal(false)} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#ffe000', '#f59e0b', '#d97706']}
+                    style={styles.confirmMapBtn}
+                  >
+                    <Text style={styles.confirmMapBtnText}>✓ SAVE & CLOSE</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </BlurView>
+          </View>
+        </Modal>
+
+        {/* ==================================================================== */}
         {/* OPERATIVE PROFILE MODAL (SMxTHUG LEVEL 75) */}
         {/* ==================================================================== */}
         <Modal visible={showProfileModal} transparent animationType="slide">
@@ -4288,7 +4558,7 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                 <View style={styles.profileModalBody}>
                   <View style={styles.avatarBigFrame}>
                     <Text style={{ fontSize: 36 }}>👑</Text>
-                    <View style={styles.avatarBigBadge}><Text style={styles.avatarBigBadgeText}>LV.75</Text></View>
+                    <View style={styles.avatarBigBadge}><Text style={styles.avatarBigBadgeText}>LV.{1 + Math.floor(totalKills / 15)}</Text></View>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.profileHeroName}>SMxTHUG</Text>
@@ -4299,11 +4569,11 @@ export default function ShadowStrikeScreen({ navigation }: any) {
 
                 <View style={styles.profileStatsRow}>
                   <View style={styles.statBox}>
-                    <Text style={styles.statVal}>{(highestKills * 0.28 + 3.2).toFixed(2)}</Text>
+                    <Text style={styles.statVal}>{(totalKills / Math.max(1, totalDeaths)).toFixed(2)}</Text>
                     <Text style={styles.statLbl}>K/D RATIO</Text>
                   </View>
                   <View style={styles.statBox}>
-                    <Text style={styles.statVal}>{Math.round((totalDinners / Math.max(matchesPlayed, 1)) * 100)}%</Text>
+                    <Text style={styles.statVal}>{matchesPlayed > 0 ? Math.round((totalDinners / matchesPlayed) * 100) : 0}%</Text>
                     <Text style={styles.statLbl}>WIN RATE</Text>
                   </View>
                   <View style={styles.statBox}>
@@ -4313,6 +4583,25 @@ export default function ShadowStrikeScreen({ navigation }: any) {
                   <View style={styles.statBox}>
                     <Text style={styles.statVal}>{totalDinners}</Text>
                     <Text style={styles.statLbl}>DINNERS</Text>
+                  </View>
+                </View>
+
+                <View style={[styles.profileStatsRow, { marginTop: 8 }]}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{totalKills}</Text>
+                    <Text style={styles.statLbl}>TOTAL KILLS</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{totalDeaths}</Text>
+                    <Text style={styles.statLbl}>DEATHS</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{highestKills}</Text>
+                    <Text style={styles.statLbl}>BEST MATCH</Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{matchesPlayed > 0 ? (totalKills / matchesPlayed).toFixed(1) : '0.0'}</Text>
+                    <Text style={styles.statLbl}>AVG KILLS</Text>
                   </View>
                 </View>
 
@@ -5047,6 +5336,33 @@ const styles = StyleSheet.create({
   profileServerInfo: { color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 2 },
 
   profileStatsRow: { flexDirection: 'row', gap: 8 },
+  settingsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 10,
+  },
+  settingsLabel: { color: '#e2e8f0', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  settingsHint: { color: 'rgba(255,255,255,0.45)', fontSize: 9, marginTop: 4 },
+  settingsSegBtn: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  settingsSegBtnActive: {
+    backgroundColor: 'rgba(0,240,255,0.15)',
+    borderColor: '#00f0ff',
+  },
+  settingsSegText: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '800' },
+  settingsSegTextActive: { color: '#00f0ff' },
   statBox: {
     flex: 1,
     backgroundColor: 'rgba(255,255,255,0.04)',
